@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <juce_dsp/juce_dsp.h>
 #include <cmath>
+#include "Oscillator.h"
 
 //==============================================================================
 // FFT-based autocorrelation pitch detector for bass guitar (40–400 Hz).
@@ -251,36 +252,6 @@ private:
             }
         }
     }
-};
-
-//==============================================================================
-// Simple phase-accumulator sawtooth oscillator.
-class SawtoothOscillator
-{
-public:
-    void setFrequency (double freq, double sampleRate)
-    {
-        if (phaseIncrement <= 0.0)
-            phase = 0.5; // zero crossing — avoids click on first sample
-        phaseIncrement = freq / sampleRate;
-    }
-
-    float getNextSample()
-    {
-        if (phaseIncrement <= 0.0)
-            return 0.0f;
-        float output = (float) (2.0 * phase - 1.0);
-        phase += phaseIncrement;
-        if (phase >= 1.0)
-            phase -= 1.0;
-        return output;
-    }
-
-    void reset() { phase = 0.0; phaseIncrement = 0.0; }
-
-private:
-    double phase = 0.0;
-    double phaseIncrement = 0.0;
 };
 
 //==============================================================================

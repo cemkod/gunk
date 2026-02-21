@@ -22,6 +22,7 @@ juce_generate_juce_header(BassSynth)
 target_sources(BassSynth PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/Oscillator.cpp
 )
 
 target_compile_definitions(BassSynth PUBLIC
