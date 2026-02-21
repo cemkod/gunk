@@ -255,6 +255,25 @@ private:
 };
 
 //==============================================================================
+struct ResonantLowpassFilter
+{
+    float low = 0.0f, band = 0.0f;
+
+    float process (float input, float cutoffHz, float Q, float sampleRate)
+    {
+        float f = 2.0f * std::sin (juce::MathConstants<float>::pi * cutoffHz / sampleRate);
+        f = std::min (f, 1.99f);
+        float q = 1.0f / Q;
+        low  += f * band;
+        float high = input - low - q * band;
+        band += f * high;
+        return low;
+    }
+
+    void reset() { low = band = 0.0f; }
+};
+
+//==============================================================================
 class BassSynthAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -302,6 +321,11 @@ private:
     static constexpr float kEnvAttack  = 0.001f;
     static constexpr float kEnvRelease = 0.005f;
     static constexpr float kGateThreshold = 0.01f; // ~-40 dBFS
+
+    // Envelope filter (auto-wah)
+    ResonantLowpassFilter envFilter;
+    float filterEnvelope = 0.0f;
+    static constexpr float kFilterEnvAttack = 0.001f;
 
     double currentSampleRate = 48000;
 

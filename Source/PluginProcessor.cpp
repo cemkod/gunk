@@ -31,6 +31,22 @@ BassSynthAudioProcessor::createParameterLayout()
         juce::StringArray { "Sine", "Triangle", "Square", "Sawtooth" },
         0)); // default: Sine
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "envSensitivity", "Env Sensitivity",
+        juce::NormalisableRange<float> (1.0f, 10.0f, 0.01f), 3.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "envResonance", "Env Resonance",
+        juce::NormalisableRange<float> (0.5f, 8.0f, 0.01f), 2.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "envDecay", "Env Decay",
+        juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.3f));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "sweepMode", "Sweep",
+        juce::StringArray { "Off", "Up", "Down" }, 1)); // default: Up
+
     return layout;
 }
 
@@ -42,6 +58,8 @@ void BassSynthAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     detector.setSampleRate (sampleRate);
     oscillator.reset();
     envelope = 0.0f;
+    filterEnvelope = 0.0f;
+    envFilter.reset();
 }
 
 void BassSynthAudioProcessor::releaseResources() {}
@@ -84,11 +102,18 @@ void BassSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Use channel 0 as the mono analysis source
     const float* inputData = buffer.getReadPointer (0);
 
+    const float sensitivity = apvts.getRawParameterValue ("envSensitivity")->load();
+    const float resonance   = apvts.getRawParameterValue ("envResonance")->load();
+    const float decay       = apvts.getRawParameterValue ("envDecay")->load();
+
     // Envelope follower attack/release coefficients
     const float attackCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvAttack));
     const float releaseCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvRelease));
 
-    
+    const float filterAttackCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kFilterEnvAttack));
+    const float filterDecayCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * decay));
+
+
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -106,6 +131,12 @@ void BassSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (envelope < kGateThreshold)
             detector.clearHistory();
 
+        // Filter envelope follower (fast fixed attack, user-controlled decay)
+        if (absSample > filterEnvelope)
+            filterEnvelope += filterAttackCoeff * (absSample - filterEnvelope);
+        else
+            filterEnvelope += filterDecayCoeff  * (absSample - filterEnvelope);
+
         float detectedFreq = detector.processSample (inputSample, currentSampleRate);
 
         if (detectedFreq > 0.0f)
@@ -113,11 +144,20 @@ void BassSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         else
             oscillator.reset();
 
-        // Generate oscillator sample; silence when no frequency detected yet
+        // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSample();
+        const int sweepMode = (int) apvts.getRawParameterValue ("sweepMode")->load();
+        float filteredSample = sawSample;
+        if (sweepMode != 0)
+        {
+            float envControlled = juce::jlimit (0.0f, 1.0f, filterEnvelope * sensitivity);
+            float sweepParam = (sweepMode == 2) ? (1.0f - envControlled) : envControlled;
+            float cutoff = 200.0f * std::pow (20.0f, sweepParam); // 200–4000 Hz
+            filteredSample = envFilter.process (sawSample, cutoff, resonance, (float) currentSampleRate);
+        }
 
         // Blend dry/wet and apply output level
-        const float wet = sawSample * envelope * mix;
+        const float wet = filteredSample * envelope * mix;
         const float dry = inputSample * (1.0f - mix);
         const float out = (dry + wet) * level;
 

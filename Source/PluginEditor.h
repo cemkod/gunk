@@ -23,6 +23,15 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment levelAttach;
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttach;
 
+    juce::Slider sensitivitySlider, resonanceSlider, decaySlider;
+    juce::Label  sensitivityLabel,  resonanceLabel,  decayLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment sensitivityAttach, resonanceAttach, decayAttach;
+
+    juce::ComboBox sweepBox;
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment sweepAttach;
+
+    juce::Rectangle<int> oscSectionRect, filterSectionRect;
+
     juce::ComboBox waveformBox;
     juce::Label    waveformLabel;
     juce::AudioProcessorValueTreeState::ComboBoxAttachment waveformAttach;
