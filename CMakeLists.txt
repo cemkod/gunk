@@ -30,6 +30,8 @@ target_compile_definitions(BassSynth PUBLIC
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
+    JUCE_USE_FLAC=0
+    JUCE_USE_OGGVORBIS=0
 )
 
 target_link_libraries(BassSynth
@@ -38,6 +40,6 @@ target_link_libraries(BassSynth
         juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
+        $<$<CONFIG:Release>:juce::juce_recommended_lto_flags>
         juce::juce_recommended_warning_flags
 )

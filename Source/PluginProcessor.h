@@ -287,12 +287,15 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    bool loadWavetableFromFile (const juce::File& file);
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     AutocorrelationPitchDetector detector;
-    SawtoothOscillator oscillator;
-
+    WavetableOscillator oscillator;
+    juce::String customWavetablePath;
+    int paramWhenCustomLoaded = -1; // waveform param index active when a WAV was loaded
 
     // Envelope follower for the noise gate
     float envelope = 0.0f;
