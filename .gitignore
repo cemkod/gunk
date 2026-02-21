@@ -1,0 +1,25 @@
+# Build outputs
+build/
+Builds/
+*.o
+*.a
+*.so
+*.vst3
+*.dylib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
