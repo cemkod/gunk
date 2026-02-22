@@ -137,6 +137,20 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::StringArray { "Off", "Up", "Down" }, 1)); // default: Up
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "freqTracking", "Freq Tracking",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 1.0f,
+                t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "unisonVoices", "Unison Voices",
         juce::NormalisableRange<float> (1.0f, 8.0f, 1.0f), 1.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -243,9 +257,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float gateThresh = apvts.getRawParameterValue ("gateThreshold")->load();
     const float gateHyst   = apvts.getRawParameterValue ("gateHysteresis")->load();
 
-    const float sensitivity = apvts.getRawParameterValue ("envSensitivity")->load();
-    const float resonance   = apvts.getRawParameterValue ("envResonance")->load();
-    const float decay       = apvts.getRawParameterValue ("envDecay")->load();
+    const float sensitivity   = apvts.getRawParameterValue ("envSensitivity")->load();
+    const float resonance     = apvts.getRawParameterValue ("envResonance")->load();
+    const float decay         = apvts.getRawParameterValue ("envDecay")->load();
+    const float freqTracking  = apvts.getRawParameterValue ("freqTracking")->load();
 
     // Envelope follower attack/release coefficients
     const float attackCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvAttack));
@@ -306,7 +321,11 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             float envControlled = juce::jlimit (0.0f, 1.0f, filterEnvelope * sensitivity);
             float sweepParam = (sweepMode == 2) ? (1.0f - envControlled) : envControlled;
-            float cutoff = 200.0f * std::pow (20.0f, sweepParam); // 200–4000 Hz
+            // Baseline tracks the detected pitch; at freqTracking=0 it stays at 200 Hz
+            const float trackBase = (lastDetectedFreq > 0.0f) ? lastDetectedFreq : 200.0f;
+            const float baseHz = juce::jlimit (20.0f, 4000.0f,
+                200.0f + (trackBase - 200.0f) * freqTracking);
+            float cutoff = baseHz * std::pow (4000.0f / baseHz, sweepParam);
             filteredSample = envFilter.process (sawSample, cutoff, resonance, (float) currentSampleRate);
         }
 
