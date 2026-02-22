@@ -93,7 +93,33 @@ bool WavetableOscillator::loadFromFile (const juce::File& file)
 //==============================================================================
 void WavetableOscillator::setFrequency (double freq, double sampleRate)
 {
-    phaseIncrement = kTableSize * freq / sampleRate;
+    currentBaseFreq   = freq;
+    currentSampleRate = sampleRate;
+    recomputeVoiceIncrements();
+}
+
+void WavetableOscillator::recomputeVoiceIncrements()
+{
+    if (currentBaseFreq <= 0.0) return;
+    for (int v = 0; v < unisonVoices; ++v)
+    {
+        double normPos = (unisonVoices > 1)
+            ? (2.0 * v / (unisonVoices - 1) - 1.0) : 0.0; // [-1, 1]
+        double offsetCents = normPos * unisonDetuneCents * unisonBlend;
+        double freqMul = std::pow (2.0, offsetCents / 1200.0);
+        phaseIncrement[v] = kTableSize * currentBaseFreq * freqMul / currentSampleRate;
+    }
+}
+
+void WavetableOscillator::setUnisonParams (int voices, float detuneCents, float blend)
+{
+    int v = juce::jlimit (1, kMaxVoices, voices);
+    if (v == unisonVoices && detuneCents == unisonDetuneCents && blend == unisonBlend)
+        return;
+    unisonVoices      = v;
+    unisonDetuneCents = detuneCents;
+    unisonBlend       = blend;
+    recomputeVoiceIncrements();
 }
 
 float WavetableOscillator::getNextSample()
@@ -102,19 +128,42 @@ float WavetableOscillator::getNextSample()
     if (! sl.isLocked())
         return 0.0f;
 
-    auto   i    = (size_t) phaseIndex;
-    double frac = phaseIndex - (double) i;
+    auto   i    = (size_t) phaseIndex[0];
+    double frac = phaseIndex[0] - (double) i;
     float  s    = (float) ((1.0 - frac) * wavetable[i] + frac * wavetable[i + 1]);
 
-    phaseIndex += phaseIncrement;
-    if (phaseIndex >= kTableSize)
-        phaseIndex -= kTableSize;
+    phaseIndex[0] += phaseIncrement[0];
+    if (phaseIndex[0] >= kTableSize)
+        phaseIndex[0] -= kTableSize;
 
     return s;
 }
 
+float WavetableOscillator::getNextSampleUnison()
+{
+    juce::SpinLock::ScopedTryLockType sl (tableLock);
+    if (! sl.isLocked())
+        return 0.0f;
+
+    float sum = 0.0f;
+    for (int v = 0; v < unisonVoices; ++v)
+    {
+        auto   i    = (size_t) phaseIndex[v];
+        double frac = phaseIndex[v] - (double) i;
+        float  s    = (float) ((1.0 - frac) * wavetable[i] + frac * wavetable[i + 1]);
+        phaseIndex[v] += phaseIncrement[v];
+        if (phaseIndex[v] >= kTableSize) phaseIndex[v] -= kTableSize;
+        sum += s;
+    }
+    return sum / (float) unisonVoices;
+}
+
 void WavetableOscillator::reset()
 {
-    phaseIndex     = 0.0;
-    phaseIncrement = 0.0;
+    for (int v = 0; v < kMaxVoices; ++v)
+    {
+        phaseIndex[v]      = (double) v / kMaxVoices * kTableSize;
+        phaseIncrement[v]  = 0.0;
+    }
+    currentBaseFreq = 0.0;
 }

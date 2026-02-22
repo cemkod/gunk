@@ -136,6 +136,40 @@ JQGunkAudioProcessor::createParameterLayout()
         "sweepMode", "Sweep",
         juce::StringArray { "Off", "Up", "Down" }, 1)); // default: Up
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "unisonVoices", "Unison Voices",
+        juce::NormalisableRange<float> (1.0f, 8.0f, 1.0f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String { return juce::String (juce::roundToInt (v)); },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (1.0f, 8.0f, (float) juce::roundToInt (t.getFloatValue()));
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "unisonDetune", "Unison Detune",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 20.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String { return juce::String (v, 1) + " ct"; },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 100.0f, t.retainCharacters ("0123456789.").getFloatValue());
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "unisonBlend", "Unison Blend",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 1.0f,
+                t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
+        }));
+
     return layout;
 }
 
@@ -193,6 +227,12 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (oscillator.getCurrentWaveform() != requested)
             oscillator.setWaveform (requested);
     }
+
+    // Read unison params once per block
+    const int   numVoices   = juce::roundToInt (apvts.getRawParameterValue ("unisonVoices")->load());
+    const float detuneCents = apvts.getRawParameterValue ("unisonDetune")->load();
+    const float uniBlend    = apvts.getRawParameterValue ("unisonBlend")->load();
+    oscillator.setUnisonParams (numVoices, detuneCents, uniBlend);
 
     const int numChannels = buffer.getNumChannels();
     const int numSamples  = buffer.getNumSamples();
@@ -259,7 +299,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // else: detection lost but signal still present — keep oscillator at last frequency
 
         // Generate oscillator sample; optionally apply envelope filter
-        const float sawSample = oscillator.getNextSample();
+        const float sawSample = oscillator.getNextSampleUnison();
         const int sweepMode = (int) apvts.getRawParameterValue ("sweepMode")->load();
         float filteredSample = sawSample;
         if (sweepMode != 0)

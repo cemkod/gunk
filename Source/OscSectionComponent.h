@@ -23,6 +23,12 @@ private:
     juce::Label  levelLabel,  mixLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment levelAttach, mixAttach;
 
+    juce::Slider unisonVoicesSlider, unisonDetuneSlider, unisonBlendSlider;
+    juce::Label  unisonVoicesLabel,  unisonDetuneLabel,  unisonBlendLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment unisonVoicesAttach,
+                                                          unisonDetuneAttach,
+                                                          unisonBlendAttach;
+
     juce::DrawableButton waveBtnSine   { "sine",     juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnTri    { "triangle", juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnSq     { "square",   juce::DrawableButton::ImageFitted };

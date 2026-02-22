@@ -26,7 +26,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     if (auto svgXml = juce::parseXML (juce::String::fromUTF8 (BinaryData::logo_svg, BinaryData::logo_svgSize)))
         logo = juce::Drawable::createFromSVG (*svgXml);
 
-    setSize (340, 571);
+    setSize (340, 670);
 }
 
 JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
@@ -108,7 +108,7 @@ void JQGunkAudioProcessorEditor::resized()
 
     gateSection.setBounds   (area.removeFromTop (137));
     area.removeFromTop (8);
-    oscSection.setBounds    (area.removeFromTop (173));
+    oscSection.setBounds    (area.removeFromTop (272));
     area.removeFromTop (8);
     filterSection.setBounds (area.removeFromTop (161));
 }

@@ -5,8 +5,11 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
                                            juce::AudioProcessorValueTreeState& avts)
     : processor (p),
       apvts (avts),
-      levelAttach (avts, "level", levelSlider),
-      mixAttach   (avts, "mix",   mixSlider)
+      levelAttach        (avts, "level",        levelSlider),
+      mixAttach          (avts, "mix",           mixSlider),
+      unisonVoicesAttach (avts, "unisonVoices",  unisonVoicesSlider),
+      unisonDetuneAttach (avts, "unisonDetune",  unisonDetuneSlider),
+      unisonBlendAttach  (avts, "unisonBlend",   unisonBlendSlider)
 {
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
     {
@@ -26,6 +29,11 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
 
     setupSlider (levelSlider, levelLabel, "LEVEL");
     setupSlider (mixSlider,   mixLabel,   "MIX");
+
+    setupSlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES");
+    unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
+    setupSlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE");
+    setupSlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND");
 
     //==========================================================================
     // Build waveform drawable icons
@@ -205,7 +213,7 @@ void OscSectionComponent::resized()
 
     inner.removeFromTop (10);
 
-    // Level | Mix knobs
+    // Row 1: Level | Mix knobs
     const int knobW = inner.getWidth() / 2;
     auto knobRow = inner.removeFromTop (75);
     levelSlider.setBounds (knobRow.removeFromLeft (knobW));
@@ -214,4 +222,18 @@ void OscSectionComponent::resized()
     auto lblRow = inner.removeFromTop (18);
     levelLabel.setBounds (lblRow.removeFromLeft (knobW));
     mixLabel  .setBounds (lblRow.removeFromLeft (knobW));
+
+    inner.removeFromTop (8);
+
+    // Row 2: Voices | Detune | Blend knobs
+    const int knobW3 = inner.getWidth() / 3;
+    auto knobRow2 = inner.removeFromTop (75);
+    unisonVoicesSlider.setBounds (knobRow2.removeFromLeft (knobW3));
+    unisonDetuneSlider.setBounds (knobRow2.removeFromLeft (knobW3));
+    unisonBlendSlider .setBounds (knobRow2);
+
+    auto lblRow2 = inner.removeFromTop (18);
+    unisonVoicesLabel.setBounds (lblRow2.removeFromLeft (knobW3));
+    unisonDetuneLabel.setBounds (lblRow2.removeFromLeft (knobW3));
+    unisonBlendLabel .setBounds (lblRow2);
 }
