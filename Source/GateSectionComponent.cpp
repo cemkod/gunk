@@ -3,7 +3,8 @@
 
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& apvts)
     : gateThresholdAttach  (apvts, "gateThreshold",  gateThresholdSlider),
-      gateHysteresisAttach (apvts, "gateHysteresis", gateHysteresisSlider)
+      gateHysteresisAttach (apvts, "gateHysteresis", gateHysteresisSlider),
+      glideAttach          (apvts, "glide",           glideSlider)
 {
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
     {
@@ -23,6 +24,7 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
 
     setupSlider (gateThresholdSlider,  gateThresholdLabel,  "THRS");
     setupSlider (gateHysteresisSlider, gateHysteresisLabel, "HYST");
+    setupSlider (glideSlider,          glideLabel,          "GLIDE");
 }
 
 GateSectionComponent::~GateSectionComponent()
@@ -39,7 +41,7 @@ void GateSectionComponent::paint (juce::Graphics& g)
     g.drawRoundedRectangle (bounds.toFloat(), 6.0f, 1.0f);
     g.setColour (BassLookAndFeel::text);
     g.setFont (juce::Font (11.0f, juce::Font::bold));
-    g.drawText ("GATE", bounds.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
+    g.drawText ("GATE/TRACKING", bounds.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
 }
 
 void GateSectionComponent::resized()
@@ -47,11 +49,13 @@ void GateSectionComponent::resized()
     auto inner = getLocalBounds().reduced (8);
     inner.removeFromTop (18); // skip section label row
     inner.removeFromTop (10);
-    const int knobW = inner.getWidth() / 2;
+    const int knobW = inner.getWidth() / 3;
     auto knobRow = inner.removeFromTop (75);
     gateThresholdSlider .setBounds (knobRow.removeFromLeft (knobW));
     gateHysteresisSlider.setBounds (knobRow.removeFromLeft (knobW));
+    glideSlider         .setBounds (knobRow.removeFromLeft (knobW));
     auto lblRow = inner.removeFromTop (18);
     gateThresholdLabel .setBounds (lblRow.removeFromLeft (knobW));
     gateHysteresisLabel.setBounds (lblRow.removeFromLeft (knobW));
+    glideLabel         .setBounds (lblRow.removeFromLeft (knobW));
 }

@@ -58,6 +58,12 @@ private:
 
     // Last successfully detected frequency — held until signal drops below gate
     float lastDetectedFreq = 0.0f;
+    float glideFreq = 0.0f;
+    float glideSourceFreq   = 0.0f;
+    float glideTargetFreq   = 0.0f;
+    int   glideSamplesElapsed = 0;
+    int   glideSamplesTotal   = 0;
+    int   glideSnapHops       = 0; // snap (no ramp) for first N detections after gate-open
 
     // Envelope follower for the noise gate
     float envelope = 0.0f;

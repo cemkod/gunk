@@ -12,9 +12,9 @@ public:
     void resized() override;
 
 private:
-    juce::Slider gateThresholdSlider, gateHysteresisSlider;
-    juce::Label  gateThresholdLabel,  gateHysteresisLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach;
+    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider;
+    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GateSectionComponent)
 };

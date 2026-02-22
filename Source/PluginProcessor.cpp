@@ -59,6 +59,20 @@ JQGunkAudioProcessor::createParameterLayout()
         }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "glide", "Glide",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String {
+            if (v < 1.0f) return juce::String (juce::roundToInt (v * 1000.0f)) + " ms";
+            return juce::String (v, 2) + " s";
+        },
+        [] (const juce::String& t) -> float {
+            const float num = t.retainCharacters ("0123456789.").getFloatValue();
+            const bool isSeconds = t.containsIgnoreCase ("s") && ! t.containsIgnoreCase ("ms");
+            return juce::jlimit (0.0f, 1.0f, isSeconds ? num : num / 1000.0f);
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "mix", "Dry/Wet Mix",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -203,6 +217,12 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     oscillator.reset();
     subOscillator.reset();
     envelope = 0.0f;
+    glideFreq = 0.0f;
+    glideSourceFreq     = 0.0f;
+    glideTargetFreq     = 0.0f;
+    glideSamplesElapsed = 0;
+    glideSamplesTotal   = 0;
+    glideSnapHops       = 0;
     gateIsOpen = false;
     filterEnvelope = 0.0f;
     envFilter.reset();
@@ -272,7 +292,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float filterAttackCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kFilterEnvAttack));
     const float filterDecayCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * decay));
 
-
+    const float glideTime  = apvts.getRawParameterValue ("glide")->load();
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -304,19 +324,63 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         float detectedFreq = detector.processSample (inputSample, currentSampleRate);
 
+        const int glideSamples = (glideTime > 0.0f)
+            ? (int) (currentSampleRate * glideTime)
+            : 0;
+
         if (detectedFreq > 0.0f)
         {
             lastDetectedFreq = detectedFreq;
-            oscillator.setFrequency (detectedFreq, currentSampleRate);
-            subOscillator.setFrequency (detectedFreq / 2.0f, currentSampleRate);
+
+            if (glideFreq == 0.0f || glideSnapHops > 0)
+            {
+                // Cold start or detector still settling: snap directly, no ramp
+                glideFreq       = detectedFreq;
+                glideSourceFreq = detectedFreq;
+                glideTargetFreq = detectedFreq;
+                glideSamplesElapsed = 0;
+                glideSamplesTotal   = 0;
+                if (glideSnapHops > 0)
+                    --glideSnapHops;
+                else
+                    glideSnapHops = 4; // snap for next 4 detections while detector settles
+            }
+            else if (std::abs (detectedFreq - glideTargetFreq) / glideTargetFreq > 0.05f)
+            {
+                // New pitch target (>5% change): start a new linear ramp
+                glideSourceFreq     = glideFreq;
+                glideTargetFreq     = detectedFreq;
+                glideSamplesElapsed = 0;
+                glideSamplesTotal   = glideSamples;
+            }
+
+            // Advance the linear ramp
+            if (glideSamplesTotal > 0 && glideSamplesElapsed < glideSamplesTotal)
+            {
+                const float t = (float) ++glideSamplesElapsed / (float) glideSamplesTotal;
+                glideFreq = glideSourceFreq + (glideTargetFreq - glideSourceFreq) * t;
+            }
+            else
+            {
+                glideFreq = glideTargetFreq;
+            }
+
+            oscillator.setFrequency (glideFreq, currentSampleRate);
+            subOscillator.setFrequency (glideFreq / 2.0f, currentSampleRate);
         }
         else if (!gateIsOpen || lastDetectedFreq == 0.0f)
         {
-            lastDetectedFreq = 0.0f;
+            lastDetectedFreq    = 0.0f;
+            glideFreq           = 0.0f;
+            glideSourceFreq     = 0.0f;
+            glideTargetFreq     = 0.0f;
+            glideSamplesElapsed = 0;
+            glideSamplesTotal   = 0;
+            glideSnapHops       = 0;
             oscillator.reset();
             subOscillator.reset();
         }
-        // else: detection lost but signal still present — keep oscillator at last frequency
+        // else: detection lost but gate still open — hold last frequency
 
         // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSampleUnison();
