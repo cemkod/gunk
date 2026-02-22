@@ -25,6 +25,10 @@ target_sources(JQGunk PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/Oscillator.cpp
+    Source/PitchDetector.cpp
+    Source/GateSectionComponent.cpp
+    Source/OscSectionComponent.cpp
+    Source/FilterSectionComponent.cpp
 )
 
 target_compile_definitions(JQGunk PUBLIC

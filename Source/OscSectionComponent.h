@@ -1,0 +1,38 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "PluginProcessor.h"
+
+class OscSectionComponent : public juce::Component
+{
+public:
+    OscSectionComponent (JQGunkAudioProcessor& processor,
+                         juce::AudioProcessorValueTreeState& apvts);
+    ~OscSectionComponent() override;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+
+    void updateButtonStates();
+
+private:
+    JQGunkAudioProcessor& processor;
+    juce::AudioProcessorValueTreeState& apvts;
+
+    juce::Slider levelSlider, mixSlider;
+    juce::Label  levelLabel,  mixLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment levelAttach, mixAttach;
+
+    juce::DrawableButton waveBtnSine   { "sine",     juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnTri    { "triangle", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnSq     { "square",   juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnSaw    { "sawtooth", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnCustom { "custom",   juce::DrawableButton::ImageFitted };
+
+    std::unique_ptr<juce::FileChooser> fileChooser;
+
+    void setWaveformParam (int idx);
+    void openWavFileDialog();
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscSectionComponent)
+};
