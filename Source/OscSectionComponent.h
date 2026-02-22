@@ -19,9 +19,13 @@ private:
     JQGunkAudioProcessor& processor;
     juce::AudioProcessorValueTreeState& apvts;
 
-    juce::Slider levelSlider, mixSlider;
-    juce::Label  levelLabel,  mixLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment levelAttach, mixAttach;
+    juce::Slider mixSlider;
+    juce::Label  mixLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment mixAttach;
+
+    juce::Slider subLevelSlider;
+    juce::Label  subLevelLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment subLevelAttach;
 
     juce::Slider unisonVoicesSlider, unisonDetuneSlider, unisonBlendSlider;
     juce::Label  unisonVoicesLabel,  unisonDetuneLabel,  unisonBlendLabel;
@@ -29,7 +33,6 @@ private:
                                                           unisonDetuneAttach,
                                                           unisonBlendAttach;
 
-    juce::DrawableButton waveBtnSine   { "sine",     juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnTri    { "triangle", juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnSq     { "square",   juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnSaw    { "sawtooth", juce::DrawableButton::ImageFitted };

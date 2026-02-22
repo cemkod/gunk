@@ -59,19 +59,6 @@ JQGunkAudioProcessor::createParameterLayout()
         }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        "level", "Output Level",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.8f,
-        juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 1.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
-        }));
-
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "mix", "Dry/Wet Mix",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -86,8 +73,8 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "waveform", "Waveform",
-        juce::StringArray { "Sine", "Triangle", "Square", "Sawtooth" },
-        0)); // default: Sine
+        juce::StringArray { "Triangle", "Square", "Sawtooth" },
+        0)); // default: Triangle
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envSensitivity", "Env Sensitivity",
@@ -171,6 +158,20 @@ JQGunkAudioProcessor::createParameterLayout()
         }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "subLevel", "Sub Level",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 1.0f,
+                t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "unisonBlend", "Unison Blend",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -200,6 +201,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     detector.reset();
     detector.setSampleRate (sampleRate);
     oscillator.reset();
+    subOscillator.reset();
     envelope = 0.0f;
     gateIsOpen = false;
     filterEnvelope = 0.0f;
@@ -228,11 +230,11 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const float level     = apvts.getRawParameterValue ("level")->load();
     const float mix       = apvts.getRawParameterValue ("mix")->load();
 
     const int waveIdx = (int) apvts.getRawParameterValue ("waveform")->load();
-    const auto requested = static_cast<WaveformType> (waveIdx);
+    // Param choices are Triangle/Square/Sawtooth (0/1/2); add 1 to map to WaveformType enum
+    const auto requested = static_cast<WaveformType> (waveIdx + 1);
     // If a custom WAV is active, only switch away when the user picks a different
     // waveform (i.e. the parameter has changed since the WAV was loaded).
     const bool customActive = (oscillator.getCurrentWaveform() == WaveformType::Custom);
@@ -257,6 +259,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float gateThresh = apvts.getRawParameterValue ("gateThreshold")->load();
     const float gateHyst   = apvts.getRawParameterValue ("gateHysteresis")->load();
 
+    const float subLevel      = apvts.getRawParameterValue ("subLevel")->load();
     const float sensitivity   = apvts.getRawParameterValue ("envSensitivity")->load();
     const float resonance     = apvts.getRawParameterValue ("envResonance")->load();
     const float decay         = apvts.getRawParameterValue ("envDecay")->load();
@@ -305,16 +308,19 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             lastDetectedFreq = detectedFreq;
             oscillator.setFrequency (detectedFreq, currentSampleRate);
+            subOscillator.setFrequency (detectedFreq / 2.0f, currentSampleRate);
         }
         else if (!gateIsOpen || lastDetectedFreq == 0.0f)
         {
             lastDetectedFreq = 0.0f;
             oscillator.reset();
+            subOscillator.reset();
         }
         // else: detection lost but signal still present — keep oscillator at last frequency
 
         // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSampleUnison();
+        const float subSample = subOscillator.getNextSample();
         const int sweepMode = (int) apvts.getRawParameterValue ("sweepMode")->load();
         float filteredSample = sawSample;
         if (sweepMode != 0)
@@ -329,10 +335,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             filteredSample = envFilter.process (sawSample, cutoff, resonance, (float) currentSampleRate);
         }
 
-        // Blend dry/wet and apply output level
-        const float wet = filteredSample * envelope * mix;
+        // Blend dry/wet and apply output level (sub bypasses filter — it's already very low)
+        const float wet = (filteredSample + subSample * subLevel) * envelope * mix;
         const float dry = inputSample * (1.0f - mix);
-        const float out = (dry + wet) * level;
+        const float out = dry + wet;
 
         for (int ch = 0; ch < numChannels; ++ch)
             buffer.getWritePointer (ch)[i] = out;
@@ -425,7 +431,7 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
     }
 
     // No custom wavetable: sync oscillator immediately so state is consistent
-    oscillator.setWaveform (static_cast<WaveformType> (waveIdx));
+    oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
     paramWhenCustomLoaded = -1;
     dbgLog ("setStateInformation: set standard waveform | waveIdx=" + juce::String (waveIdx)
             + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));

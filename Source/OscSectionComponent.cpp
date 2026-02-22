@@ -5,8 +5,8 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
                                            juce::AudioProcessorValueTreeState& avts)
     : processor (p),
       apvts (avts),
-      levelAttach        (avts, "level",        levelSlider),
       mixAttach          (avts, "mix",           mixSlider),
+      subLevelAttach     (avts, "subLevel",      subLevelSlider),
       unisonVoicesAttach (avts, "unisonVoices",  unisonVoicesSlider),
       unisonDetuneAttach (avts, "unisonDetune",  unisonDetuneSlider),
       unisonBlendAttach  (avts, "unisonBlend",   unisonBlendSlider)
@@ -27,8 +27,8 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
         addAndMakeVisible (l);
     };
 
-    setupSlider (levelSlider, levelLabel, "LEVEL");
-    setupSlider (mixSlider,   mixLabel,   "MIX");
+    setupSlider (mixSlider,      mixLabel,      "MIX");
+    setupSlider (subLevelSlider, subLevelLabel, "SUB");
 
     setupSlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES");
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
@@ -51,14 +51,6 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
         dp->setStrokeType (juce::PathStrokeType (13.0f));
         return dp;
     };
-
-    // Sine — 4-segment cubic Bezier approximating one full sine cycle (0–100 coords)
-    juce::Path sinePath;
-    sinePath.startNewSubPath (0.0f, 50.0f);
-    sinePath.cubicTo ( 0.0f, 28.0f, 11.0f, 10.0f, 25.0f, 10.0f);
-    sinePath.cubicTo (39.0f, 10.0f, 50.0f, 28.0f, 50.0f, 50.0f);
-    sinePath.cubicTo (50.0f, 72.0f, 61.0f, 90.0f, 75.0f, 90.0f);
-    sinePath.cubicTo (89.0f, 90.0f, 100.0f, 72.0f, 100.0f, 50.0f);
 
     // Triangle
     juce::Path triPath;
@@ -98,7 +90,6 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
                        bright.get(), nullptr, nullptr, nullptr);
     };
 
-    applyIcons (waveBtnSine,   sinePath);
     applyIcons (waveBtnTri,    triPath);
     applyIcons (waveBtnSq,     sqPath);
     applyIcons (waveBtnSaw,    sawPath);
@@ -108,7 +99,7 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
     // Button setup
     //==========================================================================
     const int waveGroup = 101;
-    for (auto* b : { &waveBtnSine, &waveBtnTri, &waveBtnSq, &waveBtnSaw })
+    for (auto* b : { &waveBtnTri, &waveBtnSq, &waveBtnSaw })
     {
         b->setRadioGroupId (waveGroup);
         b->setClickingTogglesState (true);
@@ -116,10 +107,9 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
     }
     addAndMakeVisible (waveBtnCustom);
 
-    waveBtnSine.onClick = [this] { setWaveformParam (0); };
-    waveBtnTri .onClick = [this] { setWaveformParam (1); };
-    waveBtnSq  .onClick = [this] { setWaveformParam (2); };
-    waveBtnSaw .onClick = [this] { setWaveformParam (3); };
+    waveBtnTri .onClick = [this] { setWaveformParam (0); };
+    waveBtnSq  .onClick = [this] { setWaveformParam (1); };
+    waveBtnSaw .onClick = [this] { setWaveformParam (2); };
 
     waveBtnCustom.onClick = [this]
     {
@@ -178,10 +168,9 @@ void OscSectionComponent::updateButtonStates()
     const int idx = (int) apvts.getRawParameterValue ("waveform")->load();
     const bool customActive = processor.isCustomWaveformActive();
 
-    waveBtnSine  .setToggleState (!customActive && idx == 0, juce::dontSendNotification);
-    waveBtnTri   .setToggleState (!customActive && idx == 1, juce::dontSendNotification);
-    waveBtnSq    .setToggleState (!customActive && idx == 2, juce::dontSendNotification);
-    waveBtnSaw   .setToggleState (!customActive && idx == 3, juce::dontSendNotification);
+    waveBtnTri   .setToggleState (!customActive && idx == 0, juce::dontSendNotification);
+    waveBtnSq    .setToggleState (!customActive && idx == 1, juce::dontSendNotification);
+    waveBtnSaw   .setToggleState (!customActive && idx == 2, juce::dontSendNotification);
     waveBtnCustom.setToggleState (customActive,              juce::dontSendNotification);
 }
 
@@ -204,8 +193,7 @@ void OscSectionComponent::resized()
 
     // Waveform button row
     auto waveRow = inner.removeFromTop (36);
-    const int btnW = waveRow.getWidth() / 5;
-    waveBtnSine  .setBounds (waveRow.removeFromLeft (btnW));
+    const int btnW = waveRow.getWidth() / 4;
     waveBtnTri   .setBounds (waveRow.removeFromLeft (btnW));
     waveBtnSq    .setBounds (waveRow.removeFromLeft (btnW));
     waveBtnSaw   .setBounds (waveRow.removeFromLeft (btnW));
@@ -213,15 +201,15 @@ void OscSectionComponent::resized()
 
     inner.removeFromTop (10);
 
-    // Row 1: Level | Mix knobs
-    const int knobW = inner.getWidth() / 2;
+    // Row 1: Mix | Sub knobs
+    const int knobW2 = inner.getWidth() / 2;
     auto knobRow = inner.removeFromTop (75);
-    levelSlider.setBounds (knobRow.removeFromLeft (knobW));
-    mixSlider  .setBounds (knobRow.removeFromLeft (knobW));
+    mixSlider     .setBounds (knobRow.removeFromLeft (knobW2));
+    subLevelSlider.setBounds (knobRow);
 
     auto lblRow = inner.removeFromTop (18);
-    levelLabel.setBounds (lblRow.removeFromLeft (knobW));
-    mixLabel  .setBounds (lblRow.removeFromLeft (knobW));
+    mixLabel     .setBounds (lblRow.removeFromLeft (knobW2));
+    subLevelLabel.setBounds (lblRow);
 
     inner.removeFromTop (8);
 

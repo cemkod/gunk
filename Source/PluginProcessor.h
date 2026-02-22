@@ -52,6 +52,7 @@ private:
 
     AutocorrelationPitchDetector detector;
     WavetableOscillator oscillator;
+    WavetableOscillator subOscillator;
     juce::String customWavetablePath;
     int paramWhenCustomLoaded = -1; // waveform param index active when a WAV was loaded
 
