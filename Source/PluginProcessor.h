@@ -18,6 +18,7 @@ public:
         samplesWritten = 0;
         hopCounter = 0;
         detectedFrequency = 0.0f;
+        isTracking = false;
         for (int i = 0; i < kBufferSize; ++i)
             circularBuffer[i] = 0.0f;
     }
@@ -53,6 +54,7 @@ public:
     void clearHistory()
     {
         detectedFrequency = 0.0f;
+        isTracking = false;
         hopCounter = 0;
     }
 
@@ -70,6 +72,7 @@ private:
     int samplesWritten = 0;
     int hopCounter = 0;
     float detectedFrequency = 0.0f;
+    bool isTracking = false;
     double sampleRate = 44100.0;
     int minLag = 110;
     int maxLag = 1102;
@@ -206,17 +209,30 @@ private:
             if (peaks[i].value > maxPeakVal)
                 maxPeakVal = peaks[i].value;
 
-        if (maxPeakVal < 0.45f)
+        // Hysteresis: require 0.45 to start tracking, drop out only below 0.25
+        static constexpr float kOnsetThreshold   = 0.45f;
+        static constexpr float kSustainThreshold = 0.15f;
+        if (!isTracking && maxPeakVal >= kOnsetThreshold)
+            isTracking = true;
+        else if (isTracking && maxPeakVal < kSustainThreshold)
+            isTracking = false;
+
+        if (!isTracking)
         {
             detectedFrequency = 0.0f;
-            return; // confidence too low
+            return;
         }
 
-        // Select the first peak above 90% of the maximum
-        const float threshold = maxPeakVal * 0.9f;
+        // Select the first peak above the threshold.
+        // For high-frequency (small lag) peaks the NSDF tends to be noisier,
+        // so we use a lower threshold to avoid skipping to an octave harmonic.
+        // Threshold scales linearly: 0.7 at minLag (400 Hz) → 0.9 at maxLag (40 Hz).
         int bestLag = -1;
         for (int i = 0; i < numPeaks; ++i)
         {
+            float t = (float) (peaks[i].lag - minLag) / (float) (maxLag - minLag);
+            t = juce::jlimit (0.0f, 1.0f, t);
+            const float threshold = maxPeakVal * (0.7f + 0.2f * t);
             if (peaks[i].value >= threshold)
             {
                 bestLag = peaks[i].lag;
@@ -312,6 +328,9 @@ public:
     bool isCustomWaveformActive() const;
     void reactivateCustomWavetable();
 
+    float getDetectedFrequency() const { return detector.getFrequency(); }
+    bool  isGateOpen() const           { return gateIsOpen; }
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
@@ -320,11 +339,14 @@ private:
     juce::String customWavetablePath;
     int paramWhenCustomLoaded = -1; // waveform param index active when a WAV was loaded
 
+    // Last successfully detected frequency — held until signal drops below gate
+    float lastDetectedFreq = 0.0f;
+
     // Envelope follower for the noise gate
     float envelope = 0.0f;
     static constexpr float kEnvAttack  = 0.001f;
     static constexpr float kEnvRelease = 0.005f;
-    static constexpr float kGateThreshold = 0.01f; // ~-40 dBFS
+    bool gateIsOpen = false;
 
     // Envelope filter (auto-wah)
     ResonantLowpassFilter envFilter;

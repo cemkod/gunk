@@ -31,11 +31,15 @@ private:
     juce::Label  sensitivityLabel,  resonanceLabel,  decayLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment sensitivityAttach, resonanceAttach, decayAttach;
 
+    juce::Slider gateThresholdSlider, gateHysteresisSlider;
+    juce::Label  gateThresholdLabel,  gateHysteresisLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach;
+
     juce::TextButton sweepBtnOff  { "Off"  };
     juce::TextButton sweepBtnUp   { "Up"   };
     juce::TextButton sweepBtnDown { "Down" };
 
-    juce::Rectangle<int> oscSectionRect, filterSectionRect;
+    juce::Rectangle<int> oscSectionRect, filterSectionRect, gateSectionRect;
 
     juce::DrawableButton waveBtnSine   { "sine",     juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnTri    { "triangle", juce::DrawableButton::ImageFitted };
@@ -45,6 +49,10 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<juce::Drawable> logo;
+
+    juce::Label freqLabel;
+    bool gateOpen = false;
+    juce::Rectangle<int> gateLedBounds;
 
     void timerCallback() override;
     void openWavFileDialog();

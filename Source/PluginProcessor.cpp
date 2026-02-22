@@ -31,12 +31,58 @@ JQGunkAudioProcessor::createParameterLayout()
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "gateThreshold", "Gate Threshold",
+        juce::NormalisableRange<float> (0.001f, 0.04f, 0.001f), 0.01f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt ((v - 0.001f) / (0.04f - 0.001f) * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            const float pct = t.retainCharacters ("0123456789.").getFloatValue();
+            return 0.001f + juce::jlimit (0.0f, 100.0f, pct) / 100.0f * (0.04f - 0.001f);
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "gateHysteresis", "Gate Hysteresis",
+        juce::NormalisableRange<float> (0.0f, 0.05f, 0.001f), 0.005f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v / 0.05f * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            const float pct = t.retainCharacters ("0123456789.").getFloatValue();
+            return juce::jlimit (0.0f, 0.05f, pct / 100.0f * 0.05f);
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "level", "Output Level",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.8f));
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.8f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 1.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "mix", "Dry/Wet Mix",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f));
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 1.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "waveform", "Waveform",
@@ -45,15 +91,46 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envSensitivity", "Env Sensitivity",
-        juce::NormalisableRange<float> (0.0f, 7.0f, 0.01f), 3.0f));
+        juce::NormalisableRange<float> (0.0f, 7.0f, 0.01f), 3.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v / 7.0f * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 7.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f * 7.0f);
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envResonance", "Env Resonance",
-        juce::NormalisableRange<float> (0.0f, 8.0f, 0.01f), 2.0f));
+        juce::NormalisableRange<float> (0.0f, 8.0f, 0.01f), 2.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            return juce::String (juce::roundToInt (v / 8.0f * 100.0f)) + " %";
+        },
+        [] (const juce::String& t) -> float
+        {
+            return juce::jlimit (0.0f, 8.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f * 8.0f);
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envDecay", "Env Decay",
-        juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.3f));
+        juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.3f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            if (v < 1.0f)
+                return juce::String (juce::roundToInt (v * 1000.0f)) + " ms";
+            return juce::String (v, 2) + " s";
+        },
+        [] (const juce::String& t) -> float
+        {
+            const float num = t.retainCharacters ("0123456789.").getFloatValue();
+            const bool isSeconds = t.containsIgnoreCase ("s") && ! t.containsIgnoreCase ("ms");
+            return juce::jlimit (0.01f, 2.0f, isSeconds ? num : num / 1000.0f);
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "sweepMode", "Sweep",
@@ -76,6 +153,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     detector.setSampleRate (sampleRate);
     oscillator.reset();
     envelope = 0.0f;
+    gateIsOpen = false;
     filterEnvelope = 0.0f;
     envFilter.reset();
 
@@ -122,6 +200,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Use channel 0 as the mono analysis source
     const float* inputData = buffer.getReadPointer (0);
 
+    const float gateThresh = apvts.getRawParameterValue ("gateThreshold")->load();
+    const float gateHyst   = apvts.getRawParameterValue ("gateHysteresis")->load();
+
     const float sensitivity = apvts.getRawParameterValue ("envSensitivity")->load();
     const float resonance   = apvts.getRawParameterValue ("envResonance")->load();
     const float decay       = apvts.getRawParameterValue ("envDecay")->load();
@@ -147,8 +228,14 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             envelope += releaseCoeff * (absSample - envelope);
 
 
-        // Gate: clear stale pitch when signal is below noise floor
-        if (envelope < kGateThreshold)
+        // Schmitt trigger gate
+        if (!gateIsOpen && envelope >= gateThresh + gateHyst)
+            gateIsOpen = true;
+        else if (gateIsOpen && envelope < gateThresh)
+            gateIsOpen = false;
+
+        // Gate: clear stale pitch when gate is closed
+        if (!gateIsOpen)
             detector.clearHistory();
 
         // Filter envelope follower (fast fixed attack, user-controlled decay)
@@ -160,9 +247,16 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         float detectedFreq = detector.processSample (inputSample, currentSampleRate);
 
         if (detectedFreq > 0.0f)
+        {
+            lastDetectedFreq = detectedFreq;
             oscillator.setFrequency (detectedFreq, currentSampleRate);
-        else
+        }
+        else if (!gateIsOpen || lastDetectedFreq == 0.0f)
+        {
+            lastDetectedFreq = 0.0f;
             oscillator.reset();
+        }
+        // else: detection lost but signal still present — keep oscillator at last frequency
 
         // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSample();
