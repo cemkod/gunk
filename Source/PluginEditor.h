@@ -1,19 +1,22 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "LookAndFeel.h"
 
-class BassSynthAudioProcessorEditor : public juce::AudioProcessorEditor,
+class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
                                        public juce::Timer
 {
 public:
-    explicit BassSynthAudioProcessorEditor (BassSynthAudioProcessor&);
-    ~BassSynthAudioProcessorEditor() override;
+    explicit JQGunkAudioProcessorEditor (JQGunkAudioProcessor&);
+    ~JQGunkAudioProcessorEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    BassSynthAudioProcessor& processor;
+    JQGunkAudioProcessor& processor;
+
+    BassLookAndFeel lookAndFeel;
 
     juce::Slider levelSlider;
     juce::Slider mixSlider;
@@ -28,8 +31,9 @@ private:
     juce::Label  sensitivityLabel,  resonanceLabel,  decayLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment sensitivityAttach, resonanceAttach, decayAttach;
 
-    juce::ComboBox sweepBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sweepAttach;
+    juce::TextButton sweepBtnOff  { "Off"  };
+    juce::TextButton sweepBtnUp   { "Up"   };
+    juce::TextButton sweepBtnDown { "Down" };
 
     juce::Rectangle<int> oscSectionRect, filterSectionRect;
 
@@ -40,11 +44,14 @@ private:
     juce::DrawableButton waveBtnCustom { "custom",   juce::DrawableButton::ImageFitted };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    std::unique_ptr<juce::Drawable> logo;
 
     void timerCallback() override;
     void openWavFileDialog();
     void updateWaveButtonStates();
     void setWaveformParam (int idx);
+    void setSweepParam (int idx);
+    void updateSweepButtonStates();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BassSynthAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JQGunkAudioProcessorEditor)
 };

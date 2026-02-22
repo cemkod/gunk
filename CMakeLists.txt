@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
-project(BassSynth VERSION 1.0.0)
+project(JQGunk VERSION 1.0.0)
 
 find_package(JUCE CONFIG REQUIRED)
 
-juce_add_plugin(BassSynth
+juce_add_plugin(JQGunk
     COMPANY_NAME "JimQode"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
@@ -12,20 +12,22 @@ juce_add_plugin(BassSynth
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
     PLUGIN_MANUFACTURER_CODE Jqod
-    PLUGIN_CODE Bsyn
+    PLUGIN_CODE JQGk
     FORMATS VST3 Standalone
-    PRODUCT_NAME "Bass Synth"
+    PRODUCT_NAME "JQ Gunk"
 )
 
-juce_generate_juce_header(BassSynth)
+juce_add_binary_data(JQGunkData SOURCES logo.svg)
 
-target_sources(BassSynth PRIVATE
+juce_generate_juce_header(JQGunk)
+
+target_sources(JQGunk PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/Oscillator.cpp
 )
 
-target_compile_definitions(BassSynth PUBLIC
+target_compile_definitions(JQGunk PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -35,8 +37,9 @@ target_compile_definitions(BassSynth PUBLIC
     $<$<CONFIG:RelWithDebInfo>:ENABLE_DEBUG_LOG>
 )
 
-target_link_libraries(BassSynth
+target_link_libraries(JQGunk
     PRIVATE
+        JQGunkData
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

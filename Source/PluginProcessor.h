@@ -274,11 +274,11 @@ struct ResonantLowpassFilter
 };
 
 //==============================================================================
-class BassSynthAudioProcessor : public juce::AudioProcessor
+class JQGunkAudioProcessor : public juce::AudioProcessor
 {
 public:
-    BassSynthAudioProcessor();
-    ~BassSynthAudioProcessor() override;
+    JQGunkAudioProcessor();
+    ~JQGunkAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -333,5 +333,5 @@ private:
 
     double currentSampleRate = 48000;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BassSynthAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JQGunkAudioProcessor)
 };

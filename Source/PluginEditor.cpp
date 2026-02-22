@@ -1,7 +1,8 @@
 #include "PluginEditor.h"
+#include <BinaryData.h>
 
 //==============================================================================
-BassSynthAudioProcessorEditor::BassSynthAudioProcessorEditor (BassSynthAudioProcessor& p)
+JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       levelAttach       (p.apvts, "level",            levelSlider),
@@ -10,35 +11,47 @@ BassSynthAudioProcessorEditor::BassSynthAudioProcessorEditor (BassSynthAudioProc
       resonanceAttach   (p.apvts, "envResonance",      resonanceSlider),
       decayAttach       (p.apvts, "envDecay",          decaySlider)
 {
+    setLookAndFeel (&lookAndFeel);
+
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
     {
         s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
+        s.setColour (juce::Slider::textBoxTextColourId,       BassLookAndFeel::text);
+        s.setColour (juce::Slider::textBoxBackgroundColourId, BassLookAndFeel::surfaceDark);
+        s.setColour (juce::Slider::textBoxOutlineColourId,    BassLookAndFeel::borderDim);
         addAndMakeVisible (s);
 
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
+        l.setFont (juce::Font (11.0f, juce::Font::bold));
+        l.setColour (juce::Label::textColourId, BassLookAndFeel::text);
         addAndMakeVisible (l);
     };
 
-    sweepBox.addItem ("Off",  1);
-    sweepBox.addItem ("Up",   2);
-    sweepBox.addItem ("Down", 3);
-    addAndMakeVisible (sweepBox);
-    sweepAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
-        p.apvts, "sweepMode", sweepBox);
+    // Sweep buttons
+    const int sweepGroup = 102;
+    for (auto* b : { &sweepBtnOff, &sweepBtnUp, &sweepBtnDown })
+    {
+        b->setRadioGroupId (sweepGroup);
+        b->setClickingTogglesState (true);
+        addAndMakeVisible (b);
+    }
+    sweepBtnOff .onClick = [this] { setSweepParam (0); };
+    sweepBtnUp  .onClick = [this] { setSweepParam (1); };
+    sweepBtnDown.onClick = [this] { setSweepParam (2); };
 
-    setupSlider (levelSlider,       levelLabel,       "Level");
-    setupSlider (mixSlider,         mixLabel,         "Mix");
-    setupSlider (sensitivitySlider, sensitivityLabel, "Sensitivity");
-    setupSlider (resonanceSlider,   resonanceLabel,   "Resonance");
-    setupSlider (decaySlider,       decayLabel,       "Decay");
+    setupSlider (levelSlider,       levelLabel,       "LEVEL");
+    setupSlider (mixSlider,         mixLabel,         "MIX");
+    setupSlider (sensitivitySlider, sensitivityLabel, "SENS");
+    setupSlider (resonanceSlider,   resonanceLabel,   "RESO");
+    setupSlider (decaySlider,       decayLabel,       "DECAY");
 
     //==========================================================================
     // Build waveform drawable icons
     //==========================================================================
-    const juce::Colour dimColour    { 0xff555577 };
-    const juce::Colour brightColour { 0xffe94560 };
+    const juce::Colour dimColour    = BassLookAndFeel::iconDim;
+    const juce::Colour brightColour = BassLookAndFeel::accent;
 
     auto makeIcon = [&](const juce::Path& path, juce::Colour colour)
         -> std::unique_ptr<juce::DrawablePath>
@@ -47,7 +60,7 @@ BassSynthAudioProcessorEditor::BassSynthAudioProcessorEditor (BassSynthAudioProc
         dp->setPath (path);
         dp->setFill (juce::FillType (juce::Colours::transparentBlack));
         dp->setStrokeFill (juce::FillType (colour));
-        dp->setStrokeType (juce::PathStrokeType (2.0f));
+        dp->setStrokeType (juce::PathStrokeType (13.0f));
         return dp;
     };
 
@@ -78,9 +91,9 @@ BassSynthAudioProcessorEditor::BassSynthAudioProcessorEditor (BassSynthAudioProc
     // Sawtooth
     juce::Path sawPath;
     sawPath.startNewSubPath (  0.0f, 90.0f);
-    sawPath.lineTo           ( 50.0f, 10.0f);
-    sawPath.lineTo           ( 50.0f, 90.0f);
-    sawPath.lineTo           (100.0f, 10.0f);
+    sawPath.lineTo           ( 70.0f, 10.0f);
+    sawPath.lineTo           ( 70.0f, 90.0f);
+    sawPath.lineTo           (140.0f, 10.0f);
 
     // Custom — three vertical bars representing audio waveform
     juce::Path customPath;
@@ -137,25 +150,37 @@ BassSynthAudioProcessorEditor::BassSynthAudioProcessorEditor (BassSynthAudioProc
     };
 
     updateWaveButtonStates();
+    updateSweepButtonStates();
     startTimerHz (30);
 
-    setSize (340, 390);
+    if (auto svgXml = juce::parseXML (juce::String::fromUTF8 (BinaryData::logo_svg, BinaryData::logo_svgSize)))
+        logo = juce::Drawable::createFromSVG (*svgXml);
+
+    setSize (340, 426);
 }
 
-BassSynthAudioProcessorEditor::~BassSynthAudioProcessorEditor()
+JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
 {
+    setLookAndFeel (nullptr);
     stopTimer();
 }
 
 //==============================================================================
-void BassSynthAudioProcessorEditor::setWaveformParam (int idx)
+void JQGunkAudioProcessorEditor::setWaveformParam (int idx)
 {
     auto* p = dynamic_cast<juce::AudioParameterChoice*> (
         processor.apvts.getParameter ("waveform"));
     if (p) *p = idx;
 }
 
-void BassSynthAudioProcessorEditor::openWavFileDialog()
+void JQGunkAudioProcessorEditor::setSweepParam (int idx)
+{
+    auto* p = dynamic_cast<juce::AudioParameterChoice*> (
+        processor.apvts.getParameter ("sweepMode"));
+    if (p) *p = idx;
+}
+
+void JQGunkAudioProcessorEditor::openWavFileDialog()
 {
     fileChooser = std::make_unique<juce::FileChooser> (
         "Select a WAV file",
@@ -176,12 +201,13 @@ void BassSynthAudioProcessorEditor::openWavFileDialog()
         });
 }
 
-void BassSynthAudioProcessorEditor::timerCallback()
+void JQGunkAudioProcessorEditor::timerCallback()
 {
     updateWaveButtonStates();
+    updateSweepButtonStates();
 }
 
-void BassSynthAudioProcessorEditor::updateWaveButtonStates()
+void JQGunkAudioProcessorEditor::updateWaveButtonStates()
 {
     const int idx = (int) processor.apvts.getRawParameterValue ("waveform")->load();
     const bool customActive = processor.isCustomWaveformActive();
@@ -193,37 +219,56 @@ void BassSynthAudioProcessorEditor::updateWaveButtonStates()
     waveBtnCustom.setToggleState (customActive,              juce::dontSendNotification);
 }
 
-//==============================================================================
-void BassSynthAudioProcessorEditor::paint (juce::Graphics& g)
+void JQGunkAudioProcessorEditor::updateSweepButtonStates()
 {
-    g.fillAll (juce::Colour (0xff1a1a2e));
+    const int idx = (int) processor.apvts.getRawParameterValue ("sweepMode")->load();
+    sweepBtnOff .setToggleState (idx == 0, juce::dontSendNotification);
+    sweepBtnUp  .setToggleState (idx == 1, juce::dontSendNotification);
+    sweepBtnDown.setToggleState (idx == 2, juce::dontSendNotification);
+}
+
+//==============================================================================
+void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (BassLookAndFeel::bg);
 
     // Section backgrounds
-    g.setColour (juce::Colour (0xff252540));
+    g.setColour (BassLookAndFeel::surface);
     g.fillRoundedRectangle (oscSectionRect.toFloat(),    6.0f);
     g.fillRoundedRectangle (filterSectionRect.toFloat(), 6.0f);
 
-    // Section labels
-    g.setColour (juce::Colour (0xffe94560));
-    g.setFont (juce::Font (11.0f, juce::Font::bold));
-    g.drawText ("OSCILLATOR",      oscSectionRect.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
-    g.drawText ("ENVELOPE FILTER", filterSectionRect.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
+    // Section borders
+    g.setColour (BassLookAndFeel::border);
+    g.drawRoundedRectangle (oscSectionRect.toFloat(),    6.0f, 1.0f);
+    g.drawRoundedRectangle (filterSectionRect.toFloat(), 6.0f, 1.0f);
 
-    // Title
-    g.setColour (juce::Colour (0xffe94560));
-    g.setFont (juce::Font (18.0f, juce::Font::bold));
-    g.drawFittedText ("Bass Synth", getLocalBounds().removeFromTop (40),
-                      juce::Justification::centred, 1);
+    // Section labels
+    g.setColour (BassLookAndFeel::text);
+    g.setFont (juce::Font (11.0f, juce::Font::bold));
+    g.drawText ("OSC",      oscSectionRect.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
+    g.drawText ("ENV FILTER", filterSectionRect.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
+
+    if (logo != nullptr)
+    {
+        constexpr float logoH = 140.0f;
+        constexpr float logoW = logoH * (184.0f / 98.0f); 
+        auto headerBounds = getLocalBounds().removeFromTop (60).toFloat();
+        juce::Rectangle<float> logoBounds (
+            (headerBounds.getWidth() - logoW) * 0.5f,
+            (headerBounds.getHeight() - logoH) * 0.6f,
+            logoW, logoH);
+        logo->drawWithin (g, logoBounds, juce::RectanglePlacement::centred, 1.0f);
+    }
 }
 
-void BassSynthAudioProcessorEditor::resized()
+void JQGunkAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (10);
-    area.removeFromTop (40); // title
+    area.removeFromTop (60); // title
     area.removeFromTop (4);  // gap below title
 
     // --- Oscillator section ---
-    oscSectionRect = area.removeFromTop (155);
+    oscSectionRect = area.removeFromTop (173);
     {
         auto inner = oscSectionRect.reduced (8);
         inner.removeFromTop (18); // skip section label row
@@ -237,7 +282,7 @@ void BassSynthAudioProcessorEditor::resized()
         waveBtnSaw   .setBounds (waveRow.removeFromLeft (btnW));
         waveBtnCustom.setBounds (waveRow); // remainder
 
-        inner.removeFromTop (4);
+        inner.removeFromTop (10);
 
         // Level | Mix knobs
         const int knobW = inner.getWidth() / 2;
@@ -253,18 +298,19 @@ void BassSynthAudioProcessorEditor::resized()
     area.removeFromTop (8); // gap between sections
 
     // --- Envelope Filter section ---
-    filterSectionRect = area.removeFromTop (153);
+    filterSectionRect = area.removeFromTop (161);
     {
         auto inner = filterSectionRect.reduced (8);
         inner.removeFromTop (18); // skip section label row
 
-        // Sweep row
+        // Sweep button row
         auto sweepRow = inner.removeFromTop (24);
-        auto sweepLabel = sweepRow.removeFromLeft (50);
-        juce::ignoreUnused (sweepLabel);
-        sweepBox.setBounds (sweepRow.removeFromLeft (130));
+        const int btnW = sweepRow.getWidth() / 3;
+        sweepBtnOff .setBounds (sweepRow.removeFromLeft (btnW));
+        sweepBtnUp  .setBounds (sweepRow.removeFromLeft (btnW));
+        sweepBtnDown.setBounds (sweepRow);
 
-        inner.removeFromTop (4);
+        inner.removeFromTop (10);
 
         // Sensitivity | Resonance | Decay knobs
         const int knobW = inner.getWidth() / 3;

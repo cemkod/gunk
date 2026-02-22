@@ -14,7 +14,7 @@ static void dbgLog (const juce::String&) {}
 #endif
 
 //==============================================================================
-BassSynthAudioProcessor::BassSynthAudioProcessor()
+JQGunkAudioProcessor::JQGunkAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
@@ -22,11 +22,11 @@ BassSynthAudioProcessor::BassSynthAudioProcessor()
 {
 }
 
-BassSynthAudioProcessor::~BassSynthAudioProcessor() {}
+JQGunkAudioProcessor::~JQGunkAudioProcessor() {}
 
 //==============================================================================
 juce::AudioProcessorValueTreeState::ParameterLayout
-BassSynthAudioProcessor::createParameterLayout()
+JQGunkAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
@@ -63,7 +63,7 @@ BassSynthAudioProcessor::createParameterLayout()
 }
 
 //==============================================================================
-void BassSynthAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
     dbgLog ("prepareToPlay called | sr=" + juce::String (sampleRate)
             + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform())
@@ -82,9 +82,9 @@ void BassSynthAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     dbgLog ("prepareToPlay finished | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
 
-void BassSynthAudioProcessor::releaseResources() {}
+void JQGunkAudioProcessor::releaseResources() {}
 
-bool BassSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool JQGunkAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
         && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
@@ -97,7 +97,7 @@ bool BassSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 }
 
 //==============================================================================
-void BassSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                              juce::MidiBuffer& /*midiMessages*/)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -187,19 +187,19 @@ void BassSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
-bool BassSynthAudioProcessor::isCustomWaveformActive() const
+bool JQGunkAudioProcessor::isCustomWaveformActive() const
 {
     return oscillator.getCurrentWaveform() == WaveformType::Custom;
 }
 
-void BassSynthAudioProcessor::reactivateCustomWavetable()
+void JQGunkAudioProcessor::reactivateCustomWavetable()
 {
     if (customWavetablePath.isNotEmpty())
         loadWavetableFromFile (juce::File (customWavetablePath));
 }
 
 //==============================================================================
-bool BassSynthAudioProcessor::loadWavetableFromFile (const juce::File& file)
+bool JQGunkAudioProcessor::loadWavetableFromFile (const juce::File& file)
 {
     if (! oscillator.loadFromFile (file)) return false;
     customWavetablePath = file.getFullPathName();
@@ -208,12 +208,12 @@ bool BassSynthAudioProcessor::loadWavetableFromFile (const juce::File& file)
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* BassSynthAudioProcessor::createEditor()
+juce::AudioProcessorEditor* JQGunkAudioProcessor::createEditor()
 {
-    return new BassSynthAudioProcessorEditor (*this);
+    return new JQGunkAudioProcessorEditor (*this);
 }
 
-void BassSynthAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
+void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
@@ -230,7 +230,7 @@ void BassSynthAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
             + " | xml=" + xml->toString());
 }
 
-void BassSynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
 
@@ -281,5 +281,5 @@ void BassSynthAudioProcessor::setStateInformation (const void* data, int sizeInB
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new BassSynthAudioProcessor();
+    return new JQGunkAudioProcessor();
 }
