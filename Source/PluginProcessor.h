@@ -308,6 +308,10 @@ public:
 
     bool loadWavetableFromFile (const juce::File& file);
 
+    bool isCustomWavetableLoaded() const { return customWavetablePath.isNotEmpty(); }
+    bool isCustomWaveformActive() const;
+    void reactivateCustomWavetable();
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 

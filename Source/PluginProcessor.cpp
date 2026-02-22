@@ -1,6 +1,18 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#ifdef ENABLE_DEBUG_LOG
+static void dbgLog (const juce::String& msg)
+{
+    auto f = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                .getChildFile ("bass-synth-debug.log");
+    f.appendText ("[" + juce::Time::getCurrentTime().toString (true, true, true, true) + "] "
+                  + msg + "\n");
+}
+#else
+static void dbgLog (const juce::String&) {}
+#endif
+
 //==============================================================================
 BassSynthAudioProcessor::BassSynthAudioProcessor()
     : AudioProcessor (BusesProperties()
@@ -33,11 +45,11 @@ BassSynthAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envSensitivity", "Env Sensitivity",
-        juce::NormalisableRange<float> (1.0f, 10.0f, 0.01f), 3.0f));
+        juce::NormalisableRange<float> (0.0f, 7.0f, 0.01f), 3.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envResonance", "Env Resonance",
-        juce::NormalisableRange<float> (0.5f, 8.0f, 0.01f), 2.0f));
+        juce::NormalisableRange<float> (0.0f, 8.0f, 0.01f), 2.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envDecay", "Env Decay",
@@ -53,6 +65,12 @@ BassSynthAudioProcessor::createParameterLayout()
 //==============================================================================
 void BassSynthAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
+    dbgLog ("prepareToPlay called | sr=" + juce::String (sampleRate)
+            + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform())
+            + " | waveParam=" + juce::String ((int) apvts.getRawParameterValue ("waveform")->load())
+            + " | paramWhenCustomLoaded=" + juce::String (paramWhenCustomLoaded)
+            + " | customPath=" + customWavetablePath);
+
     currentSampleRate = sampleRate;
     detector.reset();
     detector.setSampleRate (sampleRate);
@@ -60,6 +78,8 @@ void BassSynthAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPer
     envelope = 0.0f;
     filterEnvelope = 0.0f;
     envFilter.reset();
+
+    dbgLog ("prepareToPlay finished | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
 
 void BassSynthAudioProcessor::releaseResources() {}
@@ -167,6 +187,18 @@ void BassSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
+bool BassSynthAudioProcessor::isCustomWaveformActive() const
+{
+    return oscillator.getCurrentWaveform() == WaveformType::Custom;
+}
+
+void BassSynthAudioProcessor::reactivateCustomWavetable()
+{
+    if (customWavetablePath.isNotEmpty())
+        loadWavetableFromFile (juce::File (customWavetablePath));
+}
+
+//==============================================================================
 bool BassSynthAudioProcessor::loadWavetableFromFile (const juce::File& file)
 {
     if (! oscillator.loadFromFile (file)) return false;
@@ -185,26 +217,65 @@ void BassSynthAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    xml->setAttribute ("customWavetablePath", customWavetablePath);
+    if (isCustomWaveformActive())
+        xml->setAttribute ("customWavetablePath", customWavetablePath);
+    else
+        xml->removeAttribute ("customWavetablePath");
     copyXmlToBinary (*xml, dest);
+
+    dbgLog ("getStateInformation | waveParam=" + juce::String ((int) apvts.getRawParameterValue ("waveform")->load())
+            + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform())
+            + " | customActive=" + juce::String (isCustomWaveformActive() ? 1 : 0)
+            + " | customPath=" + customWavetablePath
+            + " | xml=" + xml->toString());
 }
 
 void BassSynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-    if (xml && xml->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+    dbgLog ("setStateInformation called | xmlValid=" + juce::String (xml ? 1 : 0)
+            + (xml ? " | tagMatch=" + juce::String (xml->hasTagName (apvts.state.getType()) ? 1 : 0)
+                        + " | xml=" + xml->toString()
+                   : ""));
+
+    if (! xml || ! xml->hasTagName (apvts.state.getType()))
+    {
+        dbgLog ("setStateInformation: early return — bad XML");
+        return;
+    }
+
+    apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+    const int waveIdxAfterReplace = (int) apvts.getRawParameterValue ("waveform")->load();
+    dbgLog ("setStateInformation: after replaceState | waveParam=" + juce::String (waveIdxAfterReplace));
 
     customWavetablePath = xml->getStringAttribute ("customWavetablePath", {});
+    dbgLog ("setStateInformation: customWavetablePath=" + customWavetablePath);
+
+    const int waveIdx = waveIdxAfterReplace;
+
     if (customWavetablePath.isNotEmpty())
     {
         juce::File f (customWavetablePath);
-        if (f.existsAsFile())
+        const bool exists = f.existsAsFile();
+        dbgLog ("setStateInformation: custom path exists=" + juce::String (exists ? 1 : 0));
+        if (exists)
         {
             oscillator.loadFromFile (f);
-            paramWhenCustomLoaded = (int) apvts.getRawParameterValue ("waveform")->load();
+            paramWhenCustomLoaded = waveIdx;
+            dbgLog ("setStateInformation: loaded custom wavetable | paramWhenCustomLoaded=" + juce::String (paramWhenCustomLoaded));
+            return;
         }
+        // File gone — fall through and restore standard waveform
+        customWavetablePath = {};
     }
+
+    // No custom wavetable: sync oscillator immediately so state is consistent
+    oscillator.setWaveform (static_cast<WaveformType> (waveIdx));
+    paramWhenCustomLoaded = -1;
+    dbgLog ("setStateInformation: set standard waveform | waveIdx=" + juce::String (waveIdx)
+            + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
 
 //==============================================================================

@@ -32,6 +32,7 @@ target_compile_definitions(BassSynth PUBLIC
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_USE_FLAC=0
     JUCE_USE_OGGVORBIS=0
+    $<$<CONFIG:RelWithDebInfo>:ENABLE_DEBUG_LOG>
 )
 
 target_link_libraries(BassSynth

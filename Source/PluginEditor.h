@@ -2,7 +2,8 @@
 
 #include "PluginProcessor.h"
 
-class BassSynthAudioProcessorEditor : public juce::AudioProcessorEditor
+class BassSynthAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                       public juce::Timer
 {
 public:
     explicit BassSynthAudioProcessorEditor (BassSynthAudioProcessor&);
@@ -28,15 +29,22 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment sensitivityAttach, resonanceAttach, decayAttach;
 
     juce::ComboBox sweepBox;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment sweepAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sweepAttach;
 
     juce::Rectangle<int> oscSectionRect, filterSectionRect;
 
-    juce::ComboBox waveformBox;
-    juce::Label    waveformLabel;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment waveformAttach;
-    juce::TextButton loadWavButton { "Load WAV" };
-    std::unique_ptr<juce::FileChooser> fileChooser; // must outlive async callback
+    juce::DrawableButton waveBtnSine   { "sine",     juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnTri    { "triangle", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnSq     { "square",   juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnSaw    { "sawtooth", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton waveBtnCustom { "custom",   juce::DrawableButton::ImageFitted };
+
+    std::unique_ptr<juce::FileChooser> fileChooser;
+
+    void timerCallback() override;
+    void openWavFileDialog();
+    void updateWaveButtonStates();
+    void setWaveformParam (int idx);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BassSynthAudioProcessorEditor)
 };
