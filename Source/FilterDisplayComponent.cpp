@@ -28,8 +28,6 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
 
     const float cutoffHz  = processor.getCurrentCutoffHz();
     const float Q         = juce::jlimit (0.1f, 100.0f, apvts.getRawParameterValue ("envResonance")->load());
-    const int   sweepMode = (int) apvts.getRawParameterValue ("sweepMode")->load();
-    const bool  active    = (sweepMode != 0);
 
     const float logRatio = std::log (fMax / fMin);
     const float yZero    = h * dBTop / dBRange;
@@ -81,10 +79,9 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     filled.lineTo (0.0f, h);
     filled.closeSubPath();
 
-    const float curveAlpha = active ? 1.0f : 0.4f;
-    g.setColour (BassLookAndFeel::accent.withAlpha (0.10f * curveAlpha));
+    g.setColour (BassLookAndFeel::accent.withAlpha (0.10f));
     g.fillPath (filled);
 
-    g.setColour (BassLookAndFeel::accent.withAlpha (0.80f * curveAlpha));
+    g.setColour (BassLookAndFeel::accent.withAlpha (0.80f));
     g.strokePath (curve, juce::PathStrokeType (1.5f));
 }
