@@ -11,37 +11,23 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
       unisonDetuneAttach (avts, "unisonDetune",  unisonDetuneSlider),
       unisonBlendAttach  (avts, "unisonBlend",   unisonBlendSlider)
 {
-    auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
-    {
-        s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
-        s.setColour (juce::Slider::textBoxTextColourId,       BassLookAndFeel::text);
-        s.setColour (juce::Slider::textBoxBackgroundColourId, BassLookAndFeel::surfaceDark);
-        s.setColour (juce::Slider::textBoxOutlineColourId,    BassLookAndFeel::borderDim);
-        addAndMakeVisible (s);
+    BassLookAndFeel::setupRotarySlider (mixSlider,      mixLabel,      "MIX",    *this);
+    BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "SUB",    *this);
 
-        l.setText (name, juce::dontSendNotification);
-        l.setJustificationType (juce::Justification::centred);
-        l.setFont (juce::Font (11.0f, juce::Font::bold));
-        l.setColour (juce::Label::textColourId, BassLookAndFeel::text);
-        addAndMakeVisible (l);
-    };
-
-    setupSlider (mixSlider,      mixLabel,      "MIX");
-    setupSlider (subLevelSlider, subLevelLabel, "SUB");
-
-    setupSlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES");
+    BassLookAndFeel::setupRotarySlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
-    setupSlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE");
-    setupSlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND");
+    BassLookAndFeel::setupRotarySlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
+    BassLookAndFeel::setupRotarySlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
 
-    //==========================================================================
-    // Build waveform drawable icons
-    //==========================================================================
-    const juce::Colour dimColour    = BassLookAndFeel::iconDim;
-    const juce::Colour brightColour = BassLookAndFeel::accent;
+    buildWaveformIcons();
+    configureWaveformButtons();
 
-    auto makeIcon = [&](const juce::Path& path, juce::Colour colour)
+    updateButtonStates();
+}
+
+void OscSectionComponent::buildWaveformIcons()
+{
+    auto makeIcon = [](const juce::Path& path, juce::Colour colour)
         -> std::unique_ptr<juce::DrawablePath>
     {
         auto dp = std::make_unique<juce::DrawablePath>();
@@ -81,11 +67,10 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
     customPath.startNewSubPath (50.0f, 15.0f); customPath.lineTo (50.0f, 85.0f);
     customPath.startNewSubPath (80.0f, 35.0f); customPath.lineTo (80.0f, 65.0f);
 
-    // Apply icons to buttons
     auto applyIcons = [&](juce::DrawableButton& btn, const juce::Path& path)
     {
-        auto dim    = makeIcon (path, dimColour);
-        auto bright = makeIcon (path, brightColour);
+        auto dim    = makeIcon (path, BassLookAndFeel::iconDim);
+        auto bright = makeIcon (path, BassLookAndFeel::accent);
         btn.setImages (dim.get(), nullptr, nullptr, nullptr,
                        bright.get(), nullptr, nullptr, nullptr);
     };
@@ -94,10 +79,10 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
     applyIcons (waveBtnSq,     sqPath);
     applyIcons (waveBtnSaw,    sawPath);
     applyIcons (waveBtnCustom, customPath);
+}
 
-    //==========================================================================
-    // Button setup
-    //==========================================================================
+void OscSectionComponent::configureWaveformButtons()
+{
     const int waveGroup = 101;
     for (auto* b : { &waveBtnTri, &waveBtnSq, &waveBtnSaw })
     {
@@ -114,20 +99,12 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
     waveBtnCustom.onClick = [this]
     {
         if (! processor.isCustomWavetableLoaded())
-        {
             openWavFileDialog();
-        }
         else if (! processor.isCustomWaveformActive())
-        {
             processor.reactivateCustomWavetable();
-        }
         else
-        {
             openWavFileDialog(); // reload
-        }
     };
-
-    updateButtonStates();
 }
 
 OscSectionComponent::~OscSectionComponent()

@@ -1,31 +1,15 @@
 #include "GateSectionComponent.h"
 #include "LookAndFeel.h"
 
-GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& apvts)
-    : apvts (apvts),
-      gateThresholdAttach  (apvts, "gateThreshold",  gateThresholdSlider),
-      gateHysteresisAttach (apvts, "gateHysteresis", gateHysteresisSlider),
-      glideAttach          (apvts, "glide",           glideSlider)
+GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& avts)
+    : apvts (avts),
+      gateThresholdAttach  (avts, "gateThreshold",  gateThresholdSlider),
+      gateHysteresisAttach (avts, "gateHysteresis", gateHysteresisSlider),
+      glideAttach          (avts, "glide",           glideSlider)
 {
-    auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
-    {
-        s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
-        s.setColour (juce::Slider::textBoxTextColourId,       BassLookAndFeel::text);
-        s.setColour (juce::Slider::textBoxBackgroundColourId, BassLookAndFeel::surfaceDark);
-        s.setColour (juce::Slider::textBoxOutlineColourId,    BassLookAndFeel::borderDim);
-        addAndMakeVisible (s);
-
-        l.setText (name, juce::dontSendNotification);
-        l.setJustificationType (juce::Justification::centred);
-        l.setFont (juce::Font (11.0f, juce::Font::bold));
-        l.setColour (juce::Label::textColourId, BassLookAndFeel::text);
-        addAndMakeVisible (l);
-    };
-
-    setupSlider (gateThresholdSlider,  gateThresholdLabel,  "THRS");
-    setupSlider (gateHysteresisSlider, gateHysteresisLabel, "HYST");
-    setupSlider (glideSlider,          glideLabel,          "GLIDE");
+    BassLookAndFeel::setupRotarySlider (gateThresholdSlider,  gateThresholdLabel,  "THRS",  *this);
+    BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYST",  *this);
+    BassLookAndFeel::setupRotarySlider (glideSlider,          glideLabel,          "GLIDE", *this);
 }
 
 GateSectionComponent::~GateSectionComponent()

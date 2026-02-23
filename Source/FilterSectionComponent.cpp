@@ -14,27 +14,11 @@ FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
 {
     addAndMakeVisible (displayComponent);
 
-    auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
-    {
-        s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
-        s.setColour (juce::Slider::textBoxTextColourId,       BassLookAndFeel::text);
-        s.setColour (juce::Slider::textBoxBackgroundColourId, BassLookAndFeel::surfaceDark);
-        s.setColour (juce::Slider::textBoxOutlineColourId,    BassLookAndFeel::borderDim);
-        addAndMakeVisible (s);
-
-        l.setText (name, juce::dontSendNotification);
-        l.setJustificationType (juce::Justification::centred);
-        l.setFont (juce::Font (11.0f, juce::Font::bold));
-        l.setColour (juce::Label::textColourId, BassLookAndFeel::text);
-        addAndMakeVisible (l);
-    };
-
-    setupSlider (filterFreqSlider,   filterFreqLabel,   "FREQ");
-    setupSlider (sensitivitySlider,  sensitivityLabel,  "SENS");
-    setupSlider (resonanceSlider,    resonanceLabel,    "RESO");
-    setupSlider (decaySlider,        decayLabel,        "DECAY");
-    setupSlider (freqTrackingSlider, freqTrackingLabel, "TRACK");
+    BassLookAndFeel::setupRotarySlider (filterFreqSlider,   filterFreqLabel,   "FREQ",  *this);
+    BassLookAndFeel::setupRotarySlider (sensitivitySlider,  sensitivityLabel,  "SENS",  *this);
+    BassLookAndFeel::setupRotarySlider (resonanceSlider,    resonanceLabel,    "RESO",  *this);
+    BassLookAndFeel::setupRotarySlider (decaySlider,        decayLabel,        "DECAY", *this);
+    BassLookAndFeel::setupRotarySlider (freqTrackingSlider, freqTrackingLabel, "TRACK", *this);
 
     // Sweep buttons
     const int sweepGroup = 102;

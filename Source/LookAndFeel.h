@@ -15,6 +15,23 @@ public:
     inline static const juce::Colour text       { 0xffaaaacc };
     inline static const juce::Colour accent     { 0xfffff100 };
 
+    static void setupRotarySlider (juce::Slider& s, juce::Label& l,
+                                    const juce::String& name, juce::Component& parent)
+    {
+        s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
+        s.setColour (juce::Slider::textBoxTextColourId,       text);
+        s.setColour (juce::Slider::textBoxBackgroundColourId, surfaceDark);
+        s.setColour (juce::Slider::textBoxOutlineColourId,    borderDim);
+        parent.addAndMakeVisible (s);
+
+        l.setText (name, juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centred);
+        l.setFont (juce::Font (11.0f, juce::Font::bold));
+        l.setColour (juce::Label::textColourId, text);
+        parent.addAndMakeVisible (l);
+    }
+
     void drawRotarySlider (juce::Graphics& g,
                            int x, int y, int width, int height,
                            float sliderPos,

@@ -56,6 +56,10 @@ public:
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    // processBlock helpers
+    void updateOscillatorParams();
+    void updateGlideState (float detectedFreq, int glideSamples);
+
     PresetManager presetManager { apvts };
 
     AutocorrelationPitchDetector detector;

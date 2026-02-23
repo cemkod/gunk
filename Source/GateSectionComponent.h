@@ -5,7 +5,7 @@
 class GateSectionComponent : public juce::Component
 {
 public:
-    explicit GateSectionComponent (juce::AudioProcessorValueTreeState& apvts);
+    explicit GateSectionComponent (juce::AudioProcessorValueTreeState& avts);
     ~GateSectionComponent() override;
 
     void paint (juce::Graphics&) override;

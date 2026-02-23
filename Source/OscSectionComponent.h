@@ -40,6 +40,8 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
+    void buildWaveformIcons();
+    void configureWaveformButtons();
     void setWaveformParam (int idx);
     void openWavFileDialog();
 
