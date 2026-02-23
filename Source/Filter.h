@@ -12,7 +12,7 @@ struct ResonantLowpassFilter
     {
         float f = 2.0f * std::sin (juce::MathConstants<float>::pi * cutoffHz / sampleRate);
         f = std::min (f, 1.99f);
-        float q = 1.0f / Q;
+        float q = 1.0f / std::max (Q, 0.01f);
         low  += f * band;
         float high = input - low - q * band;
         band += f * high;
