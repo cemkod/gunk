@@ -26,7 +26,7 @@ struct GlideEngine
         {
             lastDetectedFreq = detectedFreq;
 
-            if (glideFreq == 0.0f || glideSnapHops > 0)
+            if (glideFreq < 1.0f || glideSnapHops > 0)
             {
                 // Cold start or detector still settling: snap directly, no ramp
                 glideFreq       = detectedFreq;
@@ -39,7 +39,7 @@ struct GlideEngine
                 else
                     glideSnapHops = 4; // snap for next 4 detections while detector settles
             }
-            else if (detectedFreq != glideTargetFreq)
+            else if (std::abs (detectedFreq - glideTargetFreq) > 0.001f)
             {
                 // New pitch target: start a new linear ramp
                 glideSourceFreq     = glideFreq;
@@ -62,7 +62,7 @@ struct GlideEngine
             oscillator.setFrequency (glideFreq, currentSampleRate);
             subOscillator.setFrequency (glideFreq / 2.0f, currentSampleRate);
         }
-        else if (!gateIsOpen || lastDetectedFreq == 0.0f)
+        else if (!gateIsOpen || lastDetectedFreq < 1.0f)
         {
             lastDetectedFreq    = 0.0f;
             glideFreq           = 0.0f;

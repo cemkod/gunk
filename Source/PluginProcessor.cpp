@@ -318,7 +318,7 @@ void JQGunkAudioProcessor::setCurrentProgram (int index)
 const juce::String JQGunkAudioProcessor::getProgramName (int index)
 {
     const auto& p = presetManager.getPresets();
-    return (index >= 0 && index < (int) p.size()) ? p[index].name : juce::String{};
+    return (index >= 0 && (size_t) index < p.size()) ? p[(size_t) index].name : juce::String{};
 }
 
 void JQGunkAudioProcessor::syncOscillatorAfterPresetLoad()
