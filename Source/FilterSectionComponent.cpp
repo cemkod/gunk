@@ -1,14 +1,19 @@
 #include "FilterSectionComponent.h"
 #include "LookAndFeel.h"
 
-FilterSectionComponent::FilterSectionComponent (juce::AudioProcessorValueTreeState& avts)
-    : apvts (avts),
+FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
+                                                juce::AudioProcessorValueTreeState& avts)
+    : processor (proc),
+      apvts (avts),
+      displayComponent (proc, avts),
       filterFreqAttach    (avts, "filterFreq",      filterFreqSlider),
       sensitivityAttach   (avts, "envSensitivity", sensitivitySlider),
       resonanceAttach     (avts, "envResonance",   resonanceSlider),
       decayAttach         (avts, "envDecay",        decaySlider),
       freqTrackingAttach  (avts, "freqTracking",   freqTrackingSlider)
 {
+    addAndMakeVisible (displayComponent);
+
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name)
     {
         s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
@@ -82,6 +87,10 @@ void FilterSectionComponent::resized()
 {
     auto inner = getLocalBounds().reduced (8);
     inner.removeFromTop (18); // skip section label row
+
+    // Frequency response display
+    displayComponent.setBounds (inner.removeFromTop (90));
+    inner.removeFromTop (8);
 
     // Sweep button row
     auto sweepRow = inner.removeFromTop (24);

@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 #include "Oscillator.h"
 #include "PitchDetector.h"
-#include "Filter.h"
+#include "FilterEngine.h"
 
 //==============================================================================
 class JQGunkAudioProcessor : public juce::AudioProcessor
@@ -46,6 +46,7 @@ public:
 
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
+    float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -72,9 +73,7 @@ private:
     bool gateIsOpen = false;
 
     // Envelope filter (auto-wah)
-    ResonantLowpassFilter envFilter;
-    float filterEnvelope = 0.0f;
-    static constexpr float kFilterEnvAttack = 0.001f;
+    EnvelopeFilter envelopeFilter;
 
     double currentSampleRate = 48000;
 

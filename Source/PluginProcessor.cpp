@@ -153,17 +153,13 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "filterFreq", "Filter Freq",
-        []() {
-            juce::NormalisableRange<float> r (20.0f, 4000.0f);
-            r.setSkewForCentre (200.0f);
-            return r;
-        }(),
-        200.0f,
+        juce::NormalisableRange<float> (-2000.0f, 4000.0f),
+        0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String { return juce::String (juce::roundToInt (v)) + " Hz"; },
         [] (const juce::String& t) -> float {
-            return juce::jlimit (20.0f, 4000.0f,
-                t.retainCharacters ("0123456789.").getFloatValue());
+            return juce::jlimit (-2000.0f, 4000.0f,
+                t.retainCharacters ("-0123456789.").getFloatValue());
         }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -239,8 +235,8 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     glideSamplesTotal   = 0;
     glideSnapHops       = 0;
     gateIsOpen = false;
-    filterEnvelope = 0.0f;
-    envFilter.reset();
+    envelopeFilter.reset();
+    envelopeFilter.prepare (sampleRate, 0.3f); // default decay; updated per-block
 
     dbgLog ("prepareToPlay finished | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
@@ -305,8 +301,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float attackCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvAttack));
     const float releaseCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvRelease));
 
-    const float filterAttackCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kFilterEnvAttack));
-    const float filterDecayCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * decay));
+    envelopeFilter.prepare (currentSampleRate, decay); // updates decay coeff each block
 
     const float glideTime  = apvts.getRawParameterValue ("glide")->load();
 
@@ -331,12 +326,6 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Gate: clear stale pitch when gate is closed
         if (!gateIsOpen)
             detector.clearHistory();
-
-        // Filter envelope follower (fast fixed attack, user-controlled decay)
-        if (absSample > filterEnvelope)
-            filterEnvelope += filterAttackCoeff * (absSample - filterEnvelope);
-        else
-            filterEnvelope += filterDecayCoeff  * (absSample - filterEnvelope);
 
         float detectedFreq = detector.processSample (inputSample, currentSampleRate);
 
@@ -402,18 +391,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float sawSample = oscillator.getNextSampleUnison();
         const float subSample = subOscillator.getNextSample();
         const int sweepMode = (int) apvts.getRawParameterValue ("sweepMode")->load();
-        float filteredSample = sawSample;
-        if (sweepMode != 0)
-        {
-            float envControlled = juce::jlimit (0.0f, 1.0f, filterEnvelope * sensitivity);
-            float sweepParam = (sweepMode == 2) ? (1.0f - envControlled) : envControlled;
-            // Baseline tracks the detected pitch; at freqTracking=0 it stays at filterFreq
-            const float trackBase = (lastDetectedFreq > 0.0f) ? lastDetectedFreq : filterFreq;
-            const float baseHz = juce::jlimit (20.0f, 4000.0f,
-                filterFreq + (trackBase - filterFreq) * freqTracking);
-            float cutoff = baseHz * std::pow (4000.0f / baseHz, sweepParam);
-            filteredSample = envFilter.process (sawSample, cutoff, resonance, (float) currentSampleRate);
-        }
+
+        float filteredSample = envelopeFilter.processSample (
+            inputSample, sawSample, lastDetectedFreq,
+            filterFreq, freqTracking, sensitivity, resonance, sweepMode);
 
         // Blend dry/wet and apply output level (sub bypasses filter — it's already very low)
         const float wet = (filteredSample + subSample * subLevel) * envelope * mix;

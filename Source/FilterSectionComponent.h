@@ -1,11 +1,14 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "FilterDisplayComponent.h"
+#include "PluginProcessor.h"
 
 class FilterSectionComponent : public juce::Component
 {
 public:
-    explicit FilterSectionComponent (juce::AudioProcessorValueTreeState& apvts);
+    FilterSectionComponent (JQGunkAudioProcessor& proc,
+                            juce::AudioProcessorValueTreeState& apvts);
     ~FilterSectionComponent() override;
 
     void paint (juce::Graphics&) override;
@@ -13,8 +16,13 @@ public:
 
     void updateButtonStates();
 
+    void repaintDisplay() { displayComponent.repaint(); }
+
 private:
+    JQGunkAudioProcessor& processor;
     juce::AudioProcessorValueTreeState& apvts;
+
+    FilterDisplayComponent displayComponent;
 
     juce::Slider filterFreqSlider, sensitivitySlider, resonanceSlider, decaySlider, freqTrackingSlider;
     juce::Label  filterFreqLabel,  sensitivityLabel,  resonanceLabel,  decayLabel,  freqTrackingLabel;

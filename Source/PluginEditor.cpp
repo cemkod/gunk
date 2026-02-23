@@ -7,7 +7,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       processor (p),
       gateSection   (p.apvts),
       oscSection    (p, p.apvts),
-      filterSection (p.apvts)
+      filterSection (p, p.apvts)
 {
     addAndMakeVisible (gateSection);
     addAndMakeVisible (oscSection);
@@ -26,7 +26,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     if (auto svgXml = juce::parseXML (juce::String::fromUTF8 (BinaryData::logo_svg, BinaryData::logo_svgSize)))
         logo = juce::Drawable::createFromSVG (*svgXml);
 
-    setSize (340, 670);
+    setSize (340, 770);
 }
 
 JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
@@ -40,6 +40,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
 {
     oscSection.updateButtonStates();
     filterSection.updateButtonStates();
+    filterSection.repaintDisplay();
 
     const float freq = processor.getDetectedFrequency();
     if (freq > 0.0f)
@@ -113,5 +114,5 @@ void JQGunkAudioProcessorEditor::resized()
     area.removeFromTop (8);
     oscSection.setBounds    (area.removeFromTop (272));
     area.removeFromTop (8);
-    filterSection.setBounds (area.removeFromTop (161));
+    filterSection.setBounds (area.removeFromTop (261));
 }

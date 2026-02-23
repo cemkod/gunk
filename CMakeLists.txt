@@ -29,6 +29,7 @@ target_sources(JQGunk PRIVATE
     Source/GateSectionComponent.cpp
     Source/OscSectionComponent.cpp
     Source/FilterSectionComponent.cpp
+    Source/FilterDisplayComponent.cpp
 )
 
 target_compile_definitions(JQGunk PUBLIC
