@@ -1,5 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ParamFormatters.h"
+
+using namespace ParamFormatters;
 
 #ifdef ENABLE_DEBUG_LOG
 static void dbgLog (const juce::String& msg)
@@ -50,9 +53,7 @@ JQGunkAudioProcessor::createParameterLayout()
         0.01f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String
-        {
-            return juce::String (20.0f * std::log10 (juce::jmax (v, 1e-10f)), 1) + " dB";
-        },
+            { return juce::String (20.0f * std::log10 (juce::jmax (v, 1e-10f)), 1) + " dB"; },
         [] (const juce::String& t) -> float
         {
             const float dB = t.retainCharacters ("0123456789.-").getFloatValue();
@@ -64,41 +65,21 @@ JQGunkAudioProcessor::createParameterLayout()
         "gateHysteresis", "Gate Hysteresis",
         juce::NormalisableRange<float> (0.0f, 6.0f, 0.1f), 3.5f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return "+" + juce::String (v, 1) + " dB";
-        },
+        [] (float v, int) -> juce::String { return "+" + juce::String (v, 1) + " dB"; },
         [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 6.0f, t.retainCharacters ("0123456789.").getFloatValue());
-        }));
+            { return juce::jlimit (0.0f, 6.0f, t.retainCharacters ("0123456789.").getFloatValue()); }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "glide", "Glide",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String {
-            if (v < 1.0f) return juce::String (juce::roundToInt (v * 1000.0f)) + " ms";
-            return juce::String (v, 2) + " s";
-        },
-        [] (const juce::String& t) -> float {
-            const float num = t.retainCharacters ("0123456789.").getFloatValue();
-            const bool isSeconds = t.containsIgnoreCase ("s") && ! t.containsIgnoreCase ("ms");
-            return juce::jlimit (0.0f, 1.0f, isSeconds ? num : num / 1000.0f);
-        }));
+        timeFmt(), timeParse (0.0f, 1.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "mix", "Dry/Wet Mix",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 1.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
-        }));
+        pctFmt(), pctParse (0.0f, 1.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "waveform", "Waveform",
@@ -109,44 +90,19 @@ JQGunkAudioProcessor::createParameterLayout()
         "envSensitivity", "Env Sensitivity",
         juce::NormalisableRange<float> (0.0f, 7.0f, 0.01f), 3.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v / 7.0f * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 7.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f * 7.0f);
-        }));
+        scaledPctFmt (7.0f), scaledPctParse (0.0f, 7.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envResonance", "Env Resonance",
         juce::NormalisableRange<float> (0.0f, 8.0f, 0.01f), 2.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v / 8.0f * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 8.0f, t.retainCharacters ("0123456789.").getFloatValue() / 100.0f * 8.0f);
-        }));
+        scaledPctFmt (8.0f), scaledPctParse (0.0f, 8.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envDecay", "Env Decay",
         juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.3f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            if (v < 1.0f)
-                return juce::String (juce::roundToInt (v * 1000.0f)) + " ms";
-            return juce::String (v, 2) + " s";
-        },
-        [] (const juce::String& t) -> float
-        {
-            const float num = t.retainCharacters ("0123456789.").getFloatValue();
-            const bool isSeconds = t.containsIgnoreCase ("s") && ! t.containsIgnoreCase ("ms");
-            return juce::jlimit (0.01f, 2.0f, isSeconds ? num : num / 1000.0f);
-        }));
+        timeFmt(), timeParse (0.01f, 2.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "sweepMode", "Sweep",
@@ -156,26 +112,15 @@ JQGunkAudioProcessor::createParameterLayout()
         "freqTracking", "Freq Tracking",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 1.0f,
-                t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
-        }));
+        pctFmt(), pctParse (0.0f, 1.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "filterFreq", "Filter Freq",
-        juce::NormalisableRange<float> (-2000.0f, 4000.0f),
-        0.0f,
+        juce::NormalisableRange<float> (-2000.0f, 4000.0f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String { return juce::String (juce::roundToInt (v)) + " Hz"; },
-        [] (const juce::String& t) -> float {
-            return juce::jlimit (-2000.0f, 4000.0f,
-                t.retainCharacters ("-0123456789.").getFloatValue());
-        }));
+        [] (const juce::String& t) -> float
+            { return juce::jlimit (-2000.0f, 4000.0f, t.retainCharacters ("-0123456789.").getFloatValue()); }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "unisonVoices", "Unison Voices",
@@ -183,9 +128,7 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String { return juce::String (juce::roundToInt (v)); },
         [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (1.0f, 8.0f, (float) juce::roundToInt (t.getFloatValue()));
-        }));
+            { return juce::jlimit (1.0f, 8.0f, (float) juce::roundToInt (t.getFloatValue())); }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "unisonDetune", "Unison Detune",
@@ -193,37 +136,19 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String { return juce::String (v, 1) + " ct"; },
         [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 100.0f, t.retainCharacters ("0123456789.").getFloatValue());
-        }));
+            { return juce::jlimit (0.0f, 100.0f, t.retainCharacters ("0123456789.").getFloatValue()); }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "subLevel", "Sub Level",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 1.0f,
-                t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
-        }));
+        pctFmt(), pctParse (0.0f, 1.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "unisonBlend", "Unison Blend",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-        {
-            return juce::String (juce::roundToInt (v * 100.0f)) + " %";
-        },
-        [] (const juce::String& t) -> float
-        {
-            return juce::jlimit (0.0f, 1.0f,
-                t.retainCharacters ("0123456789.").getFloatValue() / 100.0f);
-        }));
+        pctFmt(), pctParse (0.0f, 1.0f)));
 
     return layout;
 }
