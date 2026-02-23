@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.22)
 project(JQGunk VERSION 1.0.0)
 
-if(CMAKE_CROSSCOMPILING)
-    include(FetchContent)
-    FetchContent_Declare(
-        JUCE
-        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG        7.0.12
-        GIT_SHALLOW    TRUE
-    )
+include(FetchContent)
+FetchContent_Declare(
+    JUCE
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG        7.0.12
+    GIT_SHALLOW    TRUE
+)
 
+if(CMAKE_CROSSCOMPILING)
     # juce_vst3_helper dlopen()s the built DLL to extract class IDs, which fails
     # when the DLL is a Windows PE binary on a Linux host. Register a stub before
     # FetchContent_MakeAvailable so JUCE's _juce_add_vst3_manifest_helper_target()
@@ -29,7 +29,10 @@ if(CMAKE_CROSSCOMPILING)
 
     FetchContent_MakeAvailable(JUCE)
 else()
-    find_package(JUCE CONFIG REQUIRED)
+    find_package(JUCE CONFIG QUIET)
+    if(NOT JUCE_FOUND)
+        FetchContent_MakeAvailable(JUCE)
+    endif()
 endif()
 
 juce_add_plugin(JQGunk
@@ -64,7 +67,43 @@ target_sources(JQGunk PRIVATE
 
 if(UNIX AND NOT APPLE)
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/Presets/Factory/"
-            DESTINATION "$ENV{HOME}/.config/JQGunk/Factory Presets")
+            DESTINATION "$ENV{HOME}/.config/JQGunk/Factory Presets"
+            EXCLUDE_FROM_ALL)
+
+    # System-wide install rules used by CPack
+    install(DIRECTORY
+        "${CMAKE_BINARY_DIR}/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3"
+        DESTINATION "lib/vst3"
+        COMPONENT vst3
+    )
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/Presets/Factory/"
+        DESTINATION "share/JQGunk/Factory Presets"
+        COMPONENT vst3
+    )
+
+    # CPack
+    set(CPACK_PACKAGE_NAME "jq-gunk")
+    set(CPACK_PACKAGE_VENDOR "JimQode")
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "JQ Gunk bass synth VST3 plugin")
+    set(CPACK_PACKAGE_CONTACT "contact@jimqode.com")
+    set(CPACK_COMPONENTS_ALL vst3)
+    set(CPACK_STRIP_FILES TRUE)
+    # Only install our vst3 component — exclude JUCE's own install rules
+    set(CPACK_INSTALL_CMAKE_PROJECTS
+        "${CMAKE_BINARY_DIR}" "${PROJECT_NAME}" "vst3" "/"
+    )
+
+    set(CPACK_DEBIAN_PACKAGE_SECTION "sound")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libstdc++6, libasound2t64")
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+
+    set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
+    set(CPACK_RPM_PACKAGE_LICENSE "Proprietary")
+    set(CPACK_RPM_PACKAGE_REQUIRES "alsa-lib")
+    set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+
+    include(CPack)
 endif()
 
 add_custom_target(install-presets
@@ -96,3 +135,50 @@ target_link_libraries(JQGunk
         $<$<CONFIG:Release>:juce::juce_recommended_lto_flags>
         juce::juce_recommended_warning_flags
 )
+
+# Statically link MinGW runtimes on Windows cross-compile so the VST3/exe
+# has no libgcc_s_seh-1.dll / libstdc++-6.dll / libwinpthread-1.dll dependencies.
+# libwinpthread cannot be fully statically absorbed (libstdc++ depends on it at
+# runtime), so it is bundled inside the VST3 package instead — see bundle-windows.
+if(CMAKE_CROSSCOMPILING AND WIN32)
+    set(_mingw_static_flags
+        -static-libgcc
+        -static-libstdc++
+        /usr/x86_64-w64-mingw32/lib/libwinpthread.a
+    )
+    target_link_options(JQGunk_VST3 PRIVATE ${_mingw_static_flags})
+    target_link_options(JQGunk_Standalone PRIVATE ${_mingw_static_flags})
+
+    # Paths
+    set(_vst3_src "${CMAKE_BINARY_DIR}/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3")
+    set(_winpthread_dll "/usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll")
+    set(_bundle_dir "${CMAKE_BINARY_DIR}/bundle-windows")
+    set(_install_txt "${CMAKE_SOURCE_DIR}/packaging/windows-install.txt")
+    set(_zip_out "${CMAKE_BINARY_DIR}/JQGunk-windows-vst3.zip")
+
+    add_custom_target(bundle-windows
+        DEPENDS JQGunk_VST3
+        # 1. Recreate staging dir
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${_bundle_dir}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${_bundle_dir}/JQ Gunk.vst3/Contents/x86_64-win"
+            "${_bundle_dir}/JQ Gunk.vst3/Contents/Resources"
+        # 2. Copy VST3 contents
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${_vst3_src}"
+            "${_bundle_dir}/JQ Gunk.vst3"
+        # 3. Bundle libwinpthread-1.dll next to the plugin DLL
+        COMMAND ${CMAKE_COMMAND} -E copy
+            "${_winpthread_dll}"
+            "${_bundle_dir}/JQ Gunk.vst3/Contents/x86_64-win/libwinpthread-1.dll"
+        # 4. Copy install instructions
+        COMMAND ${CMAKE_COMMAND} -E copy
+            "${_install_txt}"
+            "${_bundle_dir}/INSTALL.txt"
+        # 5. Zip
+        COMMAND ${CMAKE_COMMAND} -E rm -f "${_zip_out}"
+        COMMAND ${CMAKE_COMMAND} -E chdir "${_bundle_dir}"
+            ${CMAKE_COMMAND} -E tar cf "${_zip_out}" "--format=zip" "."
+        COMMENT "Building Windows VST3 bundle: ${_zip_out}"
+    )
+endif()

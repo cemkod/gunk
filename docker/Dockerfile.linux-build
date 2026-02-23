@@ -1,0 +1,28 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    # Build tools
+    cmake \
+    ninja-build \
+    g++ \
+    git \
+    ccache \
+    # JUCE Linux dependencies
+    libfreetype-dev \
+    libfontconfig-dev \
+    libasound2-dev \
+    libx11-dev \
+    libxext-dev \
+    libxinerama-dev \
+    libxrandr-dev \
+    libxcursor-dev \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    # CPack generators
+    dpkg-dev \
+    rpm \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src

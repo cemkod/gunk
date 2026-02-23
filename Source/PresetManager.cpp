@@ -9,8 +9,17 @@ PresetManager::PresetManager (juce::AudioProcessorValueTreeState& apvts_)
 //==============================================================================
 juce::File PresetManager::getFactoryPresetsDir()
 {
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-               .getChildFile ("JQGunk/Factory Presets");
+    juce::File userDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                             .getChildFile ("JQGunk/Factory Presets");
+    if (userDir.isDirectory())
+        return userDir;
+
+    // Fallback for system-wide package installs (e.g. .deb / .rpm)
+    juce::File systemDir ("/usr/share/JQGunk/Factory Presets");
+    if (systemDir.isDirectory())
+        return systemDir;
+
+    return userDir; // default even if absent (install-presets target will populate it)
 }
 
 juce::File PresetManager::getUserPresetsDir()
