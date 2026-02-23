@@ -1,7 +1,7 @@
 #include "PitchDetector.h"
 #include <cmath>
 
-static constexpr double kMinPitchHz         = 40.0;
+static constexpr double kMinPitchHz         = 30.0;
 static constexpr double kMaxPitchHz         = 400.0;
 static constexpr float  kMinEnergyThreshold = 1e-12f;
 static constexpr float  kFreqHysteresisRatio = 0.01f;
@@ -182,20 +182,58 @@ void AutocorrelationPitchDetector::runAutocorrelation()
         return;
     }
 
-    // Select the first peak above the threshold.
-    // Low-frequency (large lag) peaks are given a bonus (lower threshold) to
-    // avoid the algorithm preferring a higher octave.
-    // Threshold scales linearly: 0.9 at minLag (400 Hz) → 0.7 at maxLag (40 Hz).
+    // 8. Continuity-based peak selection
     int bestLag = -1;
-    for (int i = 0; i < numPeaks; ++i)
+
+    if (detectedFrequency > 0.0f)
     {
-        float t = (float) (peaks[i].lag - minLag) / (float) (maxLag - minLag);
-        t = juce::jlimit (0.0f, 1.0f, t);
-        const float threshold = maxPeakVal * (0.9f - 0.2f * t);
-        if (peaks[i].value >= threshold)
+        float prevLag = (float) (sampleRate / detectedFrequency);
+        float bestScore = -1.0f;
+
+        // Find the best peak value near the previous lag (within ±6% = ~1 semitone).
+        // If no strong peak exists there, the old note has ended — treat as new onset.
+        float prevRegionBest = 0.0f;
+        for (int i = 0; i < numPeaks; ++i)
         {
-            bestLag = peaks[i].lag;
-            break;
+            float ratio = peaks[i].lag / prevLag;
+            if (ratio >= 0.94f && ratio <= 1.06f)
+                prevRegionBest = std::max (prevRegionBest, peaks[i].value);
+        }
+        const bool hasContinuity = prevRegionBest >= 0.4f;
+
+        for (int i = 0; i < numPeaks; ++i)
+        {
+            float t = (float) (peaks[i].lag - minLag) / (float) (maxLag - minLag);
+            t = juce::jlimit (0.0f, 1.0f, t);
+            const float threshold = maxPeakVal * (0.9f - 0.2f * t);
+
+            if (peaks[i].value < threshold)
+                continue;
+
+            float ratio = peaks[i].lag / prevLag;
+            // Only penalise octave jumps when the previous note is still ringing.
+            // If the previous-lag region is silent, this is a genuine note change.
+            float penalty = hasContinuity ? std::abs (std::log2 (ratio)) : 0.0f;
+            float score = peaks[i].value - 0.15f * penalty;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestLag = peaks[i].lag;
+            }
+        }
+    }
+    else
+    {
+        // No prior pitch: choose strongest peak
+        float bestVal = -1.0f;
+        for (int i = 0; i < numPeaks; ++i)
+        {
+            if (peaks[i].value > bestVal)
+            {
+                bestVal = peaks[i].value;
+                bestLag = peaks[i].lag;
+            }
         }
     }
 
