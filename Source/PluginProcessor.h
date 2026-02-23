@@ -4,6 +4,7 @@
 #include "Oscillator.h"
 #include "PitchDetector.h"
 #include "FilterEngine.h"
+#include "GlideEngine.h"
 #include "PresetManager.h"
 
 //==============================================================================
@@ -58,7 +59,6 @@ private:
 
     // processBlock helpers
     void updateOscillatorParams();
-    void updateGlideState (float detectedFreq, int glideSamples);
 
     PresetManager presetManager { apvts };
 
@@ -68,14 +68,7 @@ private:
     juce::String customWavetablePath;
     int paramWhenCustomLoaded = -1; // waveform param index active when a WAV was loaded
 
-    // Last successfully detected frequency — held until signal drops below gate
-    float lastDetectedFreq = 0.0f;
-    float glideFreq = 0.0f;
-    float glideSourceFreq   = 0.0f;
-    float glideTargetFreq   = 0.0f;
-    int   glideSamplesElapsed = 0;
-    int   glideSamplesTotal   = 0;
-    int   glideSnapHops       = 0; // snap (no ramp) for first N detections after gate-open
+    GlideEngine glide;
 
     // Envelope follower for the noise gate
     float envelope = 0.0f;

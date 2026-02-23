@@ -3,7 +3,8 @@
 
 FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
                                                 juce::AudioProcessorValueTreeState& avts)
-    : processor (proc),
+    : LabelledSectionComponent ("ENV FILTER"),
+      processor (proc),
       apvts (avts),
       displayComponent (proc, avts),
       filterFreqAttach    (avts, "filterFreq",      filterFreqSlider),
@@ -55,17 +56,6 @@ void FilterSectionComponent::updateButtonStates()
     sweepBtnDown.setToggleState (idx == 2, juce::dontSendNotification);
 }
 
-void FilterSectionComponent::paint (juce::Graphics& g)
-{
-    const auto bounds = getLocalBounds();
-    g.setColour (BassLookAndFeel::surface);
-    g.fillRoundedRectangle (bounds.toFloat(), 6.0f);
-    g.setColour (BassLookAndFeel::border);
-    g.drawRoundedRectangle (bounds.toFloat(), 6.0f, 1.0f);
-    g.setColour (BassLookAndFeel::text);
-    g.setFont (juce::Font (11.0f, juce::Font::bold));
-    g.drawText ("ENV FILTER", bounds.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
-}
 
 void FilterSectionComponent::resized()
 {

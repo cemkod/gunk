@@ -35,30 +35,10 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "gateThreshold", "Gate Threshold",
-        juce::NormalisableRange<float> (
-            0.001f, 0.04f,
-            [] (float start, float end, float v) -> float  // normalized → linear amplitude
-            {
-                const float dBStart = 20.0f * std::log10 (start);
-                const float dBEnd   = 20.0f * std::log10 (end);
-                return std::pow (10.0f, (dBStart + v * (dBEnd - dBStart)) / 20.0f);
-            },
-            [] (float start, float end, float v) -> float  // linear amplitude → normalized
-            {
-                const float dBStart = 20.0f * std::log10 (start);
-                const float dBEnd   = 20.0f * std::log10 (end);
-                const float dB      = 20.0f * std::log10 (juce::jmax (v, 1e-10f));
-                return juce::jlimit (0.0f, 1.0f, (dB - dBStart) / (dBEnd - dBStart));
-            }),
+        logAmpRange (0.001f, 0.04f),
         0.01f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) -> juce::String
-            { return juce::String (20.0f * std::log10 (juce::jmax (v, 1e-10f)), 1) + " dB"; },
-        [] (const juce::String& t) -> float
-        {
-            const float dB = t.retainCharacters ("0123456789.-").getFloatValue();
-            return juce::jlimit (0.001f, 0.04f, std::pow (10.0f, dB / 20.0f));
-        }));
+        logAmpFmt(), logAmpParse (0.001f, 0.04f)));
 
     // Hysteresis is stored in dB; the gate opens at thresh * 10^(hyst/20)
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -168,12 +148,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     oscillator.reset();
     subOscillator.reset();
     envelope = 0.0f;
-    glideFreq = 0.0f;
-    glideSourceFreq     = 0.0f;
-    glideTargetFreq     = 0.0f;
-    glideSamplesElapsed = 0;
-    glideSamplesTotal   = 0;
-    glideSnapHops       = 0;
+    glide.reset();
     gateIsOpen = false;
     envelopeFilter.reset();
     envelopeFilter.prepare (sampleRate, 0.3f); // default decay; updated per-block
@@ -214,63 +189,6 @@ void JQGunkAudioProcessor::updateOscillatorParams()
     const float detuneCents = apvts.getRawParameterValue ("unisonDetune")->load();
     const float uniBlend    = apvts.getRawParameterValue ("unisonBlend")->load();
     oscillator.setUnisonParams (numVoices, detuneCents, uniBlend);
-}
-
-void JQGunkAudioProcessor::updateGlideState (float detectedFreq, int glideSamples)
-{
-    if (detectedFreq > 0.0f)
-    {
-        lastDetectedFreq = detectedFreq;
-
-        if (glideFreq == 0.0f || glideSnapHops > 0)
-        {
-            // Cold start or detector still settling: snap directly, no ramp
-            glideFreq       = detectedFreq;
-            glideSourceFreq = detectedFreq;
-            glideTargetFreq = detectedFreq;
-            glideSamplesElapsed = 0;
-            glideSamplesTotal   = 0;
-            if (glideSnapHops > 0)
-                --glideSnapHops;
-            else
-                glideSnapHops = 4; // snap for next 4 detections while detector settles
-        }
-        else if (detectedFreq != glideTargetFreq)
-        {
-            // New pitch target: start a new linear ramp
-            glideSourceFreq     = glideFreq;
-            glideTargetFreq     = detectedFreq;
-            glideSamplesElapsed = 0;
-            glideSamplesTotal   = glideSamples;
-        }
-
-        // Advance the linear ramp
-        if (glideSamplesTotal > 0 && glideSamplesElapsed < glideSamplesTotal)
-        {
-            const float t = (float) ++glideSamplesElapsed / (float) glideSamplesTotal;
-            glideFreq = glideSourceFreq + (glideTargetFreq - glideSourceFreq) * t;
-        }
-        else
-        {
-            glideFreq = glideTargetFreq;
-        }
-
-        oscillator.setFrequency (glideFreq, currentSampleRate);
-        subOscillator.setFrequency (glideFreq / 2.0f, currentSampleRate);
-    }
-    else if (!gateIsOpen || lastDetectedFreq == 0.0f)
-    {
-        lastDetectedFreq    = 0.0f;
-        glideFreq           = 0.0f;
-        glideSourceFreq     = 0.0f;
-        glideTargetFreq     = 0.0f;
-        glideSamplesElapsed = 0;
-        glideSamplesTotal   = 0;
-        glideSnapHops       = 0;
-        oscillator.reset();
-        subOscillator.reset();
-    }
-    // else: detection lost but gate still open — hold last frequency
 }
 
 //==============================================================================
@@ -338,14 +256,15 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             ? (int) (currentSampleRate * glideTime)
             : 0;
 
-        updateGlideState (detectedFreq, glideSamples);
+        glide.update (detectedFreq, glideSamples, gateIsOpen,
+                      oscillator, subOscillator, currentSampleRate);
 
         // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSampleUnison();
         const float subSample = subOscillator.getNextSample();
 
         float filteredSample = envelopeFilter.processSample (
-            inputSample, sawSample, lastDetectedFreq,
+            inputSample, sawSample, glide.lastDetectedFreq,
             filterFreq, freqTracking, sensitivity, resonance, sweepMode);
 
         // Blend dry/wet and apply output level (sub bypasses filter — it's already very low)

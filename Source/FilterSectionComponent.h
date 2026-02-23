@@ -3,15 +3,15 @@
 #include <JuceHeader.h>
 #include "FilterDisplayComponent.h"
 #include "PluginProcessor.h"
+#include "LabelledSectionComponent.h"
 
-class FilterSectionComponent : public juce::Component
+class FilterSectionComponent : public LabelledSectionComponent
 {
 public:
     FilterSectionComponent (JQGunkAudioProcessor& proc,
                             juce::AudioProcessorValueTreeState& apvts);
     ~FilterSectionComponent() override;
 
-    void paint (juce::Graphics&) override;
     void resized() override;
 
     void updateButtonStates();

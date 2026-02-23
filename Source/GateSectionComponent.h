@@ -1,8 +1,9 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "LabelledSectionComponent.h"
 
-class GateSectionComponent : public juce::Component
+class GateSectionComponent : public LabelledSectionComponent
 {
 public:
     explicit GateSectionComponent (juce::AudioProcessorValueTreeState& avts);

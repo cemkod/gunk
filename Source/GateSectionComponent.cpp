@@ -2,7 +2,8 @@
 #include "LookAndFeel.h"
 
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& avts)
-    : apvts (avts),
+    : LabelledSectionComponent ("GATE/TRACKING"),
+      apvts (avts),
       gateThresholdAttach  (avts, "gateThreshold",  gateThresholdSlider),
       gateHysteresisAttach (avts, "gateHysteresis", gateHysteresisSlider),
       glideAttach          (avts, "glide",           glideSlider)
@@ -19,14 +20,7 @@ GateSectionComponent::~GateSectionComponent()
 
 void GateSectionComponent::paint (juce::Graphics& g)
 {
-    const auto bounds = getLocalBounds();
-    g.setColour (BassLookAndFeel::surface);
-    g.fillRoundedRectangle (bounds.toFloat(), 6.0f);
-    g.setColour (BassLookAndFeel::border);
-    g.drawRoundedRectangle (bounds.toFloat(), 6.0f, 1.0f);
-    g.setColour (BassLookAndFeel::text);
-    g.setFont (juce::Font (11.0f, juce::Font::bold));
-    g.drawText ("GATE/TRACKING", bounds.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
+    LabelledSectionComponent::paint (g);
 
     // --- VU meter strip ---
     {

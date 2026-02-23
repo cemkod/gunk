@@ -3,7 +3,8 @@
 
 OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
                                            juce::AudioProcessorValueTreeState& avts)
-    : processor (p),
+    : LabelledSectionComponent ("OSC"),
+      processor (p),
       apvts (avts),
       mixAttach          (avts, "mix",           mixSlider),
       subLevelAttach     (avts, "subLevel",      subLevelSlider),
@@ -151,17 +152,6 @@ void OscSectionComponent::updateButtonStates()
     waveBtnCustom.setToggleState (customActive,              juce::dontSendNotification);
 }
 
-void OscSectionComponent::paint (juce::Graphics& g)
-{
-    const auto bounds = getLocalBounds();
-    g.setColour (BassLookAndFeel::surface);
-    g.fillRoundedRectangle (bounds.toFloat(), 6.0f);
-    g.setColour (BassLookAndFeel::border);
-    g.drawRoundedRectangle (bounds.toFloat(), 6.0f, 1.0f);
-    g.setColour (BassLookAndFeel::text);
-    g.setFont (juce::Font (11.0f, juce::Font::bold));
-    g.drawText ("OSC", bounds.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
-}
 
 void OscSectionComponent::resized()
 {

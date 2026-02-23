@@ -46,4 +46,39 @@ namespace ParamFormatters
             return juce::jlimit (lo, hi, isSeconds ? num : num / 1000.0f);
         };
     }
+    // Logarithmic (dB-scale) NormalisableRange for linear amplitude parameters,
+    // e.g. gateThreshold where 0.001–0.04 should feel perceptually even.
+    inline juce::NormalisableRange<float> logAmpRange (float lo, float hi)
+    {
+        return juce::NormalisableRange<float> (
+            lo, hi,
+            [] (float start, float end, float v) -> float  // normalized → linear amplitude
+            {
+                const float dBStart = 20.0f * std::log10 (start);
+                const float dBEnd   = 20.0f * std::log10 (end);
+                return std::pow (10.0f, (dBStart + v * (dBEnd - dBStart)) / 20.0f);
+            },
+            [] (float start, float end, float v) -> float  // linear amplitude → normalized
+            {
+                const float dBStart = 20.0f * std::log10 (start);
+                const float dBEnd   = 20.0f * std::log10 (end);
+                const float dB      = 20.0f * std::log10 (juce::jmax (v, 1e-10f));
+                return juce::jlimit (0.0f, 1.0f, (dB - dBStart) / (dBEnd - dBStart));
+            });
+    }
+
+    // Formatter/parser pair for logAmpRange parameters — displays as dB.
+    inline auto logAmpFmt()
+    {
+        return [] (float v, int) -> juce::String
+            { return juce::String (20.0f * std::log10 (juce::jmax (v, 1e-10f)), 1) + " dB"; };
+    }
+    inline auto logAmpParse (float lo, float hi)
+    {
+        return [lo, hi] (const juce::String& t) -> float
+        {
+            const float dB = t.retainCharacters ("0123456789.-").getFloatValue();
+            return juce::jlimit (lo, hi, std::pow (10.0f, dB / 20.0f));
+        };
+    }
 } // namespace ParamFormatters

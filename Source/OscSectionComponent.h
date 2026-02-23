@@ -2,15 +2,15 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "LabelledSectionComponent.h"
 
-class OscSectionComponent : public juce::Component
+class OscSectionComponent : public LabelledSectionComponent
 {
 public:
     OscSectionComponent (JQGunkAudioProcessor& processor,
                          juce::AudioProcessorValueTreeState& apvts);
     ~OscSectionComponent() override;
 
-    void paint (juce::Graphics&) override;
     void resized() override;
 
     void updateButtonStates();
