@@ -244,6 +244,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     envelopeFilter.prepare (currentSampleRate, decay); // updates decay coeff each block
 
     const float glideTime  = apvts.getRawParameterValue ("glide")->load();
+    const int   sweepMode  = (int) apvts.getRawParameterValue ("sweepMode")->load();
+
+    // Schmitt trigger: open threshold is close threshold raised by hysteresis dB
+    const float openThresh = gateThresh * std::pow (10.0f, gateHyst / 20.0f);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -256,9 +260,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         else
             envelope += releaseCoeff * (absSample - envelope);
 
-
-        // Schmitt trigger gate (gateHyst is in dB; open threshold = close threshold * 10^(hyst/20))
-        const float openThresh = gateThresh * std::pow (10.0f, gateHyst / 20.0f);
+        // Schmitt trigger gate
         if (!gateIsOpen && envelope >= openThresh)
             gateIsOpen = true;
         else if (gateIsOpen && envelope < gateThresh)
@@ -331,7 +333,6 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSampleUnison();
         const float subSample = subOscillator.getNextSample();
-        const int sweepMode = (int) apvts.getRawParameterValue ("sweepMode")->load();
 
         float filteredSample = envelopeFilter.processSample (
             inputSample, sawSample, lastDetectedFreq,
@@ -441,13 +442,11 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
     apvts.replaceState (juce::ValueTree::fromXml (*xml));
     presetManager.setCurrentIndex (xml->getIntAttribute ("currentPresetIndex", -1));
 
-    const int waveIdxAfterReplace = (int) apvts.getRawParameterValue ("waveform")->load();
-    dbgLog ("setStateInformation: after replaceState | waveParam=" + juce::String (waveIdxAfterReplace));
+    const int waveIdx = (int) apvts.getRawParameterValue ("waveform")->load();
+    dbgLog ("setStateInformation: after replaceState | waveParam=" + juce::String (waveIdx));
 
     customWavetablePath = xml->getStringAttribute ("customWavetablePath", {});
     dbgLog ("setStateInformation: customWavetablePath=" + customWavetablePath);
-
-    const int waveIdx = waveIdxAfterReplace;
 
     if (customWavetablePath.isNotEmpty())
     {
