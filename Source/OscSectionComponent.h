@@ -38,10 +38,14 @@ private:
     juce::DrawableButton waveBtnSaw    { "sawtooth", juce::DrawableButton::ImageFitted };
     juce::DrawableButton waveBtnCustom { "custom",   juce::DrawableButton::ImageFitted };
 
+    juce::TextButton octBtn0 { "0" }, octBtn1 { "+1" }, octBtn2 { "+2" };
+    juce::Label      octLabel;
+
     std::unique_ptr<juce::FileChooser> fileChooser;
 
     void buildWaveformIcons();
     void configureWaveformButtons();
+    void configureOctaveButtons();
     void setWaveformParam (int idx);
     void openWavFileDialog();
 

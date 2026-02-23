@@ -130,6 +130,10 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         pctFmt(), pctParse (0.0f, 1.0f)));
 
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "octaveShift", "Octave Shift",
+        juce::StringArray { "0", "+1", "+2" }, 0));
+
     return layout;
 }
 
@@ -255,6 +259,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         float filteredForPitch = pitchDetectorLPF.processSample (inputSample);
         float detectedFreq = detector.processSample (filteredForPitch, currentSampleRate);
+
+        const int octaveIdx = (int) apvts.getRawParameterValue ("octaveShift")->load();
+        if (octaveIdx > 0)
+            detectedFreq *= (octaveIdx == 1 ? 2.0f : 4.0f);
 
         const int glideSamples = (glideTime > 0.0f)
             ? (int) (currentSampleRate * glideTime)

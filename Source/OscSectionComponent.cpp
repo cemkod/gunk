@@ -22,6 +22,7 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
 
     buildWaveformIcons();
     configureWaveformButtons();
+    configureOctaveButtons();
 
     updateButtonStates();
 }
@@ -80,6 +81,37 @@ void OscSectionComponent::buildWaveformIcons()
     applyIcons (waveBtnSq,     sqPath);
     applyIcons (waveBtnSaw,    sawPath);
     applyIcons (waveBtnCustom, customPath);
+}
+
+void OscSectionComponent::configureOctaveButtons()
+{
+    octLabel.setText ("OCTAVE", juce::dontSendNotification);
+    octLabel.setFont (juce::Font (UIConst::uiFontSize));
+    octLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
+    octLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (octLabel);
+
+    const int octGroup = 102;
+    for (auto* b : { &octBtn0, &octBtn1, &octBtn2 })
+    {
+        b->setRadioGroupId (octGroup);
+        b->setClickingTogglesState (true);
+        b->setColour (juce::TextButton::buttonColourId,     BassLookAndFeel::surface);
+        b->setColour (juce::TextButton::buttonOnColourId,   BassLookAndFeel::accent);
+        b->setColour (juce::TextButton::textColourOffId,    BassLookAndFeel::iconDim);
+        b->setColour (juce::TextButton::textColourOnId,     juce::Colours::black);
+        addAndMakeVisible (b);
+    }
+
+    auto setOctParam = [this](int idx)
+    {
+        auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("octaveShift"));
+        if (p) *p = idx;
+    };
+
+    octBtn0.onClick = [setOctParam] { setOctParam (0); };
+    octBtn1.onClick = [setOctParam] { setOctParam (1); };
+    octBtn2.onClick = [setOctParam] { setOctParam (2); };
 }
 
 void OscSectionComponent::configureWaveformButtons()
@@ -150,6 +182,11 @@ void OscSectionComponent::updateButtonStates()
     waveBtnSq    .setToggleState (!customActive && idx == 1, juce::dontSendNotification);
     waveBtnSaw   .setToggleState (!customActive && idx == 2, juce::dontSendNotification);
     waveBtnCustom.setToggleState (customActive,              juce::dontSendNotification);
+
+    const int octIdx = (int) apvts.getRawParameterValue ("octaveShift")->load();
+    octBtn0.setToggleState (octIdx == 0, juce::dontSendNotification);
+    octBtn1.setToggleState (octIdx == 1, juce::dontSendNotification);
+    octBtn2.setToggleState (octIdx == 2, juce::dontSendNotification);
 }
 
 
@@ -168,15 +205,27 @@ void OscSectionComponent::resized()
 
     inner.removeFromTop (10);
 
-    // Row 1: Mix | Sub knobs
-    const int knobW2 = inner.getWidth() / 2;
+    // Row 1: Mix | Octave gang | Sub
+    // Three equal columns; octave gang is label + 3 stacked buttons
+    const int colW = inner.getWidth() / 3;
     auto knobRow = inner.removeFromTop (75);
-    mixSlider     .setBounds (knobRow.removeFromLeft (knobW2));
-    subLevelSlider.setBounds (knobRow);
+    auto lblRow  = inner.removeFromTop (18);
 
-    auto lblRow = inner.removeFromTop (18);
-    mixLabel     .setBounds (lblRow.removeFromLeft (knobW2));
-    subLevelLabel.setBounds (lblRow);
+    mixSlider     .setBounds (knobRow.removeFromLeft (colW));
+    mixLabel      .setBounds (lblRow .removeFromLeft (colW));
+
+    // Middle column: octave label at top, then 3 stacked buttons
+    auto octCol = knobRow.removeFromLeft (colW);
+    lblRow.removeFromLeft (colW); // consume middle label slot (octave label is inside knobRow)
+
+    octLabel.setBounds (octCol.removeFromTop (14));
+    const int btnH = octCol.getHeight() / 3;
+    octBtn0.setBounds (octCol.removeFromTop (btnH));
+    octBtn1.setBounds (octCol.removeFromTop (btnH));
+    octBtn2.setBounds (octCol);
+
+    subLevelSlider.setBounds (knobRow); // remainder
+    subLevelLabel .setBounds (lblRow);
 
     inner.removeFromTop (8);
 
