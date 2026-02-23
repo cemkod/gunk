@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "UIConstants.h"
 
 
 class BassLookAndFeel : public juce::LookAndFeel_V4
@@ -19,7 +20,7 @@ public:
                                     const juce::String& name, juce::Component& parent)
     {
         s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, UIConst::sliderTextBoxW, UIConst::sliderTextBoxH);
         s.setColour (juce::Slider::textBoxTextColourId,       text);
         s.setColour (juce::Slider::textBoxBackgroundColourId, surfaceDark);
         s.setColour (juce::Slider::textBoxOutlineColourId,    borderDim);
@@ -27,7 +28,7 @@ public:
 
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setFont (juce::Font (11.0f, juce::Font::bold));
+        l.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
         l.setColour (juce::Label::textColourId, text);
         parent.addAndMakeVisible (l);
     }
@@ -51,7 +52,7 @@ public:
                           radius * 2.0f, radius * 2.0f,
                           rotaryStartAngle, rotaryEndAngle, true);
             g.setColour (border);
-            g.strokePath (track, juce::PathStrokeType (3.0f,
+            g.strokePath (track, juce::PathStrokeType (UIConst::knobArcStrokeWidth,
                 juce::PathStrokeType::curved,
                 juce::PathStrokeType::rounded));
         }
@@ -63,19 +64,19 @@ public:
                           radius * 2.0f, radius * 2.0f,
                           rotaryStartAngle, toAngle, true);
             g.setColour (accent);
-            g.strokePath (value, juce::PathStrokeType (3.0f,
+            g.strokePath (value, juce::PathStrokeType (UIConst::knobArcStrokeWidth,
                 juce::PathStrokeType::curved,
                 juce::PathStrokeType::rounded));
         }
 
         // Knob body
-        const float bodyRadius = radius * 0.65f;
+        const float bodyRadius = radius * UIConst::knobBodyRadiusRatio;
         g.setColour (surface);
         g.fillEllipse (cx - bodyRadius, cy - bodyRadius, bodyRadius * 2.0f, bodyRadius * 2.0f);
 
         // Pointer dot
-        const float dotRadius = 3.0f;
-        const float dotR = radius * 0.6f;
+        const float dotRadius = UIConst::knobPointerRadius;
+        const float dotR = radius * UIConst::knobPointerPosRatio;
         const float dotX = cx + dotR * std::sin (toAngle);
         const float dotY = cy - dotR * std::cos (toAngle);
         g.setColour (accent);
@@ -92,10 +93,10 @@ public:
         const auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
 
         g.setColour (on ? border : surfaceDark);
-        g.fillRoundedRectangle (bounds, 4.0f);
+        g.fillRoundedRectangle (bounds, UIConst::buttonCornerRadius);
 
         g.setColour (on ? accent : borderDim);
-        g.drawRoundedRectangle (bounds, 4.0f, 1.0f);
+        g.drawRoundedRectangle (bounds, UIConst::buttonCornerRadius, 1.0f);
     }
 
     void drawButtonText (juce::Graphics& g,
@@ -105,7 +106,7 @@ public:
     {
         const bool on = button.getToggleState();
         g.setColour (on ? accent : textDim);
-        g.setFont (juce::Font (11.0f, juce::Font::bold));
+        g.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
         g.drawFittedText (button.getButtonText(),
                           button.getLocalBounds(),
                           juce::Justification::centred, 1);
@@ -116,9 +117,9 @@ public:
                        juce::ComboBox&) override
     {
         g.setColour (surface);
-        g.fillRoundedRectangle (0.0f, 0.0f, (float) w, (float) h, 4.0f);
+        g.fillRoundedRectangle (0.0f, 0.0f, (float) w, (float) h, UIConst::comboBoxCornerRadius);
         g.setColour (border);
-        g.drawRoundedRectangle (0.5f, 0.5f, (float) w - 1.0f, (float) h - 1.0f, 4.0f, 1.0f);
+        g.drawRoundedRectangle (0.5f, 0.5f, (float) w - 1.0f, (float) h - 1.0f, UIConst::comboBoxCornerRadius, 1.0f);
 
         // Draw arrow
         const float arrowX = (float) w - 14.0f;
@@ -133,7 +134,7 @@ public:
 
     juce::Font getComboBoxFont (juce::ComboBox&) override
     {
-        return juce::Font (11.0f, juce::Font::bold);
+        return juce::Font (UIConst::uiFontSize, juce::Font::bold);
     }
 
     void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override

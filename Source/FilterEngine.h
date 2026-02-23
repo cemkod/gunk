@@ -34,8 +34,10 @@ public:
         else
             filterEnvelope += decayCoeff  * (abs - filterEnvelope);
 
+        static constexpr float kFilterCutoffMinHz = 20.0f;
+        static constexpr float kFilterCutoffMaxHz = 4000.0f;
         // Base cutoff with pitch tracking: knob freq + weighted detected pitch
-        const float baseHz = juce::jlimit (20.0f, 4000.0f,
+        const float baseHz = juce::jlimit (kFilterCutoffMinHz, kFilterCutoffMaxHz,
             filterFreq + lastDetectedFreq * freqTracking);
 
         // Sweep
@@ -44,7 +46,7 @@ public:
         {
             float envControlled = juce::jlimit (0.0f, 1.0f, filterEnvelope * sensitivity);
             float sweepParam = (sweepMode == 2) ? (1.0f - envControlled) : envControlled;
-            cutoff = baseHz * std::pow (4000.0f / baseHz, sweepParam);
+            cutoff = baseHz * std::pow (kFilterCutoffMaxHz / baseHz, sweepParam);
         }
         else
         {
@@ -63,6 +65,7 @@ private:
     float attackCoeff = 0.0f;
     float decayCoeff  = 0.0f;
     double sr = 48000.0;
-    std::atomic<float> currentCutoffHz { 200.0f };
+    static constexpr float kDefaultCutoffHz = 200.0f;
+    std::atomic<float> currentCutoffHz { kDefaultCutoffHz };
     static constexpr float kAttack = 0.001f;
 };

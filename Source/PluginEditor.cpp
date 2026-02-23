@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "UIConstants.h"
 #include <BinaryData.h>
 
 //==============================================================================
@@ -16,7 +17,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     // Set LookAndFeel after sections are children so propagation covers them
     setLookAndFeel (&lookAndFeel);
 
-    freqLabel.setFont (juce::Font (11.0f));
+    freqLabel.setFont (juce::Font (UIConst::uiFontSize));
     freqLabel.setColour (juce::Label::textColourId, BassLookAndFeel::text.withAlpha (0.7f));
     freqLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (freqLabel);
@@ -49,12 +50,12 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     addAndMakeVisible (presetSaveBtn);
     addAndMakeVisible (presetDeleteBtn);
 
-    startTimerHz (30);
+    startTimerHz (UIConst::uiTimerHz);
 
     if (auto svgXml = juce::parseXML (juce::String::fromUTF8 (BinaryData::logo_svg, BinaryData::logo_svgSize)))
         logo = juce::Drawable::createFromSVG (*svgXml);
 
-    setSize (340, 812);  // +12 for VU meter strip inside gate section
+    setSize (UIConst::editorWidth, UIConst::editorHeight);
 }
 
 JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
@@ -103,7 +104,7 @@ void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
     // Gate LED
     {
         const auto bounds = gateLedBounds.toFloat();
-        const juce::Colour ledOn  { 0xff44ff88 };
+        const juce::Colour ledOn  { 0xff44ff88 }; // matches kGateLedOnColor in GateSectionComponent.cpp
         const juce::Colour ledOff { 0xff223322 };
         const juce::Colour col = gateOpen ? ledOn : ledOff;
 
@@ -140,16 +141,15 @@ void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
 
 void JQGunkAudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced (10);
-    auto header = area.removeFromTop (60);
-    auto labelRow = header.removeFromBottom (16);
-    const int ledSize = 8;
-    gateLedBounds = labelRow.removeFromLeft (ledSize + 6)
-                            .withSizeKeepingCentre (ledSize, ledSize);
+    auto area = getLocalBounds().reduced (UIConst::editorPad);
+    auto header = area.removeFromTop (UIConst::headerHeight);
+    auto labelRow = header.removeFromBottom (UIConst::labelRowH);
+    gateLedBounds = labelRow.removeFromLeft (UIConst::gateLedSize + UIConst::gateLedPad)
+                            .withSizeKeepingCentre (UIConst::gateLedSize, UIConst::gateLedSize);
     freqLabel.setBounds (labelRow);
     area.removeFromTop (4);  // gap below title
 
-    auto strip = area.removeFromTop (28);
+    auto strip = area.removeFromTop (UIConst::presetStripH);
     presetStripBounds = strip;
     presetSaveBtn.setBounds   (strip.removeFromLeft (40));
     strip.removeFromLeft (4);
@@ -158,11 +158,11 @@ void JQGunkAudioProcessorEditor::resized()
     presetCombo.setBounds (strip);
     area.removeFromTop (4);  // gap after strip
 
-    gateSection.setBounds   (area.removeFromTop (149));
-    area.removeFromTop (8);
-    oscSection.setBounds    (area.removeFromTop (272));
-    area.removeFromTop (8);
-    filterSection.setBounds (area.removeFromTop (261));
+    gateSection.setBounds   (area.removeFromTop (UIConst::gateSectionH));
+    area.removeFromTop (UIConst::sectionGap);
+    oscSection.setBounds    (area.removeFromTop (UIConst::oscSectionH));
+    area.removeFromTop (UIConst::sectionGap);
+    filterSection.setBounds (area.removeFromTop (UIConst::filterSectionH));
 }
 
 //==============================================================================

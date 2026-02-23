@@ -37,9 +37,9 @@ struct GlideEngine
                 if (glideSnapHops > 0)
                     --glideSnapHops;
                 else
-                    glideSnapHops = 4; // snap for next 4 detections while detector settles
+                    glideSnapHops = kSnapHopsOnInit; // snap for next N detections while detector settles
             }
-            else if (std::abs (detectedFreq - glideTargetFreq) > 0.001f)
+            else if (std::abs (detectedFreq - glideTargetFreq) > kFreqChangeTolerance)
             {
                 // New pitch target: start a new linear ramp
                 glideSourceFreq     = glideFreq;
@@ -78,6 +78,9 @@ struct GlideEngine
     }
 
 private:
+    static constexpr int   kSnapHopsOnInit       = 4;
+    static constexpr float kFreqChangeTolerance  = 0.001f;
+
     float glideFreq           = 0.0f;
     float glideSourceFreq     = 0.0f;
     float glideTargetFreq     = 0.0f;

@@ -1,6 +1,11 @@
 #include "PitchDetector.h"
 #include <cmath>
 
+static constexpr double kMinPitchHz         = 40.0;
+static constexpr double kMaxPitchHz         = 400.0;
+static constexpr float  kMinEnergyThreshold = 1e-12f;
+static constexpr float  kFreqHysteresisRatio = 0.01f;
+
 void AutocorrelationPitchDetector::reset()
 {
     bufferIndex = 0;
@@ -15,8 +20,8 @@ void AutocorrelationPitchDetector::reset()
 void AutocorrelationPitchDetector::setSampleRate (double sr)
 {
     sampleRate = sr;
-    minLag = (int) (sr / 400.0);   // 400 Hz upper bound
-    maxLag = (int) (sr / 40.0);    // 40 Hz lower bound
+    minLag = (int) (sr / kMaxPitchHz);   // upper pitch bound → min lag
+    maxLag = (int) (sr / kMinPitchHz);   // lower pitch bound → max lag
     if (maxLag > kMaxLag)
         maxLag = kMaxLag;
 }
@@ -95,7 +100,7 @@ void AutocorrelationPitchDetector::runAutocorrelation()
         //         = (cumSum[W] - cumSum[0]) + (cumSum[W+tau] - cumSum[tau])
         float energy = (squaredSum[W] - squaredSum[0])
                      + (squaredSum[W + tau] - squaredSum[tau]);
-        nsdf[tau] = (energy > 1e-12f) ? (2.0f * acf[tau] / energy) : 0.0f;
+        nsdf[tau] = (energy > kMinEnergyThreshold) ? (2.0f * acf[tau] / energy) : 0.0f;
     }
 
     // 7. Peak picking using zero-crossing-based selection (McLeod method)
@@ -205,7 +210,7 @@ void AutocorrelationPitchDetector::runAutocorrelation()
         float b = nsdf[bestLag];
         float c = nsdf[bestLag + 1];
         float denom = 2.0f * (2.0f * b - a - c);
-        if (std::abs (denom) > 1e-12f)
+        if (std::abs (denom) > kMinEnergyThreshold)
             refinedLag = bestLag + (a - c) / denom;
     }
 
@@ -216,7 +221,7 @@ void AutocorrelationPitchDetector::runAutocorrelation()
         // Frequency hysteresis: only update if the change exceeds 1%
         // to reduce jitter from frame-to-frame noise
         if (detectedFrequency <= 0.0f
-            || std::abs (newFreq - detectedFrequency) / detectedFrequency > 0.01f)
+            || std::abs (newFreq - detectedFrequency) / detectedFrequency > kFreqHysteresisRatio)
         {
             detectedFrequency = newFreq;
         }

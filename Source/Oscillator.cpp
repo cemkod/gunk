@@ -1,5 +1,8 @@
 #include "Oscillator.h"
 
+static constexpr double    kCentsPerOctave    = 1200.0;
+static constexpr juce::int64 kMaxWavReadSamples = (juce::int64) 48000 * 600;
+
 WavetableOscillator::WavetableOscillator()
 {
     wavetable.resize (kTableSize + 1, 0.0f);
@@ -66,7 +69,7 @@ bool WavetableOscillator::loadFromFile (const juce::File& file)
     if (reader == nullptr || reader->lengthInSamples < 2)
         return false;
 
-    const auto numSamplesToRead = juce::jmin (reader->lengthInSamples, (juce::int64) 48000 * 600);
+    const auto numSamplesToRead = juce::jmin (reader->lengthInSamples, kMaxWavReadSamples);
 
     juce::AudioBuffer<float> tempBuffer (1, (int) numSamplesToRead);
     reader->read (&tempBuffer, 0, (int) numSamplesToRead, 0, true, false);
@@ -106,7 +109,7 @@ void WavetableOscillator::recomputeVoiceIncrements()
         double normPos = (unisonVoices > 1)
             ? (2.0 * v / (unisonVoices - 1) - 1.0) : 0.0; // [-1, 1]
         double offsetCents = normPos * unisonDetuneCents * unisonBlend;
-        double freqMul = std::pow (2.0, offsetCents / 1200.0);
+        double freqMul = std::pow (2.0, offsetCents / kCentsPerOctave);
         phaseIncrement[v] = kTableSize * currentBaseFreq * freqMul / currentSampleRate;
     }
 }
@@ -114,7 +117,9 @@ void WavetableOscillator::recomputeVoiceIncrements()
 void WavetableOscillator::setUnisonParams (int voices, float detuneCents, float blend)
 {
     int v = juce::jlimit (1, kMaxVoices, voices);
-    if (v == unisonVoices && detuneCents == unisonDetuneCents && blend == unisonBlend)
+    if (v == unisonVoices
+        && juce::exactlyEqual (detuneCents, unisonDetuneCents)
+        && juce::exactlyEqual (blend, unisonBlend))
         return;
     unisonVoices      = v;
     unisonDetuneCents = detuneCents;

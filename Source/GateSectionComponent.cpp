@@ -1,6 +1,11 @@
 #include "GateSectionComponent.h"
 #include "LookAndFeel.h"
 
+static constexpr float        kMeterDbMin              = -60.0f;
+static const     juce::Colour kGateLedOnColor          { 0xff44ff88 };
+static const     juce::Colour kGateThresholdMarkerColor { 0xffff6633 };
+static const     juce::Colour kGateOpenThresholdColor   { 0xffffaa44 };
+
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& avts)
     : LabelledSectionComponent ("GATE/TRACKING"),
       apvts (avts),
@@ -31,10 +36,9 @@ void GateSectionComponent::paint (juce::Graphics& g)
         g.fillRoundedRectangle (mb, 3.0f);
 
         // dB-scale helper: maps linear amplitude to 0..1 fill fraction (-60..0 dBFS)
-        const float dBMin = -60.0f;
-        auto toFill = [dBMin] (float linear) -> float {
+        auto toFill = [] (float linear) -> float {
             const float dB = 20.0f * std::log10 (juce::jmax (linear, 1e-10f));
-            return juce::jlimit (0.0f, 1.0f, (dB - dBMin) / -dBMin);
+            return juce::jlimit (0.0f, 1.0f, (dB - kMeterDbMin) / -kMeterDbMin);
         };
 
         // Level bar
@@ -42,8 +46,8 @@ void GateSectionComponent::paint (juce::Graphics& g)
         if (fillFrac > 0.0f)
         {
             const juce::Colour barColour = meterGateOpen
-                ? juce::Colour (0xff44ff88)
-                : juce::Colour (0xff44ff88).withAlpha (0.4f);
+                ? kGateLedOnColor
+                : kGateLedOnColor.withAlpha (0.4f);
             g.setColour (barColour);
             g.fillRoundedRectangle (mb.withWidth (mb.getWidth() * fillFrac), 3.0f);
         }
@@ -54,14 +58,14 @@ void GateSectionComponent::paint (juce::Graphics& g)
 
         // Close threshold (orange-red)
         const float threshX = mb.getX() + toFill (thresh) * mb.getWidth();
-        g.setColour (juce::Colour (0xffff6633).withAlpha (0.9f));
+        g.setColour (kGateThresholdMarkerColor.withAlpha (0.9f));
         g.drawVerticalLine (juce::roundToInt (threshX), mb.getY(), mb.getBottom());
 
         // Open threshold (amber, dimmer) — hyst is in dB
         const float openX = mb.getX() + toFill (thresh * std::pow (10.0f, hyst / 20.0f)) * mb.getWidth();
         if (openX > threshX + 1.0f)
         {
-            g.setColour (juce::Colour (0xffffaa44).withAlpha (0.6f));
+            g.setColour (kGateOpenThresholdColor.withAlpha (0.6f));
             g.drawVerticalLine (juce::roundToInt (openX), mb.getY(), mb.getBottom());
         }
     }

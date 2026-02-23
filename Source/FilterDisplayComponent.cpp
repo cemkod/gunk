@@ -1,6 +1,12 @@
 #include "FilterDisplayComponent.h"
 #include "LookAndFeel.h"
 
+static constexpr float kDisplayFreqMin    = 20.0f;
+static constexpr float kDisplayFreqMax    = 4000.0f;
+static constexpr float kDisplayDbTop      = 24.0f;
+static constexpr float kDisplayDbBottom   = -48.0f;
+static constexpr float kCurveStrokeWidth  = 1.5f;
+
 FilterDisplayComponent::FilterDisplayComponent (JQGunkAudioProcessor& proc,
                                                 juce::AudioProcessorValueTreeState& avts)
     : processor (proc), apvts (avts)
@@ -20,10 +26,10 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     g.drawRoundedRectangle (bounds.toFloat(), 4.0f, 1.0f);
 
     // Frequency / dB display constants
-    constexpr float fMin    = 20.0f;
-    constexpr float fMax    = 4000.0f;
-    constexpr float dBTop   = 24.0f;
-    constexpr float dBBot   = -48.0f;
+    constexpr float fMin    = kDisplayFreqMin;
+    constexpr float fMax    = kDisplayFreqMax;
+    constexpr float dBTop   = kDisplayDbTop;
+    constexpr float dBBot   = kDisplayDbBottom;
     constexpr float dBRange = dBTop - dBBot; // 72
 
     const float cutoffHz  = processor.getCurrentCutoffHz();
@@ -83,5 +89,5 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     g.fillPath (filled);
 
     g.setColour (BassLookAndFeel::accent.withAlpha (0.80f));
-    g.strokePath (curve, juce::PathStrokeType (1.5f));
+    g.strokePath (curve, juce::PathStrokeType (kCurveStrokeWidth));
 }
