@@ -183,15 +183,15 @@ void AutocorrelationPitchDetector::runAutocorrelation()
     }
 
     // Select the first peak above the threshold.
-    // For high-frequency (small lag) peaks the NSDF tends to be noisier,
-    // so we use a lower threshold to avoid skipping to an octave harmonic.
-    // Threshold scales linearly: 0.7 at minLag (400 Hz) → 0.9 at maxLag (40 Hz).
+    // Low-frequency (large lag) peaks are given a bonus (lower threshold) to
+    // avoid the algorithm preferring a higher octave.
+    // Threshold scales linearly: 0.9 at minLag (400 Hz) → 0.7 at maxLag (40 Hz).
     int bestLag = -1;
     for (int i = 0; i < numPeaks; ++i)
     {
         float t = (float) (peaks[i].lag - minLag) / (float) (maxLag - minLag);
         t = juce::jlimit (0.0f, 1.0f, t);
-        const float threshold = maxPeakVal * (0.7f + 0.2f * t);
+        const float threshold = maxPeakVal * (0.9f - 0.2f * t);
         if (peaks[i].value >= threshold)
         {
             bestLag = peaks[i].lag;
