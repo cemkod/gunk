@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Parameters>
   <PARAM id="gateThreshold" value="0.012"/>
-  <PARAM id="gateHysteresis" value="0.005"/>
+  <PARAM id="gateHysteresis" value="3.0"/>
   <PARAM id="glide" value="0.0"/>
   <PARAM id="mix" value="1.0"/>
   <PARAM id="waveform" value="1.0"/>

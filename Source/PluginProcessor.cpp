@@ -32,30 +32,45 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "gateThreshold", "Gate Threshold",
-        juce::NormalisableRange<float> (0.001f, 0.04f, 0.001f), 0.01f,
+        juce::NormalisableRange<float> (
+            0.001f, 0.04f,
+            [] (float start, float end, float v) -> float  // normalized → linear amplitude
+            {
+                const float dBStart = 20.0f * std::log10 (start);
+                const float dBEnd   = 20.0f * std::log10 (end);
+                return std::pow (10.0f, (dBStart + v * (dBEnd - dBStart)) / 20.0f);
+            },
+            [] (float start, float end, float v) -> float  // linear amplitude → normalized
+            {
+                const float dBStart = 20.0f * std::log10 (start);
+                const float dBEnd   = 20.0f * std::log10 (end);
+                const float dB      = 20.0f * std::log10 (juce::jmax (v, 1e-10f));
+                return juce::jlimit (0.0f, 1.0f, (dB - dBStart) / (dBEnd - dBStart));
+            }),
+        0.01f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String
         {
-            return juce::String (juce::roundToInt ((v - 0.001f) / (0.04f - 0.001f) * 100.0f)) + " %";
+            return juce::String (20.0f * std::log10 (juce::jmax (v, 1e-10f)), 1) + " dB";
         },
         [] (const juce::String& t) -> float
         {
-            const float pct = t.retainCharacters ("0123456789.").getFloatValue();
-            return 0.001f + juce::jlimit (0.0f, 100.0f, pct) / 100.0f * (0.04f - 0.001f);
+            const float dB = t.retainCharacters ("0123456789.-").getFloatValue();
+            return juce::jlimit (0.001f, 0.04f, std::pow (10.0f, dB / 20.0f));
         }));
 
+    // Hysteresis is stored in dB; the gate opens at thresh * 10^(hyst/20)
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "gateHysteresis", "Gate Hysteresis",
-        juce::NormalisableRange<float> (0.0f, 0.05f, 0.001f), 0.005f,
+        juce::NormalisableRange<float> (0.0f, 6.0f, 0.1f), 3.5f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         [] (float v, int) -> juce::String
         {
-            return juce::String (juce::roundToInt (v / 0.05f * 100.0f)) + " %";
+            return "+" + juce::String (v, 1) + " dB";
         },
         [] (const juce::String& t) -> float
         {
-            const float pct = t.retainCharacters ("0123456789.").getFloatValue();
-            return juce::jlimit (0.0f, 0.05f, pct / 100.0f * 0.05f);
+            return juce::jlimit (0.0f, 6.0f, t.retainCharacters ("0123456789.").getFloatValue());
         }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -317,8 +332,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             envelope += releaseCoeff * (absSample - envelope);
 
 
-        // Schmitt trigger gate
-        if (!gateIsOpen && envelope >= gateThresh + gateHyst)
+        // Schmitt trigger gate (gateHyst is in dB; open threshold = close threshold * 10^(hyst/20))
+        const float openThresh = gateThresh * std::pow (10.0f, gateHyst / 20.0f);
+        if (!gateIsOpen && envelope >= openThresh)
             gateIsOpen = true;
         else if (gateIsOpen && envelope < gateThresh)
             gateIsOpen = false;

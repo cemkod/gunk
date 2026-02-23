@@ -47,6 +47,7 @@ public:
 
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
+    float getEnvelope() const          { return envelope; }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
 
     PresetManager& getPresetManager() { return presetManager; }
@@ -74,8 +75,8 @@ private:
 
     // Envelope follower for the noise gate
     float envelope = 0.0f;
-    static constexpr float kEnvAttack  = 0.001f;
-    static constexpr float kEnvRelease = 0.005f;
+    static constexpr float kEnvAttack  = 0.010f;
+    static constexpr float kEnvRelease = 0.100f;
     bool gateIsOpen = false;
 
     // Envelope filter (auto-wah)

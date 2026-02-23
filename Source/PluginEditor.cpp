@@ -54,7 +54,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     if (auto svgXml = juce::parseXML (juce::String::fromUTF8 (BinaryData::logo_svg, BinaryData::logo_svgSize)))
         logo = juce::Drawable::createFromSVG (*svgXml);
 
-    setSize (340, 800);
+    setSize (340, 812);  // +12 for VU meter strip inside gate section
 }
 
 JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
@@ -82,6 +82,8 @@ void JQGunkAudioProcessorEditor::timerCallback()
         gateOpen = nowOpen;
         repaint (gateLedBounds);
     }
+
+    gateSection.setMeterValues (processor.getEnvelope(), nowOpen);
 
     const int cur = processor.getPresetManager().getCurrentIndex();
     if (presetCombo.getSelectedItemIndex() != cur)
@@ -156,7 +158,7 @@ void JQGunkAudioProcessorEditor::resized()
     presetCombo.setBounds (strip);
     area.removeFromTop (4);  // gap after strip
 
-    gateSection.setBounds   (area.removeFromTop (137));
+    gateSection.setBounds   (area.removeFromTop (149));
     area.removeFromTop (8);
     oscSection.setBounds    (area.removeFromTop (272));
     area.removeFromTop (8);

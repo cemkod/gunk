@@ -2,7 +2,8 @@
 #include "LookAndFeel.h"
 
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& apvts)
-    : gateThresholdAttach  (apvts, "gateThreshold",  gateThresholdSlider),
+    : apvts (apvts),
+      gateThresholdAttach  (apvts, "gateThreshold",  gateThresholdSlider),
       gateHysteresisAttach (apvts, "gateHysteresis", gateHysteresisSlider),
       glideAttach          (apvts, "glide",           glideSlider)
 {
@@ -42,13 +43,57 @@ void GateSectionComponent::paint (juce::Graphics& g)
     g.setColour (BassLookAndFeel::text);
     g.setFont (juce::Font (11.0f, juce::Font::bold));
     g.drawText ("GATE/TRACKING", bounds.reduced (6, 4).removeFromTop (14), juce::Justification::topLeft);
+
+    // --- VU meter strip ---
+    {
+        auto mb = meterBounds.toFloat();
+
+        // Background
+        g.setColour (BassLookAndFeel::surfaceDark);
+        g.fillRoundedRectangle (mb, 3.0f);
+
+        // dB-scale helper: maps linear amplitude to 0..1 fill fraction (-60..0 dBFS)
+        const float dBMin = -60.0f;
+        auto toFill = [dBMin] (float linear) -> float {
+            const float dB = 20.0f * std::log10 (juce::jmax (linear, 1e-10f));
+            return juce::jlimit (0.0f, 1.0f, (dB - dBMin) / -dBMin);
+        };
+
+        // Level bar
+        const float fillFrac = toFill (meterEnvelope);
+        if (fillFrac > 0.0f)
+        {
+            const juce::Colour barColour = meterGateOpen
+                ? juce::Colour (0xff44ff88)
+                : juce::Colour (0xff44ff88).withAlpha (0.4f);
+            g.setColour (barColour);
+            g.fillRoundedRectangle (mb.withWidth (mb.getWidth() * fillFrac), 3.0f);
+        }
+
+        // Threshold marker lines (read live from APVTS)
+        const float thresh = *apvts.getRawParameterValue ("gateThreshold");
+        const float hyst   = *apvts.getRawParameterValue ("gateHysteresis");
+
+        // Close threshold (orange-red)
+        const float threshX = mb.getX() + toFill (thresh) * mb.getWidth();
+        g.setColour (juce::Colour (0xffff6633).withAlpha (0.9f));
+        g.drawVerticalLine (juce::roundToInt (threshX), mb.getY(), mb.getBottom());
+
+        // Open threshold (amber, dimmer) — hyst is in dB
+        const float openX = mb.getX() + toFill (thresh * std::pow (10.0f, hyst / 20.0f)) * mb.getWidth();
+        if (openX > threshX + 1.0f)
+        {
+            g.setColour (juce::Colour (0xffffaa44).withAlpha (0.6f));
+            g.drawVerticalLine (juce::roundToInt (openX), mb.getY(), mb.getBottom());
+        }
+    }
 }
 
 void GateSectionComponent::resized()
 {
     auto inner = getLocalBounds().reduced (8);
     inner.removeFromTop (18); // skip section label row
-    inner.removeFromTop (10);
+    inner.removeFromTop (6);  // gap (tightened to make room for meter)
     const int knobW = inner.getWidth() / 3;
     auto knobRow = inner.removeFromTop (75);
     gateThresholdSlider .setBounds (knobRow.removeFromLeft (knobW));
@@ -58,4 +103,14 @@ void GateSectionComponent::resized()
     gateThresholdLabel .setBounds (lblRow.removeFromLeft (knobW));
     gateHysteresisLabel.setBounds (lblRow.removeFromLeft (knobW));
     glideLabel         .setBounds (lblRow.removeFromLeft (knobW));
+
+    inner.removeFromTop (6);  // gap before meter
+    meterBounds = inner.removeFromTop (kMeterH);
+}
+
+void GateSectionComponent::setMeterValues (float envelope, bool gateOpen)
+{
+    meterEnvelope = envelope;
+    meterGateOpen = gateOpen;
+    repaint (meterBounds);
 }
