@@ -81,5 +81,8 @@ private:
 
     double currentSampleRate = 48000;
 
+    // Low-pass filter applied to input before pitch detection (~500 Hz cutoff)
+    juce::dsp::IIR::Filter<float> pitchDetectorLPF;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JQGunkAudioProcessor)
 };

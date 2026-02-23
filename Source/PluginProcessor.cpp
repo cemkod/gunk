@@ -153,6 +153,9 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     envelopeFilter.reset();
     envelopeFilter.prepare (sampleRate, 0.3f); // default decay; updated per-block
 
+    pitchDetectorLPF.reset();
+    *pitchDetectorLPF.coefficients = *juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 500.0f);
+
     dbgLog ("prepareToPlay finished | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
 
@@ -250,7 +253,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (!gateIsOpen)
             detector.clearHistory();
 
-        float detectedFreq = detector.processSample (inputSample, currentSampleRate);
+        float filteredForPitch = pitchDetectorLPF.processSample (inputSample);
+        float detectedFreq = detector.processSample (filteredForPitch, currentSampleRate);
 
         const int glideSamples = (glideTime > 0.0f)
             ? (int) (currentSampleRate * glideTime)
