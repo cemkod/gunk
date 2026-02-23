@@ -1,7 +1,36 @@
 cmake_minimum_required(VERSION 3.22)
 project(JQGunk VERSION 1.0.0)
 
-find_package(JUCE CONFIG REQUIRED)
+if(CMAKE_CROSSCOMPILING)
+    include(FetchContent)
+    FetchContent_Declare(
+        JUCE
+        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+        GIT_TAG        7.0.12
+        GIT_SHALLOW    TRUE
+    )
+
+    # juce_vst3_helper dlopen()s the built DLL to extract class IDs, which fails
+    # when the DLL is a Windows PE binary on a Linux host. Register a stub before
+    # FetchContent_MakeAvailable so JUCE's _juce_add_vst3_manifest_helper_target()
+    # sees the target already exists and skips building its own. The stub copies
+    # moduleinfo.json from the native Linux build (CIDs are platform-independent).
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vst3_manifest_wrapper.sh.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/juce_vst3_helper"
+        @ONLY
+    )
+    file(CHMOD "${CMAKE_CURRENT_BINARY_DIR}/juce_vst3_helper"
+         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+    add_executable(juce_vst3_helper IMPORTED GLOBAL)
+    set_target_properties(juce_vst3_helper PROPERTIES
+        IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/juce_vst3_helper")
+
+    FetchContent_MakeAvailable(JUCE)
+else()
+    find_package(JUCE CONFIG REQUIRED)
+endif()
 
 juce_add_plugin(JQGunk
     COMPANY_NAME "JimQode"

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Cross-compilation stub for juce_vst3_helper.
+# The real helper dlopen()s the built DLL to introspect the plugin factory,
+# which cannot work when the DLL is a Windows PE binary running on Linux.
+# Instead, copy moduleinfo.json from the native Linux build — the CIDs are
+# derived from PLUGIN_CODE / PLUGIN_MANUFACTURER_CODE and are platform-independent.
+
+OUTPUT=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -output) OUTPUT="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+if [[ -z "$OUTPUT" ]]; then
+    echo "vst3_manifest_wrapper: no -output argument" >&2
+    exit 1
+fi
+
+SOURCE="@CMAKE_SOURCE_DIR@/build/JQGunk_artefacts/RelWithDebInfo/VST3/JQ Gunk.vst3/Contents/Resources/moduleinfo.json"
+
+if [[ ! -f "$SOURCE" ]]; then
+    echo "vst3_manifest_wrapper: moduleinfo.json not found at:" >&2
+    echo "  $SOURCE" >&2
+    echo "  Run 'cmake --build build' to generate it first." >&2
+    exit 1
+fi
+
+mkdir -p "$(dirname "$OUTPUT")"
+cp "$SOURCE" "$OUTPUT"
+echo "Copied moduleinfo.json from Linux build."
