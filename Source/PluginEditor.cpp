@@ -60,18 +60,6 @@ void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (BassLookAndFeel::bg);
 
-    if (logo != nullptr)
-    {
-        constexpr float logoH = 140.0f;
-        constexpr float logoW = logoH * (184.0f / 98.0f);
-        auto headerBounds = getLocalBounds().removeFromTop (60).toFloat();
-        juce::Rectangle<float> logoBounds (
-            (headerBounds.getWidth() - logoW) * 0.5f,
-            (headerBounds.getHeight() - logoH) * 0.6f,
-            logoW, logoH);
-        logo->drawWithin (g, logoBounds, juce::RectanglePlacement::centred, 1.0f);
-    }
-
     // Gate LED
     {
         const auto bounds = gateLedBounds.toFloat();
@@ -92,6 +80,21 @@ void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
         // Highlight specular
         g.setColour (juce::Colours::white.withAlpha (gateOpen ? 0.35f : 0.08f));
         g.fillEllipse (bounds.reduced (1.5f).withHeight (bounds.getHeight() * 0.45f));
+    }
+}
+
+void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
+{
+    if (logo != nullptr)
+    {
+        constexpr float logoH = 140.0f;
+        constexpr float logoW = logoH * (184.0f / 98.0f);
+        auto headerBounds = getLocalBounds().removeFromTop (60).toFloat();
+        juce::Rectangle<float> logoBounds (
+            (headerBounds.getWidth() - logoW) * 0.5f,
+            (headerBounds.getHeight() - logoH) * 0.6f,
+            logoW, logoH);
+        logo->drawWithin (g, logoBounds, juce::RectanglePlacement::centred, 1.0f);
     }
 }
 

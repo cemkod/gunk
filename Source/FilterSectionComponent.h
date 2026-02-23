@@ -16,9 +16,9 @@ public:
 private:
     juce::AudioProcessorValueTreeState& apvts;
 
-    juce::Slider sensitivitySlider, resonanceSlider, decaySlider, freqTrackingSlider;
-    juce::Label  sensitivityLabel,  resonanceLabel,  decayLabel,  freqTrackingLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment sensitivityAttach, resonanceAttach, decayAttach, freqTrackingAttach;
+    juce::Slider filterFreqSlider, sensitivitySlider, resonanceSlider, decaySlider, freqTrackingSlider;
+    juce::Label  filterFreqLabel,  sensitivityLabel,  resonanceLabel,  decayLabel,  freqTrackingLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment filterFreqAttach, sensitivityAttach, resonanceAttach, decayAttach, freqTrackingAttach;
 
     juce::TextButton sweepBtnOff  { "Off"  };
     juce::TextButton sweepBtnUp   { "Up"   };

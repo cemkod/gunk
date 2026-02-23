@@ -3,6 +3,7 @@
 
 FilterSectionComponent::FilterSectionComponent (juce::AudioProcessorValueTreeState& avts)
     : apvts (avts),
+      filterFreqAttach    (avts, "filterFreq",      filterFreqSlider),
       sensitivityAttach   (avts, "envSensitivity", sensitivitySlider),
       resonanceAttach     (avts, "envResonance",   resonanceSlider),
       decayAttach         (avts, "envDecay",        decaySlider),
@@ -24,6 +25,7 @@ FilterSectionComponent::FilterSectionComponent (juce::AudioProcessorValueTreeSta
         addAndMakeVisible (l);
     };
 
+    setupSlider (filterFreqSlider,   filterFreqLabel,   "FREQ");
     setupSlider (sensitivitySlider,  sensitivityLabel,  "SENS");
     setupSlider (resonanceSlider,    resonanceLabel,    "RESO");
     setupSlider (decaySlider,        decayLabel,        "DECAY");
@@ -90,15 +92,17 @@ void FilterSectionComponent::resized()
 
     inner.removeFromTop (10);
 
-    // Sensitivity | Resonance | Decay | Track knobs
-    const int knobW = inner.getWidth() / 4;
+    // Freq | Sensitivity | Resonance | Decay | Track knobs
+    const int knobW = inner.getWidth() / 5;
     auto knobRow = inner.removeFromTop (75);
+    filterFreqSlider  .setBounds (knobRow.removeFromLeft (knobW));
     sensitivitySlider .setBounds (knobRow.removeFromLeft (knobW));
     resonanceSlider   .setBounds (knobRow.removeFromLeft (knobW));
     decaySlider       .setBounds (knobRow.removeFromLeft (knobW));
     freqTrackingSlider.setBounds (knobRow.removeFromLeft (knobW));
 
     auto lblRow = inner.removeFromTop (18);
+    filterFreqLabel  .setBounds (lblRow.removeFromLeft (knobW));
     sensitivityLabel .setBounds (lblRow.removeFromLeft (knobW));
     resonanceLabel   .setBounds (lblRow.removeFromLeft (knobW));
     decayLabel       .setBounds (lblRow.removeFromLeft (knobW));
