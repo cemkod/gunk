@@ -366,9 +366,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 else
                     glideSnapHops = 4; // snap for next 4 detections while detector settles
             }
-            else if (std::abs (detectedFreq - glideTargetFreq) / glideTargetFreq > 0.05f)
+            else if (detectedFreq != glideTargetFreq)
             {
-                // New pitch target (>5% change): start a new linear ramp
+                // New pitch target: start a new linear ramp
                 glideSourceFreq     = glideFreq;
                 glideTargetFreq     = detectedFreq;
                 glideSamplesElapsed = 0;
