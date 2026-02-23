@@ -14,3 +14,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 # Shim for case-sensitive Linux filesystem: VST3 SDK uses <Windows.h> (capital W)
 # but mingw-w64 only ships windows.h (lowercase). The shim redirects to the real header.
 set(CMAKE_CXX_FLAGS_INIT "-I${CMAKE_CURRENT_LIST_DIR}/include-fix")
+
+# Statically link MinGW runtimes so the VST3 has no external DLL dependencies
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lpthread -Wl,-Bdynamic")
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lpthread -Wl,-Bdynamic")

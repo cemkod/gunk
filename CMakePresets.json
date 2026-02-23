@@ -16,9 +16,7 @@
       "binaryDir": "${sourceDir}/build-release",
       "generator": "Ninja",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
-        "CMAKE_C_COMPILER_LAUNCHER": "ccache"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
