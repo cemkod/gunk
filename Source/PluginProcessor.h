@@ -4,6 +4,7 @@
 #include "Oscillator.h"
 #include "PitchDetector.h"
 #include "FilterEngine.h"
+#include "PresetManager.h"
 
 //==============================================================================
 class JQGunkAudioProcessor : public juce::AudioProcessor
@@ -27,10 +28,10 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int index) override;
+    const juce::String getProgramName (int index) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& dest) override;
@@ -48,8 +49,13 @@ public:
     bool  isGateOpen() const           { return gateIsOpen; }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
 
+    PresetManager& getPresetManager() { return presetManager; }
+    void syncOscillatorAfterPresetLoad();
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    PresetManager presetManager { apvts };
 
     AutocorrelationPitchDetector detector;
     WavetableOscillator oscillator;

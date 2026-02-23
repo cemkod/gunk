@@ -93,4 +93,36 @@ public:
                           button.getLocalBounds(),
                           juce::Justification::centred, 1);
     }
+
+    void drawComboBox (juce::Graphics& g, int w, int h, bool /*isButtonDown*/,
+                       int /*buttonX*/, int /*buttonY*/, int /*buttonW*/, int /*buttonH*/,
+                       juce::ComboBox&) override
+    {
+        g.setColour (surface);
+        g.fillRoundedRectangle (0.0f, 0.0f, (float) w, (float) h, 4.0f);
+        g.setColour (border);
+        g.drawRoundedRectangle (0.5f, 0.5f, (float) w - 1.0f, (float) h - 1.0f, 4.0f, 1.0f);
+
+        // Draw arrow
+        const float arrowX = (float) w - 14.0f;
+        const float arrowY = (float) h * 0.5f;
+        juce::Path arrow;
+        arrow.addTriangle (arrowX, arrowY - 3.0f,
+                           arrowX + 8.0f, arrowY - 3.0f,
+                           arrowX + 4.0f, arrowY + 3.0f);
+        g.setColour (textDim);
+        g.fillPath (arrow);
+    }
+
+    juce::Font getComboBoxFont (juce::ComboBox&) override
+    {
+        return juce::Font (11.0f, juce::Font::bold);
+    }
+
+    void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
+    {
+        label.setBounds (4, 0, box.getWidth() - 20, box.getHeight());
+        label.setFont (getComboBoxFont (box));
+        label.setColour (juce::Label::textColourId, text);
+    }
 };

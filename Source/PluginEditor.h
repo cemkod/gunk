@@ -32,6 +32,15 @@ private:
     bool gateOpen = false;
     juce::Rectangle<int> gateLedBounds;
 
+    // Preset strip
+    juce::ComboBox   presetCombo;
+    juce::TextButton presetSaveBtn  { "Save" };
+    juce::TextButton presetDeleteBtn { "Del" };
+    juce::Rectangle<int> presetStripBounds;
+
+    void refreshPresetCombo();
+    void onSavePreset();
+
     void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JQGunkAudioProcessorEditor)

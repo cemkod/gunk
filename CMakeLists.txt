@@ -30,6 +30,21 @@ target_sources(JQGunk PRIVATE
     Source/OscSectionComponent.cpp
     Source/FilterSectionComponent.cpp
     Source/FilterDisplayComponent.cpp
+    Source/PresetManager.cpp
+)
+
+if(UNIX AND NOT APPLE)
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/Presets/Factory/"
+            DESTINATION "$ENV{HOME}/.config/JQGunk/Factory Presets")
+endif()
+
+add_custom_target(install-presets
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$ENV{HOME}/.config/JQGunk/Factory Presets"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/Presets/Factory"
+        "$ENV{HOME}/.config/JQGunk/Factory Presets"
+    COMMENT "Installing factory presets to ~/.config/JQGunk/Factory Presets"
 )
 
 target_compile_definitions(JQGunk PUBLIC

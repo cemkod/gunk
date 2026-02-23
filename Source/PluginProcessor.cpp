@@ -428,6 +428,37 @@ bool JQGunkAudioProcessor::loadWavetableFromFile (const juce::File& file)
 }
 
 //==============================================================================
+int JQGunkAudioProcessor::getNumPrograms()
+{
+    return (int) presetManager.getPresets().size();
+}
+
+int JQGunkAudioProcessor::getCurrentProgram()
+{
+    return presetManager.getCurrentIndex();
+}
+
+void JQGunkAudioProcessor::setCurrentProgram (int index)
+{
+    if (presetManager.loadPreset (index))
+        syncOscillatorAfterPresetLoad();
+}
+
+const juce::String JQGunkAudioProcessor::getProgramName (int index)
+{
+    const auto& p = presetManager.getPresets();
+    return (index >= 0 && index < (int) p.size()) ? p[index].name : juce::String{};
+}
+
+void JQGunkAudioProcessor::syncOscillatorAfterPresetLoad()
+{
+    customWavetablePath = {};
+    paramWhenCustomLoaded = -1;
+    const int waveIdx = (int) apvts.getRawParameterValue ("waveform")->load();
+    oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
+}
+
+//==============================================================================
 juce::AudioProcessorEditor* JQGunkAudioProcessor::createEditor()
 {
     return new JQGunkAudioProcessorEditor (*this);
@@ -441,6 +472,7 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml->setAttribute ("customWavetablePath", customWavetablePath);
     else
         xml->removeAttribute ("customWavetablePath");
+    xml->setAttribute ("currentPresetIndex", presetManager.getCurrentIndex());
     copyXmlToBinary (*xml, dest);
 
     dbgLog ("getStateInformation | waveParam=" + juce::String ((int) apvts.getRawParameterValue ("waveform")->load())
@@ -466,6 +498,7 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
     }
 
     apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    presetManager.setCurrentIndex (xml->getIntAttribute ("currentPresetIndex", -1));
 
     const int waveIdxAfterReplace = (int) apvts.getRawParameterValue ("waveform")->load();
     dbgLog ("setStateInformation: after replaceState | waveParam=" + juce::String (waveIdxAfterReplace));

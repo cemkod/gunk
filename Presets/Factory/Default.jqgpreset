@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Parameters>
+  <PARAM id="gateThreshold" value="0.01"/>
+  <PARAM id="gateHysteresis" value="0.005"/>
+  <PARAM id="glide" value="0.0"/>
+  <PARAM id="mix" value="1.0"/>
+  <PARAM id="waveform" value="0.0"/>
+  <PARAM id="envSensitivity" value="3.0"/>
+  <PARAM id="envResonance" value="2.0"/>
+  <PARAM id="envDecay" value="0.3"/>
+  <PARAM id="sweepMode" value="1.0"/>
+  <PARAM id="freqTracking" value="0.0"/>
+  <PARAM id="filterFreq" value="0.0"/>
+  <PARAM id="unisonVoices" value="1.0"/>
+  <PARAM id="unisonDetune" value="20.0"/>
+  <PARAM id="subLevel" value="0.0"/>
+  <PARAM id="unisonBlend" value="0.5"/>
+</Parameters>
