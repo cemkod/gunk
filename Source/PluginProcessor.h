@@ -46,6 +46,11 @@ public:
     bool isCustomWaveformActive() const;
     void reactivateCustomWavetable();
 
+    bool loadWavetable2FromFile (const juce::File& file);
+    bool isCustomWavetable2Loaded() const { return customWavetable2Path.isNotEmpty(); }
+    bool isCustomWaveform2Active() const;
+    void reactivateCustomWavetable2();
+
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
@@ -79,12 +84,15 @@ private:
         int   glideSamples;    // derived from glideTime + currentSampleRate
         int   sweepMode;
         int   octaveShift;
+        float osc2Level;
+        int   osc2OctaveShift;
     };
 
     BlockParams readBlockParams() const;
 
     // processBlock helpers
     void updateOscillatorParams();
+    void updateOsc2Params();
 
     PresetManager presetManager { apvts };
 
@@ -93,6 +101,10 @@ private:
     WavetableOscillator subOscillator;
     juce::String customWavetablePath;
     int paramWhenCustomLoaded = -1; // waveform param index active when a WAV was loaded
+
+    WavetableOscillator osc2;
+    juce::String        customWavetable2Path;
+    int                 param2WhenCustomLoaded = -1;
 
     GlideEngine glide;
 

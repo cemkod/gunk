@@ -28,7 +28,7 @@ private:
     FilterSectionComponent       filterSection;
     SubOscSectionComponent       subOscSection;
     OscSectionComponent          oscSection;
-    PlaceholderSectionComponent  osc2Section  { "OSC 2" };
+    OscSectionComponent          osc2Section;
     PlaceholderSectionComponent  noiseSection { "NOISE" };
 
     std::unique_ptr<juce::Drawable> logo;

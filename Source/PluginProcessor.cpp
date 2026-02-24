@@ -147,6 +147,43 @@ JQGunkAudioProcessor::createParameterLayout()
     layout.add (std::make_unique<juce::AudioParameterBool> (
         "subBypassFilter", "Sub Bypass Filter", true));
 
+    // OSC 2 parameters (mirror of OSC 1)
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "osc2Waveform", "OSC 2 Waveform",
+        juce::StringArray { "Triangle", "Square", "Sawtooth" }, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "osc2Level", "OSC 2 Level",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "osc2UnisonVoices", "OSC 2 Unison Voices",
+        juce::NormalisableRange<float> (1.0f, 8.0f, 1.0f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String { return juce::String (juce::roundToInt (v)); },
+        [] (const juce::String& t) -> float
+            { return juce::jlimit (1.0f, 8.0f, (float) juce::roundToInt (t.getFloatValue())); }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "osc2UnisonDetune", "OSC 2 Unison Detune",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 20.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String { return juce::String (v, 1) + " ct"; },
+        [] (const juce::String& t) -> float
+            { return juce::jlimit (0.0f, 100.0f, t.retainCharacters ("0123456789.").getFloatValue()); }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "osc2UnisonBlend", "OSC 2 Unison Blend",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "osc2OctaveShift", "OSC 2 Octave Shift",
+        juce::StringArray { "0", "+1", "+2" }, 0));
+
     return layout;
 }
 
@@ -164,6 +201,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     detector.setSampleRate (sampleRate);
     oscillator.reset();
     subOscillator.reset();
+    osc2.reset();
     envelope = 0.0f;
     glide.reset();
     gateIsOpen = false;
@@ -211,6 +249,23 @@ void JQGunkAudioProcessor::updateOscillatorParams()
     oscillator.setUnisonParams (numVoices, detuneCents, uniBlend);
 }
 
+void JQGunkAudioProcessor::updateOsc2Params()
+{
+    const int waveIdx = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
+    const auto requested = static_cast<WaveformType> (waveIdx + 1);
+    const bool customActive = (osc2.getCurrentWaveform() == WaveformType::Custom);
+    if (!customActive || waveIdx != param2WhenCustomLoaded)
+    {
+        if (osc2.getCurrentWaveform() != requested)
+            osc2.setWaveform (requested);
+    }
+
+    const int   numVoices   = juce::roundToInt (apvts.getRawParameterValue ("osc2UnisonVoices")->load());
+    const float detuneCents = apvts.getRawParameterValue ("osc2UnisonDetune")->load();
+    const float uniBlend    = apvts.getRawParameterValue ("osc2UnisonBlend")->load();
+    osc2.setUnisonParams (numVoices, detuneCents, uniBlend);
+}
+
 //==============================================================================
 JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
 {
@@ -246,6 +301,9 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
     p.sweepMode   = (int) apvts.getRawParameterValue ("sweepMode")->load();
     p.octaveShift = (int) apvts.getRawParameterValue ("octaveShift")->load();
 
+    p.osc2Level       = apvts.getRawParameterValue ("osc2Level")->load();
+    p.osc2OctaveShift = (int) apvts.getRawParameterValue ("osc2OctaveShift")->load();
+
     return p;
 }
 
@@ -259,6 +317,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const BlockParams p = readBlockParams();
 
     updateOscillatorParams();
+    updateOsc2Params();
     envelopeFilter.prepare (currentSampleRate, p.decay);
 
     const int numChannels  = buffer.getNumChannels();
@@ -299,27 +358,33 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             oscillator.setFrequency    (glidedFreq,                  currentSampleRate);
             subOscillator.setFrequency (glidedFreq * p.subOctaveMult, currentSampleRate);
+            const float freq2 = glidedFreq * (p.osc2OctaveShift == 1 ? 2.0f
+                                            : p.osc2OctaveShift == 2 ? 4.0f : 1.0f);
+            osc2.setFrequency (freq2, currentSampleRate);
         }
         else
         {
             oscillator.reset();
             subOscillator.reset();
+            osc2.reset();
         }
 
         // 2e. Oscillator sample generation
-        const float sawSample = oscillator.getNextSampleUnison();
-        const float subSample = subOscillator.getNextSample();
+        const float sawSample  = oscillator.getNextSampleUnison();
+        const float subSample  = subOscillator.getNextSample();
+        const float osc2Sample = osc2.getNextSampleUnison();
 
         // 2f. Filter routing
         // subBypassFilter=true: sub added after filter (default, bypasses auto-wah)
         // subBypassFilter=false: sub mixed into filter input
-        const float filterInput = p.subBypassFilter ? sawSample : (sawSample + subSample * p.subLevel);
+        const float osc1And2 = sawSample * p.oscLevel + osc2Sample * p.osc2Level;
+        const float filterInput = p.subBypassFilter ? osc1And2 : (osc1And2 + subSample * p.subLevel);
         const float filteredSample = envelopeFilter.processSample (
             inputSample, filterInput, glide.getLastDetectedFreq(),
             p.filterFreq, p.freqTracking, p.sensitivity, p.resonance, p.sweepMode);
 
         // 2g. Output mix
-        const float oscWet = filteredSample * envelope * p.oscLevel;
+        const float oscWet = filteredSample * envelope;
         const float subWet = p.subBypassFilter ? subSample * p.subLevel * envelope : 0.0f;
         const float out    = inputSample * p.dryLevel + oscWet + subWet;
 
@@ -338,6 +403,26 @@ void JQGunkAudioProcessor::reactivateCustomWavetable()
 {
     if (customWavetablePath.isNotEmpty())
         loadWavetableFromFile (juce::File (customWavetablePath));
+}
+
+//==============================================================================
+bool JQGunkAudioProcessor::isCustomWaveform2Active() const
+{
+    return osc2.getCurrentWaveform() == WaveformType::Custom;
+}
+
+void JQGunkAudioProcessor::reactivateCustomWavetable2()
+{
+    if (customWavetable2Path.isNotEmpty())
+        loadWavetable2FromFile (juce::File (customWavetable2Path));
+}
+
+bool JQGunkAudioProcessor::loadWavetable2FromFile (const juce::File& file)
+{
+    if (! osc2.loadFromFile (file)) return false;
+    customWavetable2Path = file.getFullPathName();
+    param2WhenCustomLoaded = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
+    return true;
 }
 
 //==============================================================================
@@ -378,6 +463,11 @@ void JQGunkAudioProcessor::syncOscillatorAfterPresetLoad()
     paramWhenCustomLoaded = -1;
     const int waveIdx = (int) apvts.getRawParameterValue ("waveform")->load();
     oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
+
+    customWavetable2Path = {};
+    param2WhenCustomLoaded = -1;
+    const int wave2Idx = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
+    osc2.setWaveform (static_cast<WaveformType> (wave2Idx + 1));
 }
 
 //==============================================================================
@@ -394,6 +484,10 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml->setAttribute ("customWavetablePath", customWavetablePath);
     else
         xml->removeAttribute ("customWavetablePath");
+    if (isCustomWaveform2Active())
+        xml->setAttribute ("customWavetablePath2", customWavetable2Path);
+    else
+        xml->removeAttribute ("customWavetablePath2");
     xml->setAttribute ("currentPresetIndex", presetManager.getCurrentIndex());
     copyXmlToBinary (*xml, dest);
 
@@ -438,16 +532,47 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
             oscillator.loadFromFile (f);
             paramWhenCustomLoaded = waveIdx;
             dbgLog ("setStateInformation: loaded custom wavetable | paramWhenCustomLoaded=" + juce::String (paramWhenCustomLoaded));
-            return;
         }
-        // File gone — fall through and restore standard waveform
-        customWavetablePath = {};
+        else
+        {
+            // File gone — restore standard waveform
+            customWavetablePath = {};
+            oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
+            paramWhenCustomLoaded = -1;
+        }
+    }
+    else
+    {
+        oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
+        paramWhenCustomLoaded = -1;
     }
 
-    // No custom wavetable: sync oscillator immediately so state is consistent
-    oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
-    paramWhenCustomLoaded = -1;
-    dbgLog ("setStateInformation: set standard waveform | waveIdx=" + juce::String (waveIdx)
+    // OSC 2 custom wavetable
+    customWavetable2Path = xml->getStringAttribute ("customWavetablePath2", {});
+    if (customWavetable2Path.isNotEmpty())
+    {
+        juce::File f2 (customWavetable2Path);
+        if (f2.existsAsFile())
+        {
+            osc2.loadFromFile (f2);
+            param2WhenCustomLoaded = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
+        }
+        else
+        {
+            customWavetable2Path = {};
+            const int w2 = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
+            osc2.setWaveform (static_cast<WaveformType> (w2 + 1));
+            param2WhenCustomLoaded = -1;
+        }
+    }
+    else
+    {
+        const int w2 = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
+        osc2.setWaveform (static_cast<WaveformType> (w2 + 1));
+        param2WhenCustomLoaded = -1;
+    }
+
+    dbgLog ("setStateInformation: restored waveforms | waveIdx=" + juce::String (waveIdx)
             + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
 

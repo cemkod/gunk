@@ -1,15 +1,16 @@
 #include "OscSectionComponent.h"
 #include "LookAndFeel.h"
 
-OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
+OscSectionComponent::OscSectionComponent (const juce::String& title,
+                                           const OscParamIds& ids,
                                            juce::AudioProcessorValueTreeState& avts)
-    : LabelledSectionComponent ("OSC"),
-      processor (p),
+    : LabelledSectionComponent (title),
+      paramIds (ids),
       apvts (avts),
-      levelAttach        (avts, "oscLevel",       levelSlider),
-      unisonVoicesAttach (avts, "unisonVoices",  unisonVoicesSlider),
-      unisonDetuneAttach (avts, "unisonDetune",  unisonDetuneSlider),
-      unisonBlendAttach  (avts, "unisonBlend",   unisonBlendSlider)
+      levelAttach        (avts, ids.level,        levelSlider),
+      unisonVoicesAttach (avts, ids.unisonVoices, unisonVoicesSlider),
+      unisonDetuneAttach (avts, ids.unisonDetune, unisonDetuneSlider),
+      unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider)
 {
     BassLookAndFeel::setupRotarySlider (levelSlider, levelLabel, "LEVEL", *this);
 
@@ -89,7 +90,7 @@ void OscSectionComponent::configureOctaveButtons()
     octLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (octLabel);
 
-    const int octGroup = 102;
+    const int octGroup = juce::Random::getSystemRandom().nextInt (0x7fffffff);
     for (auto* b : { &octBtn0, &octBtn1, &octBtn2 })
     {
         b->setRadioGroupId (octGroup);
@@ -103,7 +104,7 @@ void OscSectionComponent::configureOctaveButtons()
 
     auto setOctParam = [this](int idx)
     {
-        auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("octaveShift"));
+        auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (paramIds.octaveShift));
         if (p) *p = idx;
     };
 
@@ -114,7 +115,7 @@ void OscSectionComponent::configureOctaveButtons()
 
 void OscSectionComponent::configureWaveformButtons()
 {
-    const int waveGroup = 101;
+    const int waveGroup = juce::Random::getSystemRandom().nextInt (0x7fffffff);
     for (auto* b : { &waveBtnTri, &waveBtnSq, &waveBtnSaw })
     {
         b->setRadioGroupId (waveGroup);
@@ -129,10 +130,14 @@ void OscSectionComponent::configureWaveformButtons()
 
     waveBtnCustom.onClick = [this]
     {
-        if (! processor.isCustomWavetableLoaded())
+        const bool loaded = isCustomWavetableLoaded && isCustomWavetableLoaded();
+        const bool active = isCustomWaveformActive  && isCustomWaveformActive();
+        if (! loaded)
             openWavFileDialog();
-        else if (! processor.isCustomWaveformActive())
-            processor.reactivateCustomWavetable();
+        else if (! active)
+        {
+            if (reactivateCustomWavetable) reactivateCustomWavetable();
+        }
         else
             openWavFileDialog(); // reload
     };
@@ -146,7 +151,7 @@ OscSectionComponent::~OscSectionComponent()
 void OscSectionComponent::setWaveformParam (int idx)
 {
     auto* p = dynamic_cast<juce::AudioParameterChoice*> (
-        apvts.getParameter ("waveform"));
+        apvts.getParameter (paramIds.waveform));
     if (p) *p = idx;
 }
 
@@ -162,7 +167,8 @@ void OscSectionComponent::openWavFileDialog()
         {
             auto results = fc.getResults();
             if (results.isEmpty()) return;
-            if (! processor.loadWavetableFromFile (results.getFirst()))
+            const bool ok = loadWavetableFromFile && loadWavetableFromFile (results.getFirst());
+            if (! ok)
                 juce::AlertWindow::showMessageBoxAsync (
                     juce::AlertWindow::WarningIcon, "Load failed",
                     "Could not read the selected WAV file.", "OK");
@@ -173,15 +179,15 @@ void OscSectionComponent::openWavFileDialog()
 
 void OscSectionComponent::updateButtonStates()
 {
-    const int idx = (int) apvts.getRawParameterValue ("waveform")->load();
-    const bool customActive = processor.isCustomWaveformActive();
+    const int idx = (int) apvts.getRawParameterValue (paramIds.waveform)->load();
+    const bool customActive = isCustomWaveformActive && isCustomWaveformActive();
 
     waveBtnTri   .setToggleState (!customActive && idx == 0, juce::dontSendNotification);
     waveBtnSq    .setToggleState (!customActive && idx == 1, juce::dontSendNotification);
     waveBtnSaw   .setToggleState (!customActive && idx == 2, juce::dontSendNotification);
     waveBtnCustom.setToggleState (customActive,              juce::dontSendNotification);
 
-    const int octIdx = (int) apvts.getRawParameterValue ("octaveShift")->load();
+    const int octIdx = (int) apvts.getRawParameterValue (paramIds.octaveShift)->load();
     octBtn0.setToggleState (octIdx == 0, juce::dontSendNotification);
     octBtn1.setToggleState (octIdx == 1, juce::dontSendNotification);
     octBtn2.setToggleState (octIdx == 2, juce::dontSendNotification);

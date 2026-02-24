@@ -9,8 +9,21 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       gateSection   (p.apvts),
       filterSection (p, p.apvts),
       subOscSection (p.apvts),
-      oscSection    (p, p.apvts)
+      oscSection  ("OSC",   OscParamIds { "waveform",     "oscLevel",   "unisonVoices",    "unisonDetune",    "unisonBlend",    "octaveShift"    }, p.apvts),
+      osc2Section ("OSC 2", OscParamIds { "osc2Waveform", "osc2Level",  "osc2UnisonVoices","osc2UnisonDetune","osc2UnisonBlend","osc2OctaveShift" }, p.apvts)
 {
+    // Wire OSC 1 wavetable callbacks
+    oscSection.isCustomWavetableLoaded   = [&p] { return p.isCustomWavetableLoaded(); };
+    oscSection.isCustomWaveformActive    = [&p] { return p.isCustomWaveformActive(); };
+    oscSection.reactivateCustomWavetable = [&p] { p.reactivateCustomWavetable(); };
+    oscSection.loadWavetableFromFile     = [&p] (const juce::File& f) { return p.loadWavetableFromFile (f); };
+
+    // Wire OSC 2 wavetable callbacks
+    osc2Section.isCustomWavetableLoaded   = [&p] { return p.isCustomWavetable2Loaded(); };
+    osc2Section.isCustomWaveformActive    = [&p] { return p.isCustomWaveform2Active(); };
+    osc2Section.reactivateCustomWavetable = [&p] { p.reactivateCustomWavetable2(); };
+    osc2Section.loadWavetableFromFile     = [&p] (const juce::File& f) { return p.loadWavetable2FromFile (f); };
+
     addAndMakeVisible (gateSection);
     addAndMakeVisible (filterSection);
     addAndMakeVisible (subOscSection);
@@ -72,6 +85,7 @@ JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
 void JQGunkAudioProcessorEditor::timerCallback()
 {
     oscSection.updateButtonStates();
+    osc2Section.updateButtonStates();
     subOscSection.updateButtonStates();
     filterSection.updateButtonStates();
     filterSection.repaintDisplay();

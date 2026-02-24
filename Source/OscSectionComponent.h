@@ -1,13 +1,25 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "PluginProcessor.h"
 #include "LabelledSectionComponent.h"
+#include <functional>
+
+struct OscParamIds
+{
+    juce::String waveform, level, unisonVoices, unisonDetune, unisonBlend, octaveShift;
+};
 
 class OscSectionComponent : public LabelledSectionComponent
 {
 public:
-    OscSectionComponent (JQGunkAudioProcessor& processor,
+    // Callbacks for custom wavetable operations
+    std::function<bool()>                  isCustomWavetableLoaded;
+    std::function<bool()>                  isCustomWaveformActive;
+    std::function<void()>                  reactivateCustomWavetable;
+    std::function<bool(const juce::File&)> loadWavetableFromFile;
+
+    OscSectionComponent (const juce::String& title,
+                         const OscParamIds& ids,
                          juce::AudioProcessorValueTreeState& apvts);
     ~OscSectionComponent() override;
 
@@ -16,7 +28,7 @@ public:
     void updateButtonStates();
 
 private:
-    JQGunkAudioProcessor& processor;
+    OscParamIds paramIds;
     juce::AudioProcessorValueTreeState& apvts;
 
     juce::Slider levelSlider;
