@@ -57,6 +57,32 @@ public:
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    // All block-rate parameter snapshots and their derived values.
+    struct BlockParams
+    {
+        float oscLevel;
+        float dryLevel;
+        float gateThresh;
+        float openThresh;      // derived: gateThresh * 10^(gateHyst/20)
+        float attackCoeff;     // derived from kEnvAttack  + currentSampleRate
+        float releaseCoeff;    // derived from kEnvRelease + currentSampleRate
+        float subLevel;
+        int   subOctaveIdx;
+        float subOctaveMult;   // derived from subOctaveIdx
+        bool  subBypassFilter;
+        float sensitivity;
+        float resonance;
+        float decay;
+        float freqTracking;
+        float filterFreq;
+        float glideTime;
+        int   glideSamples;    // derived from glideTime + currentSampleRate
+        int   sweepMode;
+        int   octaveShift;
+    };
+
+    BlockParams readBlockParams() const;
+
     // processBlock helpers
     void updateOscillatorParams();
 

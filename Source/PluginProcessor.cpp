@@ -212,101 +212,116 @@ void JQGunkAudioProcessor::updateOscillatorParams()
 }
 
 //==============================================================================
+JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
+{
+    BlockParams p;
+
+    p.oscLevel = apvts.getRawParameterValue ("oscLevel")->load();
+    p.dryLevel = apvts.getRawParameterValue ("dryLevel")->load();
+
+    p.gateThresh = apvts.getRawParameterValue ("gateThreshold")->load();
+    const float gateHyst = apvts.getRawParameterValue ("gateHysteresis")->load();
+    p.openThresh = p.gateThresh * std::pow (10.0f, gateHyst / 20.0f);
+
+    p.attackCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvAttack));
+    p.releaseCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvRelease));
+
+    p.subLevel        = apvts.getRawParameterValue ("subLevel")->load();
+    p.subOctaveIdx    = (int) apvts.getRawParameterValue ("subOctave")->load();
+    p.subBypassFilter = apvts.getRawParameterValue ("subBypassFilter")->load() > 0.5f;
+    p.subOctaveMult   = (p.subOctaveIdx == 0) ? 0.25f
+                      : (p.subOctaveIdx == 1) ? 0.5f
+                      : (p.subOctaveIdx == 2) ? 1.0f
+                      :                         2.0f;
+
+    p.sensitivity  = apvts.getRawParameterValue ("envSensitivity")->load();
+    p.resonance    = apvts.getRawParameterValue ("envResonance")->load();
+    p.decay        = apvts.getRawParameterValue ("envDecay")->load();
+    p.freqTracking = apvts.getRawParameterValue ("freqTracking")->load();
+    p.filterFreq   = apvts.getRawParameterValue ("filterFreq")->load();
+
+    p.glideTime    = apvts.getRawParameterValue ("glide")->load();
+    p.glideSamples = (p.glideTime > 0.0f) ? (int) (currentSampleRate * p.glideTime) : 0;
+
+    p.sweepMode   = (int) apvts.getRawParameterValue ("sweepMode")->load();
+    p.octaveShift = (int) apvts.getRawParameterValue ("octaveShift")->load();
+
+    return p;
+}
+
+//==============================================================================
 void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                              juce::MidiBuffer& /*midiMessages*/)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const float oscLevel = apvts.getRawParameterValue ("oscLevel")->load();
-    const float dryLevel = apvts.getRawParameterValue ("dryLevel")->load();
+    // 1. Snapshot all block-rate parameters and their derived values
+    const BlockParams p = readBlockParams();
 
     updateOscillatorParams();
+    envelopeFilter.prepare (currentSampleRate, p.decay);
 
-    const int numChannels = buffer.getNumChannels();
-    const int numSamples  = buffer.getNumSamples();
-
-    // Use channel 0 as the mono analysis source
+    const int numChannels  = buffer.getNumChannels();
+    const int numSamples   = buffer.getNumSamples();
     const float* inputData = buffer.getReadPointer (0);
-
-    const float gateThresh = apvts.getRawParameterValue ("gateThreshold")->load();
-    const float gateHyst   = apvts.getRawParameterValue ("gateHysteresis")->load();
-
-    const float subLevel         = apvts.getRawParameterValue ("subLevel")->load();
-    const int   subOctaveIdx     = (int) apvts.getRawParameterValue ("subOctave")->load();
-    const bool  subBypassFilter  = apvts.getRawParameterValue ("subBypassFilter")->load() > 0.5f;
-    const float subOctaveMult    = (subOctaveIdx == 0) ? 0.25f
-                                 : (subOctaveIdx == 1) ? 0.5f
-                                 : (subOctaveIdx == 2) ? 1.0f
-                                 :                       2.0f;
-    const float sensitivity   = apvts.getRawParameterValue ("envSensitivity")->load();
-    const float resonance     = apvts.getRawParameterValue ("envResonance")->load();
-    const float decay         = apvts.getRawParameterValue ("envDecay")->load();
-    const float freqTracking  = apvts.getRawParameterValue ("freqTracking")->load();
-    const float filterFreq    = apvts.getRawParameterValue ("filterFreq")->load();
-
-    // Envelope follower attack/release coefficients
-    const float attackCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvAttack));
-    const float releaseCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvRelease));
-
-    envelopeFilter.prepare (currentSampleRate, decay); // updates decay coeff each block
-
-    const float glideTime  = apvts.getRawParameterValue ("glide")->load();
-    const int   sweepMode  = (int) apvts.getRawParameterValue ("sweepMode")->load();
-
-    // Schmitt trigger: open threshold is close threshold raised by hysteresis dB
-    const float openThresh = gateThresh * std::pow (10.0f, gateHyst / 20.0f);
 
     for (int i = 0; i < numSamples; ++i)
     {
         const float inputSample = inputData[i];
         const float absSample   = std::abs (inputSample);
 
-        // Envelope follower
+        // 2a. Gate follower (Schmitt trigger)
         if (absSample > envelope)
-            envelope += attackCoeff  * (absSample - envelope);
+            envelope += p.attackCoeff  * (absSample - envelope);
         else
-            envelope += releaseCoeff * (absSample - envelope);
+            envelope += p.releaseCoeff * (absSample - envelope);
 
-        // Schmitt trigger gate
-        if (!gateIsOpen && envelope >= openThresh)
+        if (!gateIsOpen && envelope >= p.openThresh)
             gateIsOpen = true;
-        else if (gateIsOpen && envelope < gateThresh)
+        else if (gateIsOpen && envelope < p.gateThresh)
             gateIsOpen = false;
 
-        // Gate: clear stale pitch when gate is closed
         if (!gateIsOpen)
             detector.clearHistory();
 
+        // 2b. Pitch detection
         float filteredForPitch = pitchDetectorLPF.processSample (inputSample);
-        float detectedFreq = detector.processSample (filteredForPitch, currentSampleRate);
+        float detectedFreq     = detector.processSample (filteredForPitch, currentSampleRate);
 
-        const int octaveIdx = (int) apvts.getRawParameterValue ("octaveShift")->load();
-        if (octaveIdx > 0)
-            detectedFreq *= (octaveIdx == 1 ? 2.0f : 4.0f);
+        if (p.octaveShift > 0)
+            detectedFreq *= (p.octaveShift == 1 ? 2.0f : 4.0f);
 
-        const int glideSamples = (glideTime > 0.0f)
-            ? (int) (currentSampleRate * glideTime)
-            : 0;
+        // 2c. Glide (frequency ramp)
+        const float glidedFreq = glide.update (detectedFreq, p.glideSamples, gateIsOpen);
 
-        glide.update (detectedFreq, glideSamples, gateIsOpen,
-                      oscillator, subOscillator, currentSampleRate, subOctaveMult);
+        // 2d. Set oscillator frequencies
+        if (glidedFreq > 0.0f)
+        {
+            oscillator.setFrequency    (glidedFreq,                  currentSampleRate);
+            subOscillator.setFrequency (glidedFreq * p.subOctaveMult, currentSampleRate);
+        }
+        else
+        {
+            oscillator.reset();
+            subOscillator.reset();
+        }
 
-        // Generate oscillator sample; optionally apply envelope filter
+        // 2e. Oscillator sample generation
         const float sawSample = oscillator.getNextSampleUnison();
         const float subSample = subOscillator.getNextSample();
 
+        // 2f. Filter routing
         // subBypassFilter=true: sub added after filter (default, bypasses auto-wah)
         // subBypassFilter=false: sub mixed into filter input
-        const float filterInput = subBypassFilter ? sawSample : (sawSample + subSample * subLevel);
-        float filteredSample = envelopeFilter.processSample (
-            inputSample, filterInput, glide.lastDetectedFreq,
-            filterFreq, freqTracking, sensitivity, resonance, sweepMode);
+        const float filterInput = p.subBypassFilter ? sawSample : (sawSample + subSample * p.subLevel);
+        const float filteredSample = envelopeFilter.processSample (
+            inputSample, filterInput, glide.getLastDetectedFreq(),
+            p.filterFreq, p.freqTracking, p.sensitivity, p.resonance, p.sweepMode);
 
-        const float oscWet = filteredSample * envelope * oscLevel;
-        const float subWet = subBypassFilter ? subSample * subLevel * envelope : 0.0f;
-        const float wet = oscWet + subWet;
-        const float dry = inputSample * dryLevel;
-        const float out = dry + wet;
+        // 2g. Output mix
+        const float oscWet = filteredSample * envelope * p.oscLevel;
+        const float subWet = p.subBypassFilter ? subSample * p.subLevel * envelope : 0.0f;
+        const float out    = inputSample * p.dryLevel + oscWet + subWet;
 
         for (int ch = 0; ch < numChannels; ++ch)
             buffer.getWritePointer (ch)[i] = out;

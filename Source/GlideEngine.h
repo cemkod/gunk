@@ -4,9 +4,6 @@
 // Linear pitch-ramp state machine.  Mirrors the FilterEngine.h pattern.
 struct GlideEngine
 {
-    // Accessible to the processor for passing to the envelope filter
-    float lastDetectedFreq = 0.0f;
-
     void reset()
     {
         lastDetectedFreq    = 0.0f;
@@ -18,9 +15,10 @@ struct GlideEngine
         glideSnapHops       = 0;
     }
 
-    void update (float detectedFreq, int glideSamples, bool gateIsOpen,
-                 WavetableOscillator& oscillator, WavetableOscillator& subOscillator,
-                 double currentSampleRate, float subOctaveMult = 0.5f)
+    // Returns the glided frequency to apply to oscillators this sample.
+    // Returns 0.0f when the gate is closed and oscillators should be reset.
+    // Caller is responsible for calling setFrequency / reset on oscillators.
+    float update (float detectedFreq, int glideSamples, bool gateIsOpen)
     {
         if (detectedFreq > 0.0f)
         {
@@ -59,8 +57,7 @@ struct GlideEngine
                 glideFreq = glideTargetFreq;
             }
 
-            oscillator.setFrequency (glideFreq, currentSampleRate);
-            subOscillator.setFrequency (glideFreq * subOctaveMult, currentSampleRate);
+            return glideFreq;
         }
         else if (!gateIsOpen || lastDetectedFreq < 1.0f)
         {
@@ -71,16 +68,20 @@ struct GlideEngine
             glideSamplesElapsed = 0;
             glideSamplesTotal   = 0;
             glideSnapHops       = 0;
-            oscillator.reset();
-            subOscillator.reset();
+            return 0.0f; // signal to caller: reset oscillators
         }
         // else: detection lost but gate still open — hold last frequency
+        return glideFreq;
     }
+
+    float getLastDetectedFreq() const { return lastDetectedFreq; }
+    float getCurrentFreq()      const { return glideFreq; }
 
 private:
     static constexpr int   kSnapHopsOnInit       = 4;
     static constexpr float kFreqChangeTolerance  = 0.001f;
 
+    float lastDetectedFreq    = 0.0f;
     float glideFreq           = 0.0f;
     float glideSourceFreq     = 0.0f;
     float glideTargetFreq     = 0.0f;
