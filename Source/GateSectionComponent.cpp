@@ -11,11 +11,13 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
       apvts (avts),
       gateThresholdAttach  (avts, "gateThreshold",  gateThresholdSlider),
       gateHysteresisAttach (avts, "gateHysteresis", gateHysteresisSlider),
-      glideAttach          (avts, "glide",           glideSlider)
+      glideAttach          (avts, "glide",           glideSlider),
+      dryAttach            (avts, "dryLevel",        drySlider)
 {
     BassLookAndFeel::setupRotarySlider (gateThresholdSlider,  gateThresholdLabel,  "THRS",  *this);
     BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYST",  *this);
     BassLookAndFeel::setupRotarySlider (glideSlider,          glideLabel,          "GLIDE", *this);
+    BassLookAndFeel::setupRotarySlider (drySlider,            dryLabel,            "DRY",   *this);
 }
 
 GateSectionComponent::~GateSectionComponent()
@@ -76,15 +78,17 @@ void GateSectionComponent::resized()
     auto inner = getLocalBounds().reduced (8);
     inner.removeFromTop (18); // skip section label row
     inner.removeFromTop (6);  // gap (tightened to make room for meter)
-    const int knobW = inner.getWidth() / 3;
+    const int knobW = inner.getWidth() / 4;
     auto knobRow = inner.removeFromTop (75);
     gateThresholdSlider .setBounds (knobRow.removeFromLeft (knobW));
     gateHysteresisSlider.setBounds (knobRow.removeFromLeft (knobW));
     glideSlider         .setBounds (knobRow.removeFromLeft (knobW));
+    drySlider           .setBounds (knobRow);
     auto lblRow = inner.removeFromTop (18);
     gateThresholdLabel .setBounds (lblRow.removeFromLeft (knobW));
     gateHysteresisLabel.setBounds (lblRow.removeFromLeft (knobW));
     glideLabel         .setBounds (lblRow.removeFromLeft (knobW));
+    dryLabel           .setBounds (lblRow);
 
     inner.removeFromTop (6);  // gap before meter
     meterBounds = inner.removeFromTop (kMeterH);

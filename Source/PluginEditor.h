@@ -5,6 +5,8 @@
 #include "GateSectionComponent.h"
 #include "OscSectionComponent.h"
 #include "FilterSectionComponent.h"
+#include "SubOscSectionComponent.h"
+#include "PlaceholderSectionComponent.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
                                        public juce::Timer
@@ -22,9 +24,12 @@ private:
 
     BassLookAndFeel lookAndFeel;
 
-    GateSectionComponent   gateSection;
-    OscSectionComponent    oscSection;
-    FilterSectionComponent filterSection;
+    GateSectionComponent         gateSection;
+    FilterSectionComponent       filterSection;
+    SubOscSectionComponent       subOscSection;
+    OscSectionComponent          oscSection;
+    PlaceholderSectionComponent  osc2Section  { "OSC 2" };
+    PlaceholderSectionComponent  noiseSection { "NOISE" };
 
     std::unique_ptr<juce::Drawable> logo;
 

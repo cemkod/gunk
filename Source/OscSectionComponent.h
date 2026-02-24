@@ -19,13 +19,9 @@ private:
     JQGunkAudioProcessor& processor;
     juce::AudioProcessorValueTreeState& apvts;
 
-    juce::Slider mixSlider;
-    juce::Label  mixLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment mixAttach;
-
-    juce::Slider subLevelSlider;
-    juce::Label  subLevelLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment subLevelAttach;
+    juce::Slider levelSlider;
+    juce::Label  levelLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment levelAttach;
 
     juce::Slider unisonVoicesSlider, unisonDetuneSlider, unisonBlendSlider;
     juce::Label  unisonVoicesLabel,  unisonDetuneLabel,  unisonBlendLabel;

@@ -4,7 +4,7 @@
 static constexpr double kMinPitchHz         = 30.0;
 static constexpr double kMaxPitchHz         = 400.0;
 static constexpr float  kMinEnergyThreshold = 1e-12f;
-static constexpr float  kFreqHysteresisRatio = 0.01f;
+static constexpr float  kFreqHysteresisRatio = 0.004f;
 
 void AutocorrelationPitchDetector::reset()
 {
@@ -24,6 +24,12 @@ void AutocorrelationPitchDetector::setSampleRate (double sr)
     maxLag = (int) (sr / kMinPitchHz);   // lower pitch bound → max lag
     if (maxLag > kMaxLag)
         maxLag = kMaxLag;
+
+    // Precompute rising half-Hann window: w[i] = 0.5 * (1 - cos(pi * i / (N-1)))
+    // Biases autocorrelation toward recent samples, reducing spectral smearing during bends.
+    const int totalLen = kWindowSize + maxLag;
+    for (int i = 0; i < totalLen; ++i)
+        window[i] = 0.5f * (1.0f - std::cos (juce::MathConstants<float>::pi * (float) i / (float) (totalLen - 1)));
 }
 
 float AutocorrelationPitchDetector::processSample (float sample, double /*sampleRate*/)
@@ -60,7 +66,7 @@ void AutocorrelationPitchDetector::runAutocorrelation()
         fftData[i] = 0.0f;
 
     for (int i = 0; i < W + maxLag; ++i)
-        fftData[i] = readBuffer (i);
+        fftData[i] = readBuffer (i) * window[i];
 
     // 2. Forward FFT (JUCE performRealOnlyForwardTransform)
     fft.performRealOnlyForwardTransform (fftData);
@@ -88,7 +94,7 @@ void AutocorrelationPitchDetector::runAutocorrelation()
     float squaredSum[kWindowSize + kMaxLag + 1] = {};
     for (int i = 0; i < W + maxLag; ++i)
     {
-        float s = readBuffer (i);
+        float s = readBuffer (i) * window[i];
         squaredSum[i + 1] = squaredSum[i] + s * s;
     }
 
@@ -240,16 +246,31 @@ void AutocorrelationPitchDetector::runAutocorrelation()
     if (bestLag < minLag)
         return;
 
-    // 8. Parabolic interpolation for sub-sample accuracy
+    // 8. Sub-sample interpolation for refined lag estimate.
+    //    Gaussian interpolation (log-parabola) is more robust than parabolic for
+    //    broad or asymmetric NSDF peaks, which occur during pitch bends.
+    //    Falls back to parabolic if any neighbour is non-positive.
     float refinedLag = (float) bestLag;
     if (bestLag > minLag && bestLag < maxLag)
     {
         float a = nsdf[bestLag - 1];
         float b = nsdf[bestLag];
         float c = nsdf[bestLag + 1];
-        float denom = 2.0f * (2.0f * b - a - c);
-        if (std::abs (denom) > kMinEnergyThreshold)
-            refinedLag = bestLag + (a - c) / denom;
+        if (a > 0.0f && b > 0.0f && c > 0.0f)
+        {
+            float logA = std::log (a);
+            float logB = std::log (b);
+            float logC = std::log (c);
+            float denom = 2.0f * (2.0f * logB - logA - logC);
+            if (std::abs (denom) > 1e-6f)
+                refinedLag = (float) bestLag + (logA - logC) / denom;
+        }
+        else
+        {
+            float denom = 2.0f * (2.0f * b - a - c);
+            if (std::abs (denom) > kMinEnergyThreshold)
+                refinedLag = (float) bestLag + (a - c) / denom;
+        }
     }
 
     if (refinedLag > 0.0f)

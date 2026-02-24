@@ -56,8 +56,14 @@ JQGunkAudioProcessor::createParameterLayout()
         timeFmt(), timeParse (0.0f, 1.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        "mix", "Dry/Wet Mix",
+        "oscLevel", "OSC Level",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "dryLevel", "Dry Level",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         pctFmt(), pctParse (0.0f, 1.0f)));
 
@@ -134,6 +140,13 @@ JQGunkAudioProcessor::createParameterLayout()
         "octaveShift", "Octave Shift",
         juce::StringArray { "0", "+1", "+2" }, 0));
 
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "subOctave", "Sub Octave",
+        juce::StringArray { "-2", "-1", "0", "+1" }, 1)); // default: -1
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        "subBypassFilter", "Sub Bypass Filter", true));
+
     return layout;
 }
 
@@ -204,7 +217,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const float mix = apvts.getRawParameterValue ("mix")->load();
+    const float oscLevel = apvts.getRawParameterValue ("oscLevel")->load();
+    const float dryLevel = apvts.getRawParameterValue ("dryLevel")->load();
 
     updateOscillatorParams();
 
@@ -217,7 +231,13 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float gateThresh = apvts.getRawParameterValue ("gateThreshold")->load();
     const float gateHyst   = apvts.getRawParameterValue ("gateHysteresis")->load();
 
-    const float subLevel      = apvts.getRawParameterValue ("subLevel")->load();
+    const float subLevel         = apvts.getRawParameterValue ("subLevel")->load();
+    const int   subOctaveIdx     = (int) apvts.getRawParameterValue ("subOctave")->load();
+    const bool  subBypassFilter  = apvts.getRawParameterValue ("subBypassFilter")->load() > 0.5f;
+    const float subOctaveMult    = (subOctaveIdx == 0) ? 0.25f
+                                 : (subOctaveIdx == 1) ? 0.5f
+                                 : (subOctaveIdx == 2) ? 1.0f
+                                 :                       2.0f;
     const float sensitivity   = apvts.getRawParameterValue ("envSensitivity")->load();
     const float resonance     = apvts.getRawParameterValue ("envResonance")->load();
     const float decay         = apvts.getRawParameterValue ("envDecay")->load();
@@ -269,19 +289,23 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             : 0;
 
         glide.update (detectedFreq, glideSamples, gateIsOpen,
-                      oscillator, subOscillator, currentSampleRate);
+                      oscillator, subOscillator, currentSampleRate, subOctaveMult);
 
         // Generate oscillator sample; optionally apply envelope filter
         const float sawSample = oscillator.getNextSampleUnison();
         const float subSample = subOscillator.getNextSample();
 
+        // subBypassFilter=true: sub added after filter (default, bypasses auto-wah)
+        // subBypassFilter=false: sub mixed into filter input
+        const float filterInput = subBypassFilter ? sawSample : (sawSample + subSample * subLevel);
         float filteredSample = envelopeFilter.processSample (
-            inputSample, sawSample, glide.lastDetectedFreq,
+            inputSample, filterInput, glide.lastDetectedFreq,
             filterFreq, freqTracking, sensitivity, resonance, sweepMode);
 
-        // Blend dry/wet and apply output level (sub bypasses filter — it's already very low)
-        const float wet = (filteredSample + subSample * subLevel) * envelope * mix;
-        const float dry = inputSample * (1.0f - mix);
+        const float oscWet = filteredSample * envelope * oscLevel;
+        const float subWet = subBypassFilter ? subSample * subLevel * envelope : 0.0f;
+        const float wet = oscWet + subWet;
+        const float dry = inputSample * dryLevel;
         const float out = dry + wet;
 
         for (int ch = 0; ch < numChannels; ++ch)

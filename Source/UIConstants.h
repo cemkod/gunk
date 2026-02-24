@@ -2,8 +2,8 @@
 
 namespace UIConst {
     // Editor dimensions
-    constexpr int editorWidth    = 340;
-    constexpr int editorHeight   = 812;
+    constexpr int editorWidth    = 660;
+    constexpr int editorHeight   = 660;
     constexpr int editorPad      = 10;
     constexpr int headerHeight   = 60;
     constexpr int labelRowH      = 16;
@@ -12,6 +12,8 @@ namespace UIConst {
     constexpr int gateSectionH   = 149;
     constexpr int oscSectionH    = 272;
     constexpr int filterSectionH = 261;
+    constexpr int topRowH        = 261;  // gate+filter row height
+    constexpr int oscColW        = 165;  // editorWidth / 4
 
     // Gate LED
     constexpr int gateLedSize    = 8;

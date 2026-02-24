@@ -20,7 +20,7 @@ struct GlideEngine
 
     void update (float detectedFreq, int glideSamples, bool gateIsOpen,
                  WavetableOscillator& oscillator, WavetableOscillator& subOscillator,
-                 double currentSampleRate)
+                 double currentSampleRate, float subOctaveMult = 0.5f)
     {
         if (detectedFreq > 0.0f)
         {
@@ -60,7 +60,7 @@ struct GlideEngine
             }
 
             oscillator.setFrequency (glideFreq, currentSampleRate);
-            subOscillator.setFrequency (glideFreq / 2.0f, currentSampleRate);
+            subOscillator.setFrequency (glideFreq * subOctaveMult, currentSampleRate);
         }
         else if (!gateIsOpen || lastDetectedFreq < 1.0f)
         {

@@ -6,14 +6,12 @@ OscSectionComponent::OscSectionComponent (JQGunkAudioProcessor& p,
     : LabelledSectionComponent ("OSC"),
       processor (p),
       apvts (avts),
-      mixAttach          (avts, "mix",           mixSlider),
-      subLevelAttach     (avts, "subLevel",      subLevelSlider),
+      levelAttach        (avts, "oscLevel",       levelSlider),
       unisonVoicesAttach (avts, "unisonVoices",  unisonVoicesSlider),
       unisonDetuneAttach (avts, "unisonDetune",  unisonDetuneSlider),
       unisonBlendAttach  (avts, "unisonBlend",   unisonBlendSlider)
 {
-    BassLookAndFeel::setupRotarySlider (mixSlider,      mixLabel,      "MIX",    *this);
-    BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "SUB",    *this);
+    BassLookAndFeel::setupRotarySlider (levelSlider, levelLabel, "LEVEL", *this);
 
     BassLookAndFeel::setupRotarySlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
@@ -205,27 +203,23 @@ void OscSectionComponent::resized()
 
     inner.removeFromTop (10);
 
-    // Row 1: Mix | Octave gang | Sub
-    // Three equal columns; octave gang is label + 3 stacked buttons
-    const int colW = inner.getWidth() / 3;
+    // Row 1: Mix | Octave gang (2 equal columns)
+    const int colW = inner.getWidth() / 2;
     auto knobRow = inner.removeFromTop (75);
     auto lblRow  = inner.removeFromTop (18);
 
-    mixSlider     .setBounds (knobRow.removeFromLeft (colW));
-    mixLabel      .setBounds (lblRow .removeFromLeft (colW));
+    levelSlider.setBounds (knobRow.removeFromLeft (colW));
+    levelLabel .setBounds (lblRow .removeFromLeft (colW));
 
-    // Middle column: octave label at top, then 3 stacked buttons
-    auto octCol = knobRow.removeFromLeft (colW);
-    lblRow.removeFromLeft (colW); // consume middle label slot (octave label is inside knobRow)
+    // Right column: octave label at top, then 3 stacked buttons
+    auto octCol = knobRow;
+    lblRow.removeFromLeft (lblRow.getWidth()); // consume remainder
 
     octLabel.setBounds (octCol.removeFromTop (14));
     const int btnH = octCol.getHeight() / 3;
     octBtn0.setBounds (octCol.removeFromTop (btnH));
     octBtn1.setBounds (octCol.removeFromTop (btnH));
     octBtn2.setBounds (octCol);
-
-    subLevelSlider.setBounds (knobRow); // remainder
-    subLevelLabel .setBounds (lblRow);
 
     inner.removeFromTop (8);
 

@@ -17,9 +17,9 @@ public:
 private:
     juce::AudioProcessorValueTreeState& apvts;
 
-    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider;
-    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach;
+    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider, drySlider;
+    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel,  dryLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach, dryAttach;
 
     static constexpr int kMeterH = 12;
     juce::Rectangle<int> meterBounds;

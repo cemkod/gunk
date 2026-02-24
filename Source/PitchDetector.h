@@ -49,6 +49,9 @@ private:
     // Autocorrelation result (only need up to maxLag)
     float acf[kMaxLag + 1] = {};
 
+    // Precomputed rising half-Hann window (length = kWindowSize + maxLag, recomputed in setSampleRate)
+    float window[kWindowSize + kMaxLag] = {};
+
     float readBuffer (int offset) const;
     void  runAutocorrelation();
 };

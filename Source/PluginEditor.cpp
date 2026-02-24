@@ -7,12 +7,16 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       gateSection   (p.apvts),
-      oscSection    (p, p.apvts),
-      filterSection (p, p.apvts)
+      filterSection (p, p.apvts),
+      subOscSection (p.apvts),
+      oscSection    (p, p.apvts)
 {
     addAndMakeVisible (gateSection);
-    addAndMakeVisible (oscSection);
     addAndMakeVisible (filterSection);
+    addAndMakeVisible (subOscSection);
+    addAndMakeVisible (oscSection);
+    addAndMakeVisible (osc2Section);
+    addAndMakeVisible (noiseSection);
 
     // Set LookAndFeel after sections are children so propagation covers them
     setLookAndFeel (&lookAndFeel);
@@ -68,6 +72,7 @@ JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
 void JQGunkAudioProcessorEditor::timerCallback()
 {
     oscSection.updateButtonStates();
+    subOscSection.updateButtonStates();
     filterSection.updateButtonStates();
     filterSection.repaintDisplay();
 
@@ -158,11 +163,20 @@ void JQGunkAudioProcessorEditor::resized()
     presetCombo.setBounds (strip);
     area.removeFromTop (4);  // gap after strip
 
-    gateSection.setBounds   (area.removeFromTop (UIConst::gateSectionH));
+    // Top row: gate (left half) + filter (right half), equal widths, topRowH tall
+    auto topRow = area.removeFromTop (UIConst::topRowH);
+    const int halfW = topRow.getWidth() / 2;
+    gateSection  .setBounds (topRow.removeFromLeft (halfW).withTrimmedRight (UIConst::sectionGap / 2));
+    filterSection.setBounds (topRow.withTrimmedLeft (UIConst::sectionGap / 2));
+
     area.removeFromTop (UIConst::sectionGap);
-    oscSection.setBounds    (area.removeFromTop (UIConst::oscSectionH));
-    area.removeFromTop (UIConst::sectionGap);
-    filterSection.setBounds (area.removeFromTop (UIConst::filterSectionH));
+
+    // Osc row: 4 equal columns
+    auto oscRow = area.removeFromTop (UIConst::oscSectionH);
+    subOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedRight (UIConst::sectionGap / 2));
+    oscSection   .setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedLeft (UIConst::sectionGap / 2).withTrimmedRight (UIConst::sectionGap / 2));
+    osc2Section  .setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedLeft (UIConst::sectionGap / 2).withTrimmedRight (UIConst::sectionGap / 2));
+    noiseSection .setBounds (oscRow.withTrimmedLeft (UIConst::sectionGap / 2));
 }
 
 //==============================================================================
