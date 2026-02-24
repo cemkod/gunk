@@ -1,7 +1,7 @@
 #include "Oscillator.h"
 
 static constexpr double    kCentsPerOctave    = 1200.0;
-static constexpr juce::int64 kMaxWavReadSamples = (juce::int64) 48000 * 600;
+static constexpr juce::int64 kMaxWavReadSamples = (juce::int64) 384000 * 600;
 
 WavetableOscillator::WavetableOscillator()
 {

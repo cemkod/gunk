@@ -26,7 +26,7 @@ public:
 private:
     static constexpr int kBufferSize = 8192;
     static constexpr int kHopSize    = 128;
-    static constexpr int kMaxLag     = 2400;
+    static constexpr int kMaxLag     = 3200;
     static constexpr int kWindowSize = 4096;
     // FFT order 13 → size 8192, enough for zero-padded autocorrelation
     static constexpr int kFFTOrder = 13;
