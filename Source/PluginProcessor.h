@@ -6,6 +6,7 @@
 #include "FilterEngine.h"
 #include "GlideEngine.h"
 #include "PresetManager.h"
+#include "TransientPlayer.h"
 
 //==============================================================================
 class JQGunkAudioProcessor : public juce::AudioProcessor
@@ -51,10 +52,15 @@ public:
     bool isCustomWaveform2Active() const;
     void reactivateCustomWavetable2();
 
+    bool loadTransientSampleFromFile (const juce::File& file);
+    bool isTransientSampleLoaded() const;
+    juce::String getTransientSamplePath() const;
+
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
+    bool  consumeTransient()           { return transientFlag.exchange (false, std::memory_order_relaxed); }
 
     PresetManager& getPresetManager() { return presetManager; }
     void syncOscillatorAfterPresetLoad();
@@ -86,6 +92,9 @@ private:
         int   octaveShift;
         float osc2Level;
         int   osc2OctaveShift;
+        float transientLevel;
+        float transientAttack;
+        float transientDecay;
     };
 
     BlockParams readBlockParams() const;
@@ -106,6 +115,9 @@ private:
     juce::String        customWavetable2Path;
     int                 param2WhenCustomLoaded = -1;
 
+    TransientPlayer transientPlayer;
+    juce::String    transientSamplePath;
+
     GlideEngine glide;
 
     // Envelope follower for the noise gate
@@ -113,6 +125,11 @@ private:
     static constexpr float kEnvAttack  = 0.010f;
     static constexpr float kEnvRelease = 0.100f;
     bool gateIsOpen = false;
+
+    // Transient detector
+    float prevEnvelope = 0.f;
+    int   transientCooldown = 0;
+    std::atomic<bool> transientFlag { false };
 
     // Envelope filter (auto-wah)
     EnvelopeFilter envelopeFilter;

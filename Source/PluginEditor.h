@@ -6,7 +6,7 @@
 #include "OscSectionComponent.h"
 #include "FilterSectionComponent.h"
 #include "SubOscSectionComponent.h"
-#include "PlaceholderSectionComponent.h"
+#include "TransientSectionComponent.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
                                        public juce::Timer
@@ -29,13 +29,16 @@ private:
     SubOscSectionComponent       subOscSection;
     OscSectionComponent          oscSection;
     OscSectionComponent          osc2Section;
-    PlaceholderSectionComponent  noiseSection { "NOISE" };
+    TransientSectionComponent    transientSection;
 
     std::unique_ptr<juce::Drawable> logo;
 
     juce::Label freqLabel;
     bool gateOpen = false;
     juce::Rectangle<int> gateLedBounds;
+
+    bool transientLedActive = false;
+    juce::Rectangle<int> transientLedBounds;
 
     // Preset strip
     juce::ComboBox   presetCombo;

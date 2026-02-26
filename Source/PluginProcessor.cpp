@@ -50,6 +50,10 @@ JQGunkAudioProcessor::createParameterLayout()
             { return juce::jlimit (0.0f, 6.0f, t.retainCharacters ("0123456789.").getFloatValue()); }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "transientSlope", "Transient Slope",
+        juce::NormalisableRange<float> (0.00005f, 0.002f, 0.00001f, 0.166f), 0.00008f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "glide", "Glide",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -184,6 +188,18 @@ JQGunkAudioProcessor::createParameterLayout()
         "osc2OctaveShift", "OSC 2 Octave Shift",
         juce::StringArray { "0", "+1", "+2" }, 0));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "transientLevel", "Transient Level",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "transientAttack", "Transient Attack",
+        juce::NormalisableRange<float> (0.001f, 0.1f, 0.001f, 0.3f), 0.005f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "transientDecay", "Transient Decay",
+        juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.15f));
+
     return layout;
 }
 
@@ -207,6 +223,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     gateIsOpen = false;
     envelopeFilter.reset();
     envelopeFilter.prepare (sampleRate, 0.3f); // default decay; updated per-block
+    transientPlayer.prepare (sampleRate);
 
     pitchDetectorLPF.reset();
     *pitchDetectorLPF.coefficients = *juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 500.0f);
@@ -304,6 +321,10 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
     p.osc2Level       = apvts.getRawParameterValue ("osc2Level")->load();
     p.osc2OctaveShift = (int) apvts.getRawParameterValue ("osc2OctaveShift")->load();
 
+    p.transientLevel  = apvts.getRawParameterValue ("transientLevel")->load();
+    p.transientAttack = apvts.getRawParameterValue ("transientAttack")->load();
+    p.transientDecay  = apvts.getRawParameterValue ("transientDecay")->load();
+
     return p;
 }
 
@@ -339,6 +360,18 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             gateIsOpen = true;
         else if (gateIsOpen && envelope < p.gateThresh)
             gateIsOpen = false;
+
+        // Transient detection (slope-based)
+        const float kSlopeThreshold = apvts.getRawParameterValue ("transientSlope")->load();
+        const float delta = envelope - prevEnvelope;
+        if (delta > kSlopeThreshold && transientCooldown == 0)
+        {
+            transientFlag.store (true, std::memory_order_relaxed);
+            transientCooldown = static_cast<int> (currentSampleRate * 0.030f);
+            transientPlayer.trigger (p.transientAttack, p.transientDecay);
+        }
+        if (transientCooldown > 0) --transientCooldown;
+        prevEnvelope = envelope;
 
         if (!gateIsOpen)
             detector.clearHistory();
@@ -384,9 +417,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             p.filterFreq, p.freqTracking, p.sensitivity, p.resonance, p.sweepMode);
 
         // 2g. Output mix
-        const float oscWet = filteredSample * envelope;
-        const float subWet = p.subBypassFilter ? subSample * p.subLevel * envelope : 0.0f;
-        const float out    = inputSample * p.dryLevel + oscWet + subWet;
+        const float oscWet    = filteredSample * envelope;
+        const float subWet    = p.subBypassFilter ? subSample * p.subLevel * envelope : 0.0f;
+        const float transSample = transientPlayer.getNextSample() * p.transientLevel;
+        const float out       = inputSample * p.dryLevel + oscWet + subWet + transSample;
 
         for (int ch = 0; ch < numChannels; ++ch)
             buffer.getWritePointer (ch)[i] = out;
@@ -417,6 +451,24 @@ void JQGunkAudioProcessor::reactivateCustomWavetable2()
         loadWavetable2FromFile (juce::File (customWavetable2Path));
 }
 
+bool JQGunkAudioProcessor::loadTransientSampleFromFile (const juce::File& file)
+{
+    if (! transientPlayer.loadFromFile (file)) return false;
+    transientSamplePath = file.getFullPathName();
+    return true;
+}
+
+bool JQGunkAudioProcessor::isTransientSampleLoaded() const
+{
+    return transientPlayer.isSampleLoaded();
+}
+
+juce::String JQGunkAudioProcessor::getTransientSamplePath() const
+{
+    return transientSamplePath;
+}
+
+//==============================================================================
 bool JQGunkAudioProcessor::loadWavetable2FromFile (const juce::File& file)
 {
     if (! osc2.loadFromFile (file)) return false;
@@ -488,6 +540,10 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml->setAttribute ("customWavetablePath2", customWavetable2Path);
     else
         xml->removeAttribute ("customWavetablePath2");
+    if (isTransientSampleLoaded())
+        xml->setAttribute ("transientSamplePath", transientSamplePath);
+    else
+        xml->removeAttribute ("transientSamplePath");
     xml->setAttribute ("currentPresetIndex", presetManager.getCurrentIndex());
     copyXmlToBinary (*xml, dest);
 
@@ -570,6 +626,17 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
         const int w2 = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
         osc2.setWaveform (static_cast<WaveformType> (w2 + 1));
         param2WhenCustomLoaded = -1;
+    }
+
+    // Transient sample
+    transientSamplePath = xml->getStringAttribute ("transientSamplePath", {});
+    if (transientSamplePath.isNotEmpty())
+    {
+        juce::File f (transientSamplePath);
+        if (f.existsAsFile())
+            transientPlayer.loadFromFile (f);
+        else
+            transientSamplePath = {};
     }
 
     dbgLog ("setStateInformation: restored waveforms | waveIdx=" + juce::String (waveIdx)

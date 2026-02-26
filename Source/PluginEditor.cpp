@@ -10,7 +10,8 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       filterSection (p, p.apvts),
       subOscSection (p.apvts),
       oscSection  ("OSC",   OscParamIds { "waveform",     "oscLevel",   "unisonVoices",    "unisonDetune",    "unisonBlend",    "octaveShift"    }, p.apvts),
-      osc2Section ("OSC 2", OscParamIds { "osc2Waveform", "osc2Level",  "osc2UnisonVoices","osc2UnisonDetune","osc2UnisonBlend","osc2OctaveShift" }, p.apvts)
+      osc2Section ("OSC 2", OscParamIds { "osc2Waveform", "osc2Level",  "osc2UnisonVoices","osc2UnisonDetune","osc2UnisonBlend","osc2OctaveShift" }, p.apvts),
+      transientSection (p.apvts)
 {
     // Wire OSC 1 wavetable callbacks
     oscSection.isCustomWavetableLoaded   = [&p] { return p.isCustomWavetableLoaded(); };
@@ -29,7 +30,9 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     addAndMakeVisible (subOscSection);
     addAndMakeVisible (oscSection);
     addAndMakeVisible (osc2Section);
-    addAndMakeVisible (noiseSection);
+    transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
+    transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
+    addAndMakeVisible (transientSection);
 
     // Set LookAndFeel after sections are children so propagation covers them
     setLookAndFeel (&lookAndFeel);
@@ -87,6 +90,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
     oscSection.updateButtonStates();
     osc2Section.updateButtonStates();
     subOscSection.updateButtonStates();
+    transientSection.updateButtonStates();
     filterSection.updateButtonStates();
     filterSection.repaintDisplay();
 
@@ -101,6 +105,13 @@ void JQGunkAudioProcessorEditor::timerCallback()
     {
         gateOpen = nowOpen;
         repaint (gateLedBounds);
+    }
+
+    const bool newTransient = processor.consumeTransient();
+    if (newTransient != transientLedActive)
+    {
+        transientLedActive = newTransient;
+        repaint (transientLedBounds);
     }
 
     gateSection.setMeterValues (processor.getEnvelope(), nowOpen);
@@ -141,6 +152,26 @@ void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
         g.setColour (juce::Colours::white.withAlpha (gateOpen ? 0.35f : 0.08f));
         g.fillEllipse (bounds.reduced (1.5f).withHeight (bounds.getHeight() * 0.45f));
     }
+
+    // Transient LED (amber)
+    {
+        const auto bounds = transientLedBounds.toFloat();
+        const juce::Colour ledOn  { 0xffffa500 };
+        const juce::Colour ledOff { 0xff332200 };
+        const juce::Colour col = transientLedActive ? ledOn : ledOff;
+
+        if (transientLedActive)
+        {
+            g.setColour (ledOn.withAlpha (0.25f));
+            g.fillEllipse (bounds.expanded (3.0f));
+        }
+
+        g.setColour (col);
+        g.fillEllipse (bounds);
+
+        g.setColour (juce::Colours::white.withAlpha (transientLedActive ? 0.35f : 0.08f));
+        g.fillEllipse (bounds.reduced (1.5f).withHeight (bounds.getHeight() * 0.45f));
+    }
 }
 
 void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
@@ -165,6 +196,7 @@ void JQGunkAudioProcessorEditor::resized()
     auto labelRow = header.removeFromBottom (UIConst::labelRowH);
     gateLedBounds = labelRow.removeFromLeft (UIConst::gateLedSize + UIConst::gateLedPad)
                             .withSizeKeepingCentre (UIConst::gateLedSize, UIConst::gateLedSize);
+    transientLedBounds = gateLedBounds.translated (gateLedBounds.getWidth() + 4, 0);
     freqLabel.setBounds (labelRow);
     area.removeFromTop (4);  // gap below title
 
@@ -190,7 +222,7 @@ void JQGunkAudioProcessorEditor::resized()
     subOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedRight (UIConst::sectionGap / 2));
     oscSection   .setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedLeft (UIConst::sectionGap / 2).withTrimmedRight (UIConst::sectionGap / 2));
     osc2Section  .setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedLeft (UIConst::sectionGap / 2).withTrimmedRight (UIConst::sectionGap / 2));
-    noiseSection .setBounds (oscRow.withTrimmedLeft (UIConst::sectionGap / 2));
+    transientSection.setBounds (oscRow.withTrimmedLeft (UIConst::sectionGap / 2));
 }
 
 //==============================================================================
