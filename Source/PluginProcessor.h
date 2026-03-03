@@ -80,6 +80,7 @@ public:
     float getModEnvelope() const noexcept { return modEnvelope; }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
     bool  consumeTransient()           { return transientFlag.exchange (false, std::memory_order_relaxed); }
+    float getLFOValue() const          { return lfoValueAtomic.load (std::memory_order_relaxed); }
 
     PresetManager& getPresetManager() { return presetManager; }
     void syncOscillatorAfterPresetLoad();
@@ -162,6 +163,10 @@ private:
     EnvelopeFilter envelopeFilter;
 
     double currentSampleRate = 48000;
+
+    // LFO state
+    float lfoPhase = 0.0f;
+    std::atomic<float> lfoValueAtomic { 0.0f };
 
     // Low-pass filter applied to input before pitch detection (~500 Hz cutoff)
     juce::dsp::IIR::Filter<float> pitchDetectorLPF;

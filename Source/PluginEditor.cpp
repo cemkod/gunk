@@ -14,6 +14,8 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
           OscParamIds { "waveform",     "oscLevel",  "unisonVoices",     "unisonDetune",     "unisonBlend",     "octaveShift",     "morph"     },
           OscParamIds { "osc2Waveform", "osc2Level", "osc2UnisonVoices", "osc2UnisonDetune", "osc2UnisonBlend", "osc2OctaveShift", "osc2Morph" }),
       transientSection (p.apvts),
+      outputSection (p.apvts),
+      lfoSection (p.apvts),
       modMatrixView (p.apvts)
 {
     // Wire OSC 1 callbacks
@@ -42,6 +44,8 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
     transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
     addAndMakeVisible (transientSection);
+    addAndMakeVisible (outputSection);
+    addAndMakeVisible (lfoSection);
 
     // MOD matrix view (hidden by default; addChildComponent does not call setVisible)
     addChildComponent (modMatrixView);
@@ -57,6 +61,8 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         subOscSection    .setVisible (!modViewVisible);
         combinedOscSection.setVisible (!modViewVisible);
         transientSection .setVisible (!modViewVisible);
+        outputSection    .setVisible (!modViewVisible);
+        lfoSection       .setVisible (!modViewVisible);
     };
     addAndMakeVisible (modToggleBtn);
 
@@ -140,6 +146,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
 
     gateSection.setMeterValues (processor.getEnvelope(), nowOpen, newTransient);
     envelopeSection.pushSample (processor.getModEnvelope());
+    lfoSection.pushSample (processor.getLFOValue());
 
     const int cur = processor.getPresetManager().getCurrentIndex();
     if (presetCombo.getSelectedItemIndex() != cur)
@@ -239,7 +246,7 @@ void JQGunkAudioProcessorEditor::resized()
     // MOD matrix occupies the same content area as the main sections
     modMatrixView.setBounds (area);
 
-    // Top row: gate | envelope | filter
+    // Top row: gate | envelope | filter | output
     auto topRow = area.removeFromTop (UIConst::topRowH);
     constexpr int gateW     = 200;
     constexpr int envelopeW = 200;
@@ -248,13 +255,17 @@ void JQGunkAudioProcessorEditor::resized()
     topRow.removeFromLeft (g);
     envelopeSection.setBounds (topRow.removeFromLeft (envelopeW));
     topRow.removeFromLeft (g);
+    outputSection  .setBounds (topRow.removeFromRight (UIConst::oscColW));
+    topRow.removeFromRight (g);
     filterSection  .setBounds (topRow);
 
     area.removeFromTop (UIConst::sectionGap);
 
-    // Osc row: sub (1 col) | combined osc (2 cols) | transient (1 col)
+    // Osc row: sub (1 col) | combined osc (2 cols) | transient (1 col) | lfo (1 col)
     auto oscRow = area.removeFromTop (UIConst::oscSectionH);
     subOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedRight (UIConst::sectionGap / 2));
+    lfoSection   .setBounds (oscRow.removeFromRight (UIConst::oscColW));
+    oscRow.removeFromRight (g);
     combinedOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW * 2)
                                         .withTrimmedLeft (UIConst::sectionGap / 2)
                                         .withTrimmedRight (UIConst::sectionGap / 2));

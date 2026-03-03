@@ -189,12 +189,34 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         pctFmt(), pctParse (0.0f, 1.0f)));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "masterVolume", "Master Volume",
+        juce::NormalisableRange<float> (0.0f, 2.0f, 0.01f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 2.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "ampEnvSource", "Amp Env Source",
+        juce::StringArray { "Source", "Env Module" }, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "lfoRate", "LFO Rate",
+        juce::NormalisableRange<float> (0.01f, 20.0f, 0.0f, 0.3f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String { return juce::String (v, 2) + " Hz"; },
+        [] (const juce::String& t) -> float
+            { return juce::jlimit (0.01f, 20.0f, t.retainCharacters ("0123456789.").getFloatValue()); }));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "lfoShape", "LFO Shape",
+        juce::StringArray { "Sine", "Tri", "Square", "Saw" }, 0));
+
     for (int i = 0; i < 8; ++i)
     {
         const juce::String n (i);
         layout.add (std::make_unique<juce::AudioParameterChoice> (
             "modSlot" + n + "Source", "Mod Slot " + n + " Source",
-            juce::StringArray { "None", "Envelope", "Pitch", "Mod Env" }, 0));
+            juce::StringArray { "None", "Envelope", "Pitch", "Mod Env", "LFO" }, 0));
         layout.add (std::make_unique<juce::AudioParameterChoice> (
             "modSlot" + n + "Target", "Mod Slot " + n + " Target",
             juce::StringArray { "None", "Morph 1", "Morph 2", "Filter Freq",
@@ -399,7 +421,24 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float modAttCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modAttack));
     const float modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
 
-    modMatrix.snapshot (apvts, envelope, modEnvelope, glide.getLastDetectedFreq());
+    // LFO computation (once per block)
+    const float lfoFreq  = apvts.getRawParameterValue ("lfoRate")->load();
+    const float lfoShape = apvts.getRawParameterValue ("lfoShape")->load();
+    lfoPhase = std::fmod (lfoPhase + lfoFreq / (float) currentSampleRate * (float) buffer.getNumSamples(), 1.0f);
+    float lfoRaw;
+    switch ((int) lfoShape)
+    {
+        case 1:  lfoRaw = lfoPhase < 0.5f ? lfoPhase * 2.0f : 2.0f - lfoPhase * 2.0f; break; // Triangle
+        case 2:  lfoRaw = lfoPhase < 0.5f ? 1.0f : 0.0f; break;                               // Square
+        case 3:  lfoRaw = lfoPhase; break;                                                      // Sawtooth
+        default: lfoRaw = 0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * lfoPhase); // Sine
+    }
+    lfoValueAtomic.store (lfoRaw, std::memory_order_relaxed);
+
+    const int ampEnvSourceIdx = (int) apvts.getRawParameterValue ("ampEnvSource")->load();
+    const float masterVolume  = apvts.getRawParameterValue ("masterVolume")->load();
+
+    modMatrix.snapshot (apvts, envelope, modEnvelope, glide.getLastDetectedFreq(), lfoRaw);
 
     p.oscLevel   = juce::jlimit (0.0f, 2.0f,        p.oscLevel   + modMatrix.getOffset (ModTarget::Osc1Level));
     p.osc2Level  = juce::jlimit (0.0f, 2.0f,        p.osc2Level  + modMatrix.getOffset (ModTarget::Osc2Level));
@@ -497,8 +536,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             static_cast<FilterType> (p.filterType));
 
         // 2g. Output mix
-        const float oscWet    = filteredSample * envelope;
-        const float subWet    = p.subBypassFilter ? subSample * p.subLevel * envelope : 0.0f;
+        const float ampEnv = (ampEnvSourceIdx == 0) ? envelope : modEnvelope;
+        const float oscWet    = filteredSample * ampEnv;
+        const float subWet    = p.subBypassFilter ? subSample * p.subLevel * ampEnv : 0.0f;
         // Frequency tracking: scale playback rate so the transient follows the
         // detected pitch (referenced to 110 Hz = A2).  The pitch knob offsets
         // in semitones on top of that.
@@ -509,7 +549,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float out       = inputSample * p.dryLevel + oscWet + subWet + transSample;
 
         for (int ch = 0; ch < numChannels; ++ch)
-            buffer.getWritePointer (ch)[i] = out;
+            buffer.getWritePointer (ch)[i] = out * masterVolume;
     }
 }
 
