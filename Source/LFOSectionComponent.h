@@ -13,11 +13,13 @@ public:
     explicit LFOSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("LFO"),
           apvts (avts),
-          rateAttach (avts, "lfoRate", rateSlider)
+          rateAttach   (avts, "lfoRate",   rateSlider),
+          amountAttach (avts, "lfoAmount", amountSlider)
     {
         addAndMakeVisible (displayComponent);
 
-        BassLookAndFeel::setupRotarySlider (rateSlider, rateLabel, "RATE", *this);
+        BassLookAndFeel::setupRotarySlider (rateSlider,   rateLabel,   "RATE",   *this);
+        BassLookAndFeel::setupRotarySlider (amountSlider, amountLabel, "AMOUNT", *this);
 
         for (auto* btn : { &sineBtn, &triBtn, &sqBtn, &sawBtn })
         {
@@ -63,8 +65,13 @@ public:
         displayComponent.setBounds (inner.removeFromTop (70));
         inner.removeFromTop (6);
 
-        rateSlider.setBounds (inner.removeFromTop (55));
-        rateLabel .setBounds (inner.removeFromTop (16));
+        const int halfW = inner.getWidth() / 2;
+        auto knobRow1 = inner.removeFromTop (55);
+        rateSlider  .setBounds (knobRow1.removeFromLeft (halfW));
+        amountSlider.setBounds (knobRow1);
+        auto lblRow1 = inner.removeFromTop (16);
+        rateLabel  .setBounds (lblRow1.removeFromLeft (halfW));
+        amountLabel.setBounds (lblRow1);
 
         inner.removeFromTop (8);
         auto btnRow = inner.removeFromTop (28);
@@ -102,6 +109,10 @@ private:
     juce::Slider rateSlider;
     juce::Label  rateLabel { "", "RATE" };
     juce::AudioProcessorValueTreeState::SliderAttachment rateAttach;
+
+    juce::Slider amountSlider;
+    juce::Label  amountLabel { "", "AMOUNT" };
+    juce::AudioProcessorValueTreeState::SliderAttachment amountAttach;
 
     juce::TextButton sineBtn { "Sine" }, triBtn { "Tri" },
                      sqBtn   { "Sq"   }, sawBtn { "Saw" };

@@ -178,6 +178,42 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::StringArray { "0", "+1", "+2" }, 0));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "coarseTune", "Coarse Tune",
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 1.0f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        semitoneFmt(), semitoneParse (-24.0f, 24.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "fineTune", "Fine Tune",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            if (v >= 0.0f) return "+" + juce::String (v, 1) + " ct";
+            return juce::String (v, 1) + " ct";
+        },
+        [] (const juce::String& t) -> float
+            { return juce::jlimit (-100.0f, 100.0f, t.retainCharacters ("0123456789.-").getFloatValue()); }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "osc2CoarseTune", "OSC 2 Coarse Tune",
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 1.0f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        semitoneFmt(), semitoneParse (-24.0f, 24.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "osc2FineTune", "OSC 2 Fine Tune",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            if (v >= 0.0f) return "+" + juce::String (v, 1) + " ct";
+            return juce::String (v, 1) + " ct";
+        },
+        [] (const juce::String& t) -> float
+            { return juce::jlimit (-100.0f, 100.0f, t.retainCharacters ("0123456789.-").getFloatValue()); }));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "morph", "Morph",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -211,6 +247,12 @@ JQGunkAudioProcessor::createParameterLayout()
         "lfoShape", "LFO Shape",
         juce::StringArray { "Sine", "Tri", "Square", "Saw" }, 0));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "lfoAmount", "LFO Amount",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
     for (int i = 0; i < 8; ++i)
     {
         const juce::String n (i);
@@ -222,7 +264,8 @@ JQGunkAudioProcessor::createParameterLayout()
             juce::StringArray { "None", "Morph 1", "Morph 2", "Filter Freq",
                                 "Filter Res", "OSC 1 Level", "OSC 2 Level",
                                 "Unison 1 Detune", "Sub Level",
-                                "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume" }, 0));
+                                "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
+                                "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount" }, 0));
         layout.add (std::make_unique<juce::AudioParameterFloat> (
             "modSlot" + n + "Amount", "Mod Slot " + n + " Amount",
             juce::NormalisableRange<float> (-3.0f, 3.0f, 0.001f), 0.0f));
@@ -407,6 +450,17 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
     p.transientDecay  = apvts.getRawParameterValue ("transientDecay")->load();
     p.transientPitch  = apvts.getRawParameterValue ("transientPitch")->load();
 
+    {
+        const float c = (float) juce::roundToInt (apvts.getRawParameterValue ("coarseTune")->load());
+        const float f = apvts.getRawParameterValue ("fineTune")->load();
+        p.osc1PitchMult = std::pow (2.0f, (c + f / 100.0f) / 12.0f);
+    }
+    {
+        const float c = (float) juce::roundToInt (apvts.getRawParameterValue ("osc2CoarseTune")->load());
+        const float f = apvts.getRawParameterValue ("osc2FineTune")->load();
+        p.osc2PitchMult = std::pow (2.0f, (c + f / 100.0f) / 12.0f);
+    }
+
     return p;
 }
 
@@ -425,9 +479,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
 
     // LFO computation (once per block)
-    float lfoFreq  = apvts.getRawParameterValue ("lfoRate")->load();
+    // Use modulated rate/amount from the previous block so LfoRate/LfoAmount
+    // mod targets actually take effect (avoids local-variable no-op).
     const float lfoShape = apvts.getRawParameterValue ("lfoShape")->load();
-    lfoPhase = std::fmod (lfoPhase + lfoFreq / (float) currentSampleRate * (float) buffer.getNumSamples(), 1.0f);
+    lfoPhase = std::fmod (lfoModulatedRate / (float) currentSampleRate * (float) buffer.getNumSamples() + lfoPhase, 1.0f);
     float lfoRaw;
     switch ((int) lfoShape)
     {
@@ -436,12 +491,13 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         case 3:  lfoRaw = lfoPhase; break;                                                      // Sawtooth
         default: lfoRaw = 0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * lfoPhase); // Sine
     }
-    lfoValueAtomic.store (lfoRaw, std::memory_order_relaxed);
+    const float lfoScaled = lfoRaw * lfoModulatedAmount;
+    lfoValueAtomic.store (lfoScaled, std::memory_order_relaxed);
 
     const int ampEnvSourceIdx = (int) apvts.getRawParameterValue ("ampEnvSource")->load();
     float masterVolume  = apvts.getRawParameterValue ("masterVolume")->load();
 
-    modMatrix.snapshot (apvts, envelope, modEnvelope, glide.getLastDetectedFreq(), lfoRaw);
+    modMatrix.snapshot (apvts, envelope, modEnvelope, glide.getLastDetectedFreq(), lfoScaled);
 
     p.oscLevel   = juce::jlimit (0.0f, 2.0f,        p.oscLevel   + modMatrix.getOffset (ModTarget::Osc1Level));
     p.osc2Level  = juce::jlimit (0.0f, 2.0f,        p.osc2Level  + modMatrix.getOffset (ModTarget::Osc2Level));
@@ -453,11 +509,18 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     p.glideTime   = juce::jlimit (0.0f, 1.0f, p.glideTime + modMatrix.getOffset (ModTarget::Glide));
     p.glideSamples = (p.glideTime > 0.0f) ? (int) (currentSampleRate * p.glideTime) : 0;
 
-    // LFO Rate mod (takes effect from next block)
-    lfoFreq = juce::jlimit (0.01f, 20.0f, lfoFreq + modMatrix.getOffset (ModTarget::LfoRate));
+    // LFO Rate/Amount mods: write to persistent members so next block picks them up
+    lfoModulatedRate   = juce::jlimit (0.01f, 20.0f,
+        apvts.getRawParameterValue ("lfoRate")->load() + modMatrix.getOffset (ModTarget::LfoRate));
+    lfoModulatedAmount = juce::jlimit (0.0f, 1.0f,
+        apvts.getRawParameterValue ("lfoAmount")->load() + modMatrix.getOffset (ModTarget::LfoAmount));
 
     // Master Volume mod
     masterVolume = juce::jlimit (0.0f, 2.0f, masterVolume + modMatrix.getOffset (ModTarget::MasterVolume));
+
+    // Fine tune modulation (offset in cents → multiply pitch multiplier)
+    p.osc1PitchMult *= std::pow (2.0f, modMatrix.getOffset (ModTarget::Osc1FineTune) / 1200.0f);
+    p.osc2PitchMult *= std::pow (2.0f, modMatrix.getOffset (ModTarget::Osc2FineTune) / 1200.0f);
 
     updateOscillatorParams();
     updateOsc2Params();
@@ -514,6 +577,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (p.octaveShift > 0)
             detectedFreq *= (p.octaveShift == 1 ? 2.0f : 4.0f);
 
+        detectedFreq *= p.osc1PitchMult;
+
         // 2c. Glide (frequency ramp)
         const float glidedFreq = glide.update (detectedFreq, p.glideSamples, gateIsOpen);
 
@@ -522,8 +587,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             oscillator.setFrequency    (glidedFreq,                  currentSampleRate);
             subOscillator.setFrequency (glidedFreq * p.subOctaveMult, currentSampleRate);
-            const float freq2 = glidedFreq * (p.osc2OctaveShift == 1 ? 2.0f
-                                            : p.osc2OctaveShift == 2 ? 4.0f : 1.0f);
+            const float freq2 = glidedFreq
+                              * (p.osc2OctaveShift == 1 ? 2.0f : p.osc2OctaveShift == 2 ? 4.0f : 1.0f)
+                              * p.osc2PitchMult;
             osc2.setFrequency (freq2, currentSampleRate);
         }
         else

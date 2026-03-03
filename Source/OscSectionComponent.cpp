@@ -13,7 +13,9 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
       unisonVoicesAttach (avts, ids.unisonVoices, unisonVoicesSlider),
       unisonDetuneAttach (avts, ids.unisonDetune, unisonDetuneSlider),
       unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider),
-      morphAttach        (avts, ids.morph,         morphSlider)
+      morphAttach        (avts, ids.morph,         morphSlider),
+      coarseTuneAttach   (avts, ids.coarseTune,   coarseTuneSlider),
+      fineTuneAttach     (avts, ids.fineTune,     fineTuneSlider)
 {
     if (embedded_)
         setSuppressBorder (true);
@@ -27,6 +29,10 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
 
     // Morph knob — rotary
     BassLookAndFeel::setupRotarySlider (morphSlider, morphLabel, "MORPH", *this);
+
+    BassLookAndFeel::setupRotarySlider (coarseTuneSlider, coarseTuneLabel, "COARSE", *this);
+    coarseTuneSlider.setNumDecimalPlacesToDisplay (0);
+    BassLookAndFeel::setupRotarySlider (fineTuneSlider, fineTuneLabel, "FINE", *this);
 
     configureOctaveButtons();
 
@@ -129,4 +135,13 @@ void OscSectionComponent::resized()
     unisonVoicesLabel.setBounds (lblRow2.removeFromLeft (knobW3));
     unisonDetuneLabel.setBounds (lblRow2.removeFromLeft (knobW3));
     unisonBlendLabel .setBounds (lblRow2);
+
+    inner.removeFromTop (8); // gap
+    const int knobW2 = inner.getWidth() / 2;
+    auto knobRow3 = inner.removeFromTop (75);
+    coarseTuneSlider.setBounds (knobRow3.removeFromLeft (knobW2));
+    fineTuneSlider  .setBounds (knobRow3);
+    auto lblRow3 = inner.removeFromTop (18);
+    coarseTuneLabel .setBounds (lblRow3.removeFromLeft (knobW2));
+    fineTuneLabel   .setBounds (lblRow3);
 }

@@ -3,14 +3,14 @@
 namespace UIConst {
     // Editor dimensions
     constexpr int editorWidth    = 833;
-    constexpr int editorHeight   = 728;
+    constexpr int editorHeight   = 813;  // +85 for coarse/fine tune row
     constexpr int editorPad      = 10;
     constexpr int headerHeight   = 60;
     constexpr int labelRowH      = 16;
     constexpr int presetStripH   = 28;
     constexpr int sectionGap     = 8;
     constexpr int gateSectionH   = 149;
-    constexpr int oscSectionH    = 340;
+    constexpr int oscSectionH    = 425;  // +85 for coarse/fine tune row
     constexpr int filterSectionH = 261;
     constexpr int topRowH        = 261;  // gate+filter row height
     constexpr int oscColW        = 165;  // fixed column width

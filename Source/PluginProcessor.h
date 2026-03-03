@@ -110,6 +110,8 @@ private:
         int   octaveShift;
         float osc2Level;
         int   osc2OctaveShift;
+        float osc1PitchMult;   // derived: pow(2, (coarseTune + fineTune/100) / 12)
+        float osc2PitchMult;   // derived: pow(2, (osc2CoarseTune + osc2FineTune/100) / 12)
         float transientLevel;
         float transientAttack;
         float transientDecay;
@@ -165,7 +167,9 @@ private:
     double currentSampleRate = 48000;
 
     // LFO state
-    float lfoPhase = 0.0f;
+    float lfoPhase            = 0.0f;
+    float lfoModulatedRate    = 1.0f;  // persists lfoFreq after LfoRate mod target
+    float lfoModulatedAmount  = 1.0f;  // persists lfoAmount after LfoAmount mod target
     std::atomic<float> lfoValueAtomic { 0.0f };
 
     // Low-pass filter applied to input before pitch detection (~500 Hz cutoff)
