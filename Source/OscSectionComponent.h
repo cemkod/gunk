@@ -6,7 +6,7 @@
 
 struct OscParamIds
 {
-    juce::String waveform, level, unisonVoices, unisonDetune, unisonBlend, octaveShift, morph, morphEnvMod;
+    juce::String waveform, level, unisonVoices, unisonDetune, unisonBlend, octaveShift, morph;
 };
 
 class OscSectionComponent : public LabelledSectionComponent
@@ -43,10 +43,6 @@ private:
     juce::Slider morphSlider;
     juce::Label  morphLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment morphAttach;
-
-    juce::Slider morphEnvModSlider;
-    juce::Label  morphEnvModLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment morphEnvModAttach;
 
     juce::TextButton octBtn0 { "0" }, octBtn1 { "+1" }, octBtn2 { "+2" };
     juce::Label      octLabel;

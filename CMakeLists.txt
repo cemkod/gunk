@@ -64,6 +64,9 @@ target_sources(JQGunk PRIVATE
     Source/FilterSectionComponent.cpp
     Source/FilterDisplayComponent.cpp
     Source/PresetManager.cpp
+    Source/ModMatrix.h
+    Source/ModMatrixComponent.h
+    Source/ModMatrixComponent.cpp
 )
 
 if(UNIX AND NOT APPLE)

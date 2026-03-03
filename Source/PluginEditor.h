@@ -7,6 +7,7 @@
 #include "FilterSectionComponent.h"
 #include "SubOscSectionComponent.h"
 #include "TransientSectionComponent.h"
+#include "ModMatrixComponent.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
                                        public juce::Timer
@@ -29,6 +30,9 @@ private:
     SubOscSectionComponent        subOscSection;
     CombinedOscSectionComponent   combinedOscSection;
     TransientSectionComponent     transientSection;
+    ModMatrixComponent            modMatrixView;
+    juce::TextButton              modToggleBtn { "MOD" };
+    bool modViewVisible = false;
 
     std::unique_ptr<juce::Drawable> logo;
 

@@ -10,9 +10,10 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       filterSection (p, p.apvts),
       subOscSection (p.apvts),
       combinedOscSection (p.apvts,
-          OscParamIds { "waveform",     "oscLevel",  "unisonVoices",     "unisonDetune",     "unisonBlend",     "octaveShift",     "morph",     "morphEnvMod"     },
-          OscParamIds { "osc2Waveform", "osc2Level", "osc2UnisonVoices", "osc2UnisonDetune", "osc2UnisonBlend", "osc2OctaveShift", "osc2Morph", "osc2MorphEnvMod" }),
-      transientSection (p.apvts)
+          OscParamIds { "waveform",     "oscLevel",  "unisonVoices",     "unisonDetune",     "unisonBlend",     "octaveShift",     "morph"     },
+          OscParamIds { "osc2Waveform", "osc2Level", "osc2UnisonVoices", "osc2UnisonDetune", "osc2UnisonBlend", "osc2OctaveShift", "osc2Morph" }),
+      transientSection (p.apvts),
+      modMatrixView (p.apvts)
 {
     // Wire OSC 1 callbacks
     combinedOscSection.isCustomWavetableLoaded[0]   = [&p] { return p.isCustomWavetableLoaded(); };
@@ -39,6 +40,22 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
     transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
     addAndMakeVisible (transientSection);
+
+    // MOD matrix view (hidden by default; addChildComponent does not call setVisible)
+    addChildComponent (modMatrixView);
+
+    modToggleBtn.setClickingTogglesState (true);
+    modToggleBtn.onClick = [this]
+    {
+        modViewVisible = modToggleBtn.getToggleState();
+        modMatrixView    .setVisible ( modViewVisible);
+        gateSection      .setVisible (!modViewVisible);
+        filterSection    .setVisible (!modViewVisible);
+        subOscSection    .setVisible (!modViewVisible);
+        combinedOscSection.setVisible (!modViewVisible);
+        transientSection .setVisible (!modViewVisible);
+    };
+    addAndMakeVisible (modToggleBtn);
 
     // Set LookAndFeel after sections are children so propagation covers them
     setLookAndFeel (&lookAndFeel);
@@ -96,7 +113,6 @@ void JQGunkAudioProcessorEditor::timerCallback()
     combinedOscSection.updateButtonStates();
     subOscSection.updateButtonStates();
     transientSection.updateButtonStates();
-    filterSection.updateButtonStates();
     filterSection.repaintDisplay();
 
     const float freq = processor.getDetectedFrequency();
@@ -202,6 +218,8 @@ void JQGunkAudioProcessorEditor::resized()
     gateLedBounds = labelRow.removeFromLeft (UIConst::gateLedSize + UIConst::gateLedPad)
                             .withSizeKeepingCentre (UIConst::gateLedSize, UIConst::gateLedSize);
     transientLedBounds = gateLedBounds.translated (gateLedBounds.getWidth() + 4, 0);
+    modToggleBtn.setBounds (labelRow.removeFromRight (40).reduced (0, 1));
+    labelRow.removeFromRight (4);
     freqLabel.setBounds (labelRow);
     area.removeFromTop (4);  // gap below title
 
@@ -213,6 +231,9 @@ void JQGunkAudioProcessorEditor::resized()
     strip.removeFromRight (4);
     presetCombo.setBounds (strip);
     area.removeFromTop (4);  // gap after strip
+
+    // MOD matrix occupies the same content area as the main sections
+    modMatrixView.setBounds (area);
 
     // Top row: gate (left half) + filter (right half), equal widths, topRowH tall
     auto topRow = area.removeFromTop (UIConst::topRowH);

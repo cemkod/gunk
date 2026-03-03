@@ -112,6 +112,55 @@ public:
                           juce::Justification::centred, 1);
     }
 
+    void drawLinearSlider (juce::Graphics& g,
+                           int x, int y, int width, int height,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           const juce::Slider::SliderStyle style,
+                           juce::Slider& slider) override
+    {
+        const bool isBipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+        if (style != juce::Slider::LinearHorizontal || !isBipolar)
+        {
+            juce::LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos,
+                                                    minSliderPos, maxSliderPos, style, slider);
+            return;
+        }
+
+        const float trackH = 4.0f;
+        const float trackY = y + (height - trackH) * 0.5f;
+        const float trackX = (float) x;
+        const float trackW = (float) width;
+
+        // Track background
+        g.setColour (border);
+        g.fillRoundedRectangle (trackX, trackY, trackW, trackH, trackH * 0.5f);
+
+        // Zero point and thumb position
+        const float zeroFrac = (float) ((-slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum()));
+        const float zeroX    = trackX + zeroFrac * trackW;
+        const float thumbX   = trackX + sliderPos * trackW;
+
+        // Fill from zero to thumb
+        const float fillL = juce::jmin (zeroX, thumbX);
+        const float fillR = juce::jmax (zeroX, thumbX);
+        if (fillR > fillL + 0.5f)
+        {
+            g.setColour (accent);
+            g.fillRoundedRectangle (fillL, trackY, fillR - fillL, trackH, trackH * 0.5f);
+        }
+
+        // Center tick
+        g.setColour (textDim);
+        g.fillRect (zeroX - 0.5f, trackY - 2.0f, 1.0f, trackH + 4.0f);
+
+        // Thumb
+        const float thumbW = 8.0f;
+        const float thumbH = (float) height * 0.7f;
+        g.setColour (accent);
+        g.fillRoundedRectangle (thumbX - thumbW * 0.5f, y + (height - thumbH) * 0.5f,
+                                thumbW, thumbH, 2.0f);
+    }
+
     void drawComboBox (juce::Graphics& g, int w, int h, bool /*isButtonDown*/,
                        int /*buttonX*/, int /*buttonY*/, int /*buttonW*/, int /*buttonH*/,
                        juce::ComboBox&) override

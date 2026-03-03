@@ -77,12 +77,6 @@ JQGunkAudioProcessor::createParameterLayout()
         0)); // default: Triangle
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        "envSensitivity", "Env Sensitivity",
-        juce::NormalisableRange<float> (0.0f, 7.0f, 0.01f), 3.0f,
-        juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        scaledPctFmt (7.0f), scaledPctParse (0.0f, 7.0f)));
-
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envResonance", "Env Resonance",
         juce::NormalisableRange<float> (0.0f, 8.0f, 0.01f), 2.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
@@ -93,10 +87,6 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.3f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         timeFmt(), timeParse (0.01f, 2.0f)));
-
-    layout.add (std::make_unique<juce::AudioParameterChoice> (
-        "sweepMode", "Sweep",
-        juce::StringArray { "Off", "Up", "Down" }, 0)); // default: Off
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "freqTracking", "Freq Tracking",
@@ -200,19 +190,21 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         pctFmt(), pctParse (0.0f, 1.0f)));
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        "morphEnvMod", "Morph Env Mod",
-        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.001f), 0.0f,
-        juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) { return (v >= 0 ? "+" : "") + juce::String (v, 2); },
-        [] (const juce::String& t) { return juce::jlimit (-1.0f, 1.0f, t.getFloatValue()); }));
-
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        "osc2MorphEnvMod", "OSC 2 Morph Env Mod",
-        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.001f), 0.0f,
-        juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        [] (float v, int) { return (v >= 0 ? "+" : "") + juce::String (v, 2); },
-        [] (const juce::String& t) { return juce::jlimit (-1.0f, 1.0f, t.getFloatValue()); }));
+    for (int i = 0; i < 8; ++i)
+    {
+        const juce::String n (i);
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            "modSlot" + n + "Source", "Mod Slot " + n + " Source",
+            juce::StringArray { "None", "Envelope", "Pitch" }, 0));
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            "modSlot" + n + "Target", "Mod Slot " + n + " Target",
+            juce::StringArray { "None", "Morph 1", "Morph 2", "Filter Freq",
+                                "Filter Res", "OSC 1 Level", "OSC 2 Level",
+                                "Unison 1 Detune", "Sub Level" }, 0));
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            "modSlot" + n + "Amount", "Mod Slot " + n + " Amount",
+            juce::NormalisableRange<float> (-3.0f, 3.0f, 0.001f), 0.0f));
+    }
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "transientPitch", "Transient Pitch",
@@ -299,17 +291,15 @@ void JQGunkAudioProcessor::updateOscillatorParams()
     }
 
     const int   numVoices   = juce::roundToInt (apvts.getRawParameterValue ("unisonVoices")->load());
-    const float detuneCents = apvts.getRawParameterValue ("unisonDetune")->load();
+    const float detuneCents = juce::jlimit (0.0f, 100.0f,
+        apvts.getRawParameterValue ("unisonDetune")->load()
+        + modMatrix.getOffset (ModTarget::Unison1Detune));
     const float uniBlend    = apvts.getRawParameterValue ("unisonBlend")->load();
     oscillator.setUnisonParams (numVoices, detuneCents, uniBlend);
 
     {
-        const float sensitivity = apvts.getRawParameterValue ("envSensitivity")->load();
-        constexpr float kMorphBoost = 5.0f;
-        const float normEnv    = envelope * sensitivity * kMorphBoost;
-        const float morphBase  = apvts.getRawParameterValue ("morph")->load();
-        const float morphMod   = apvts.getRawParameterValue ("morphEnvMod")->load();
-        const float modulated  = juce::jlimit (0.0f, 1.0f, morphBase + morphMod * normEnv);
+        const float morphBase = apvts.getRawParameterValue ("morph")->load();
+        const float modulated = juce::jlimit (0.0f, 1.0f, morphBase + modMatrix.getOffset (ModTarget::Morph1));
         lastModulatedMorph.store (modulated, std::memory_order_relaxed);
         oscillator.setMorph (modulated);
     }
@@ -332,12 +322,8 @@ void JQGunkAudioProcessor::updateOsc2Params()
     osc2.setUnisonParams (numVoices, detuneCents, uniBlend);
 
     {
-        const float sensitivity = apvts.getRawParameterValue ("envSensitivity")->load();
-        constexpr float kMorphBoost = 5.0f;
-        const float normEnv    = envelope * sensitivity * kMorphBoost;
-        const float morphBase  = apvts.getRawParameterValue ("osc2Morph")->load();
-        const float morphMod   = apvts.getRawParameterValue ("osc2MorphEnvMod")->load();
-        const float modulated  = juce::jlimit (0.0f, 1.0f, morphBase + morphMod * normEnv);
+        const float morphBase = apvts.getRawParameterValue ("osc2Morph")->load();
+        const float modulated = juce::jlimit (0.0f, 1.0f, morphBase + modMatrix.getOffset (ModTarget::Morph2));
         lastModulatedMorph2.store (modulated, std::memory_order_relaxed);
         osc2.setMorph (modulated);
     }
@@ -366,7 +352,6 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
                       : (p.subOctaveIdx == 2) ? 1.0f
                       :                         2.0f;
 
-    p.sensitivity  = apvts.getRawParameterValue ("envSensitivity")->load();
     p.resonance    = apvts.getRawParameterValue ("envResonance")->load();
     p.decay        = apvts.getRawParameterValue ("envDecay")->load();
     p.freqTracking = apvts.getRawParameterValue ("freqTracking")->load();
@@ -375,7 +360,6 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
     p.glideTime    = apvts.getRawParameterValue ("glide")->load();
     p.glideSamples = (p.glideTime > 0.0f) ? (int) (currentSampleRate * p.glideTime) : 0;
 
-    p.sweepMode   = (int) apvts.getRawParameterValue ("sweepMode")->load();
     p.octaveShift = (int) apvts.getRawParameterValue ("octaveShift")->load();
 
     p.osc2Level       = apvts.getRawParameterValue ("osc2Level")->load();
@@ -396,7 +380,15 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::ScopedNoDenormals noDenormals;
 
     // 1. Snapshot all block-rate parameters and their derived values
-    const BlockParams p = readBlockParams();
+    BlockParams p = readBlockParams();
+
+    modMatrix.snapshot (apvts, envelope, glide.getLastDetectedFreq());
+
+    p.oscLevel   = juce::jlimit (0.0f, 2.0f,        p.oscLevel   + modMatrix.getOffset (ModTarget::Osc1Level));
+    p.osc2Level  = juce::jlimit (0.0f, 2.0f,        p.osc2Level  + modMatrix.getOffset (ModTarget::Osc2Level));
+    p.subLevel   = juce::jlimit (0.0f, 1.0f,        p.subLevel   + modMatrix.getOffset (ModTarget::SubLevel));
+    p.filterFreq = juce::jlimit (-2000.0f, 4000.0f, p.filterFreq + modMatrix.getOffset (ModTarget::FilterFreq));
+    p.resonance  = juce::jlimit (0.0f, 8.0f,        p.resonance  + modMatrix.getOffset (ModTarget::FilterRes));
 
     updateOscillatorParams();
     updateOsc2Params();
@@ -477,8 +469,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float osc1And2 = sawSample * p.oscLevel + osc2Sample * p.osc2Level;
         const float filterInput = p.subBypassFilter ? osc1And2 : (osc1And2 + subSample * p.subLevel);
         const float filteredSample = envelopeFilter.processSample (
-            inputSample, filterInput, glide.getLastDetectedFreq(),
-            p.filterFreq, p.freqTracking, p.sensitivity, p.resonance, p.sweepMode);
+            filterInput, glide.getLastDetectedFreq(),
+            p.filterFreq, p.freqTracking, p.resonance);
 
         // 2g. Output mix
         const float oscWet    = filteredSample * envelope;

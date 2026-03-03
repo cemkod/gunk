@@ -13,8 +13,7 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
       unisonVoicesAttach (avts, ids.unisonVoices, unisonVoicesSlider),
       unisonDetuneAttach (avts, ids.unisonDetune, unisonDetuneSlider),
       unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider),
-      morphAttach        (avts, ids.morph,         morphSlider),
-      morphEnvModAttach  (avts, ids.morphEnvMod,   morphEnvModSlider)
+      morphAttach        (avts, ids.morph,         morphSlider)
 {
     if (embedded_)
         setSuppressBorder (true);
@@ -28,22 +27,6 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
 
     // Morph knob — rotary
     BassLookAndFeel::setupRotarySlider (morphSlider, morphLabel, "MORPH", *this);
-
-    // Env Mod knob — small rotary, no text box
-    morphEnvModSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-    morphEnvModSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    morphEnvModSlider.setColour (juce::Slider::thumbColourId,             BassLookAndFeel::accent);
-    morphEnvModSlider.setColour (juce::Slider::textBoxTextColourId,       BassLookAndFeel::textDim);
-    morphEnvModSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
-    morphEnvModSlider.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
-    morphEnvModSlider.setTooltip ("Envelope morph modulation");
-    addAndMakeVisible (morphEnvModSlider);
-
-    morphEnvModLabel.setText ("ENV", juce::dontSendNotification);
-    morphEnvModLabel.setFont (juce::Font (UIConst::uiFontSize - 1.0f));
-    morphEnvModLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
-    morphEnvModLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (morphEnvModLabel);
 
     configureOctaveButtons();
 
@@ -99,10 +82,6 @@ void OscSectionComponent::updateButtonStates()
     morphSlider.setAlpha (multiFrame ? 1.0f : 0.35f);
     morphLabel .setAlpha (multiFrame ? 1.0f : 0.35f);
 
-    morphEnvModSlider.setEnabled (multiFrame);
-    morphEnvModLabel .setEnabled (multiFrame);
-    morphEnvModSlider.setAlpha (multiFrame ? 1.0f : 0.35f);
-    morphEnvModLabel .setAlpha (multiFrame ? 1.0f : 0.35f);
 }
 
 void OscSectionComponent::resized()
@@ -120,20 +99,12 @@ void OscSectionComponent::resized()
     levelSlider.setBounds (knobRow.removeFromLeft (colW3));
     levelLabel .setBounds (lblRow .removeFromLeft (colW3));
 
-    // -- Morph + EnvMod (col 1)
+    // -- Morph (col 1)
     auto morphCol    = knobRow.removeFromLeft (colW3);
     auto morphLblCol = lblRow .removeFromLeft (colW3);
 
-    constexpr int envModSize = 28;
-    // Small env-mod knob at top-right corner of morph column
-    morphEnvModSlider.setBounds (morphCol.getRight() - envModSize,
-                                 morphCol.getY(),
-                                 envModSize, envModSize);
-    morphEnvModLabel.setBounds  (morphLblCol.getRight() - envModSize,
-                                 morphLblCol.getY(),
-                                 envModSize, morphLblCol.getHeight());
-    morphLabel .setBounds (morphLblCol.withTrimmedRight (envModSize));
-    morphSlider.setBounds (morphCol); // rotary centres itself within bounds
+    morphLabel .setBounds (morphLblCol);
+    morphSlider.setBounds (morphCol);
 
     // -- Octave (col 2 — remainder)
     auto octCol = knobRow;

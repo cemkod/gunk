@@ -7,55 +7,23 @@ FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
       processor (proc),
       apvts (avts),
       displayComponent (proc, avts),
-      filterFreqAttach    (avts, "filterFreq",      filterFreqSlider),
-      sensitivityAttach   (avts, "envSensitivity", sensitivitySlider),
-      resonanceAttach     (avts, "envResonance",   resonanceSlider),
-      decayAttach         (avts, "envDecay",        decaySlider),
-      freqTrackingAttach  (avts, "freqTracking",   freqTrackingSlider)
+      filterFreqAttach   (avts, "filterFreq",  filterFreqSlider),
+      resonanceAttach    (avts, "envResonance", resonanceSlider),
+      decayAttach        (avts, "envDecay",     decaySlider),
+      freqTrackingAttach (avts, "freqTracking", freqTrackingSlider)
 {
     addAndMakeVisible (displayComponent);
 
     BassLookAndFeel::setupRotarySlider (filterFreqSlider,   filterFreqLabel,   "FREQ",  *this);
-    BassLookAndFeel::setupRotarySlider (sensitivitySlider,  sensitivityLabel,  "SENS",  *this);
     BassLookAndFeel::setupRotarySlider (resonanceSlider,    resonanceLabel,    "RESO",  *this);
     BassLookAndFeel::setupRotarySlider (decaySlider,        decayLabel,        "DECAY", *this);
     BassLookAndFeel::setupRotarySlider (freqTrackingSlider, freqTrackingLabel, "TRACK", *this);
-
-    // Sweep buttons
-    const int sweepGroup = 102;
-    for (auto* b : { &sweepBtnOff, &sweepBtnUp, &sweepBtnDown })
-    {
-        b->setRadioGroupId (sweepGroup);
-        b->setClickingTogglesState (true);
-        addAndMakeVisible (b);
-    }
-    sweepBtnOff .onClick = [this] { setSweepParam (0); };
-    sweepBtnUp  .onClick = [this] { setSweepParam (1); };
-    sweepBtnDown.onClick = [this] { setSweepParam (2); };
-
-    updateButtonStates();
 }
 
 FilterSectionComponent::~FilterSectionComponent()
 {
     setLookAndFeel (nullptr);
 }
-
-void FilterSectionComponent::setSweepParam (int idx)
-{
-    auto* p = dynamic_cast<juce::AudioParameterChoice*> (
-        apvts.getParameter ("sweepMode"));
-    if (p) *p = idx;
-}
-
-void FilterSectionComponent::updateButtonStates()
-{
-    const int idx = (int) apvts.getRawParameterValue ("sweepMode")->load();
-    sweepBtnOff .setToggleState (idx == 0, juce::dontSendNotification);
-    sweepBtnUp  .setToggleState (idx == 1, juce::dontSendNotification);
-    sweepBtnDown.setToggleState (idx == 2, juce::dontSendNotification);
-}
-
 
 void FilterSectionComponent::resized()
 {
@@ -64,29 +32,18 @@ void FilterSectionComponent::resized()
 
     // Frequency response display
     displayComponent.setBounds (inner.removeFromTop (90));
-    inner.removeFromTop (8);
+    inner.removeFromTop (18);
 
-    // Sweep button row
-    auto sweepRow = inner.removeFromTop (24);
-    const int btnW = sweepRow.getWidth() / 3;
-    sweepBtnOff .setBounds (sweepRow.removeFromLeft (btnW));
-    sweepBtnUp  .setBounds (sweepRow.removeFromLeft (btnW));
-    sweepBtnDown.setBounds (sweepRow);
-
-    inner.removeFromTop (10);
-
-    // Freq | Sensitivity | Resonance | Decay | Track knobs
-    const int knobW = inner.getWidth() / 5;
+    // Freq | Resonance | Decay | Track knobs
+    const int knobW = inner.getWidth() / 4;
     auto knobRow = inner.removeFromTop (75);
     filterFreqSlider  .setBounds (knobRow.removeFromLeft (knobW));
-    sensitivitySlider .setBounds (knobRow.removeFromLeft (knobW));
     resonanceSlider   .setBounds (knobRow.removeFromLeft (knobW));
     decaySlider       .setBounds (knobRow.removeFromLeft (knobW));
     freqTrackingSlider.setBounds (knobRow.removeFromLeft (knobW));
 
     auto lblRow = inner.removeFromTop (18);
     filterFreqLabel  .setBounds (lblRow.removeFromLeft (knobW));
-    sensitivityLabel .setBounds (lblRow.removeFromLeft (knobW));
     resonanceLabel   .setBounds (lblRow.removeFromLeft (knobW));
     decayLabel       .setBounds (lblRow.removeFromLeft (knobW));
     freqTrackingLabel.setBounds (lblRow.removeFromLeft (knobW));

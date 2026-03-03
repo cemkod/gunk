@@ -5,10 +5,8 @@
   <PARAM id="glide" value="0.0"/>
   <PARAM id="mix" value="1.0"/>
   <PARAM id="waveform" value="2.0"/>
-  <PARAM id="envSensitivity" value="2.5"/>
   <PARAM id="envResonance" value="2.0"/>
   <PARAM id="envDecay" value="0.5"/>
-  <PARAM id="sweepMode" value="2.0"/>
   <PARAM id="freqTracking" value="0.0"/>
   <PARAM id="filterFreq" value="1200.0"/>
   <PARAM id="unisonVoices" value="7.0"/>

@@ -7,6 +7,7 @@
 #include "GlideEngine.h"
 #include "PresetManager.h"
 #include "TransientPlayer.h"
+#include "ModMatrix.h"
 
 //==============================================================================
 class JQGunkAudioProcessor : public juce::AudioProcessor
@@ -98,14 +99,12 @@ private:
         int   subOctaveIdx;
         float subOctaveMult;   // derived from subOctaveIdx
         bool  subBypassFilter;
-        float sensitivity;
         float resonance;
         float decay;
         float freqTracking;
         float filterFreq;
         float glideTime;
         int   glideSamples;    // derived from glideTime + currentSampleRate
-        int   sweepMode;
         int   octaveShift;
         float osc2Level;
         int   osc2OctaveShift;
@@ -137,6 +136,7 @@ private:
     juce::String    transientSamplePath;
 
     GlideEngine glide;
+    ModMatrix   modMatrix;
 
     std::atomic<float> lastModulatedMorph  { 0.0f };
     std::atomic<float> lastModulatedMorph2 { 0.0f };

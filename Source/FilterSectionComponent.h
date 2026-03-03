@@ -14,7 +14,6 @@ public:
 
     void resized() override;
 
-    void updateButtonStates();
 
     void repaintDisplay() { displayComponent.repaint(); }
 
@@ -24,15 +23,9 @@ private:
 
     FilterDisplayComponent displayComponent;
 
-    juce::Slider filterFreqSlider, sensitivitySlider, resonanceSlider, decaySlider, freqTrackingSlider;
-    juce::Label  filterFreqLabel,  sensitivityLabel,  resonanceLabel,  decayLabel,  freqTrackingLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment filterFreqAttach, sensitivityAttach, resonanceAttach, decayAttach, freqTrackingAttach;
-
-    juce::TextButton sweepBtnOff  { "Off"  };
-    juce::TextButton sweepBtnUp   { "Up"   };
-    juce::TextButton sweepBtnDown { "Down" };
-
-    void setSweepParam (int idx);
+    juce::Slider filterFreqSlider, resonanceSlider, decaySlider, freqTrackingSlider;
+    juce::Label  filterFreqLabel,  resonanceLabel,  decayLabel,  freqTrackingLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment filterFreqAttach, resonanceAttach, decayAttach, freqTrackingAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FilterSectionComponent)
 };
