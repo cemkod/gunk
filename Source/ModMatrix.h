@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 #include <array>
 
-enum class ModSource : int { None = 0, Envelope = 1, Pitch = 2 };
+enum class ModSource : int { None = 0, Envelope = 1, Pitch = 2, ModEnvelope = 3 };
 
 enum class ModTarget : int
 {
@@ -19,6 +19,7 @@ public:
     // pitchHz:     last detected frequency in Hz (0 = no detection).
     void snapshot (juce::AudioProcessorValueTreeState& apvts,
                    float envelopeVal,
+                   float modEnvelopeVal,
                    float pitchHz)
     {
         sourceVals[0] = 0.0f;  // None
@@ -26,6 +27,7 @@ public:
         sourceVals[2] = (pitchHz > 0.0f)
                         ? juce::jlimit (0.0f, 1.0f, (pitchHz - 40.0f) / 360.0f)
                         : 0.0f;
+        sourceVals[3] = modEnvelopeVal;
 
         for (int i = 0; i < 8; ++i)
         {
@@ -47,7 +49,7 @@ public:
         for (const auto& slot : slots)
         {
             if (slot.target != t) continue;
-            if (slot.source < 0 || slot.source >= 3) continue;
+            if (slot.source < 0 || slot.source >= 4) continue;
             sum += slot.amount * sourceVals[slot.source] * kTargetScale[t];
         }
         return sum;
@@ -69,5 +71,5 @@ private:
 
     struct Slot { int source = 0; int target = 0; float amount = 0.0f; };
     std::array<Slot, 8> slots {};
-    float sourceVals[3] = {};
+    float sourceVals[4] = {};
 };

@@ -6,8 +6,9 @@
 JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
-      gateSection   (p.apvts),
-      filterSection (p, p.apvts),
+      gateSection     (p.apvts),
+      envelopeSection (p.apvts),
+      filterSection   (p, p.apvts),
       subOscSection (p.apvts),
       combinedOscSection (p.apvts,
           OscParamIds { "waveform",     "oscLevel",  "unisonVoices",     "unisonDetune",     "unisonBlend",     "octaveShift",     "morph"     },
@@ -34,6 +35,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     combinedOscSection.getWavetableName[1]          = [&p] { return p.getOscWavetableName (1); };
 
     addAndMakeVisible (gateSection);
+    addAndMakeVisible (envelopeSection);
     addAndMakeVisible (filterSection);
     addAndMakeVisible (subOscSection);
     addAndMakeVisible (combinedOscSection);
@@ -50,6 +52,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         modViewVisible = modToggleBtn.getToggleState();
         modMatrixView    .setVisible ( modViewVisible);
         gateSection      .setVisible (!modViewVisible);
+        envelopeSection  .setVisible (!modViewVisible);
         filterSection    .setVisible (!modViewVisible);
         subOscSection    .setVisible (!modViewVisible);
         combinedOscSection.setVisible (!modViewVisible);
@@ -136,6 +139,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
     }
 
     gateSection.setMeterValues (processor.getEnvelope(), nowOpen, newTransient);
+    envelopeSection.pushSample (processor.getModEnvelope());
 
     const int cur = processor.getPresetManager().getCurrentIndex();
     if (presetCombo.getSelectedItemIndex() != cur)
@@ -235,11 +239,16 @@ void JQGunkAudioProcessorEditor::resized()
     // MOD matrix occupies the same content area as the main sections
     modMatrixView.setBounds (area);
 
-    // Top row: gate (left half) + filter (right half), equal widths, topRowH tall
+    // Top row: gate | envelope | filter
     auto topRow = area.removeFromTop (UIConst::topRowH);
-    const int halfW = topRow.getWidth() / 2;
-    gateSection  .setBounds (topRow.removeFromLeft (halfW).withTrimmedRight (UIConst::sectionGap / 2));
-    filterSection.setBounds (topRow.withTrimmedLeft (UIConst::sectionGap / 2));
+    constexpr int gateW     = 200;
+    constexpr int envelopeW = 200;
+    const int     g         = UIConst::sectionGap;
+    gateSection    .setBounds (topRow.removeFromLeft (gateW));
+    topRow.removeFromLeft (g);
+    envelopeSection.setBounds (topRow.removeFromLeft (envelopeW));
+    topRow.removeFromLeft (g);
+    filterSection  .setBounds (topRow);
 
     area.removeFromTop (UIConst::sectionGap);
 

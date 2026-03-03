@@ -77,6 +77,7 @@ public:
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
+    float getModEnvelope() const noexcept { return modEnvelope; }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
     bool  consumeTransient()           { return transientFlag.exchange (false, std::memory_order_relaxed); }
 
@@ -146,6 +147,9 @@ private:
     static constexpr float kEnvAttack  = 0.010f;
     static constexpr float kEnvRelease = 0.100f;
     bool gateIsOpen = false;
+
+    // Slew-limited modulation envelope (driven by modEnvAttack/modEnvDecay params)
+    float modEnvelope = 0.0f;
 
     // Transient detector
     static constexpr int kSlopeLookback = 3; 

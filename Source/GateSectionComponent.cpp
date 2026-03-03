@@ -35,20 +35,30 @@ void GateSectionComponent::resized()
     auto inner = getLocalBounds().reduced (8);
     inner.removeFromTop (18); // skip section label row
     displayComponent.setBounds (inner.removeFromTop (70));
-    inner.removeFromTop (8);  // gap between graph and knobs
-    const int knobW = inner.getWidth() / 5;
-    auto knobRow = inner.removeFromTop (75);
-    gateThresholdSlider .setBounds (knobRow.removeFromLeft (knobW));
-    gateHysteresisSlider.setBounds (knobRow.removeFromLeft (knobW));
-    glideSlider         .setBounds (knobRow.removeFromLeft (knobW));
-    drySlider           .setBounds (knobRow.removeFromLeft (knobW));
-    transientSlopeSlider.setBounds (knobRow);
-    auto lblRow = inner.removeFromTop (18);
-    gateThresholdLabel .setBounds (lblRow.removeFromLeft (knobW));
-    gateHysteresisLabel.setBounds (lblRow.removeFromLeft (knobW));
-    glideLabel         .setBounds (lblRow.removeFromLeft (knobW));
-    dryLabel           .setBounds (lblRow.removeFromLeft (knobW));
-    transientSlopeLabel.setBounds (lblRow);
+    inner.removeFromTop (6);  // gap between graph and knobs
+
+    // Row 1: THRS, HYST, GLIDE
+    const int w = inner.getWidth();
+    const int knobW1 = w / 3;
+    auto knobRow1 = inner.removeFromTop (58);
+    gateThresholdSlider .setBounds (knobRow1.removeFromLeft (knobW1));
+    gateHysteresisSlider.setBounds (knobRow1.removeFromLeft (knobW1));
+    glideSlider         .setBounds (knobRow1);
+    auto lblRow1 = inner.removeFromTop (16);
+    gateThresholdLabel .setBounds (lblRow1.removeFromLeft (knobW1));
+    gateHysteresisLabel.setBounds (lblRow1.removeFromLeft (knobW1));
+    glideLabel         .setBounds (lblRow1);
+
+    inner.removeFromTop (4);
+
+    // Row 2: DRY, SLOPE
+    const int knobW2 = w / 2;
+    auto knobRow2 = inner.removeFromTop (57);
+    drySlider           .setBounds (knobRow2.removeFromLeft (knobW2));
+    transientSlopeSlider.setBounds (knobRow2);
+    auto lblRow2 = inner.removeFromTop (16);
+    dryLabel           .setBounds (lblRow2.removeFromLeft (knobW2));
+    transientSlopeLabel.setBounds (lblRow2);
 }
 
 void GateSectionComponent::setMeterValues (float envelope, bool gateOpen, bool transientFired)

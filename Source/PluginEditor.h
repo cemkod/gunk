@@ -7,6 +7,7 @@
 #include "FilterSectionComponent.h"
 #include "SubOscSectionComponent.h"
 #include "TransientSectionComponent.h"
+#include "EnvelopeSectionComponent.h"
 #include "ModMatrixComponent.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -26,6 +27,7 @@ private:
     BassLookAndFeel lookAndFeel;
 
     GateSectionComponent          gateSection;
+    EnvelopeSectionComponent      envelopeSection;
     FilterSectionComponent        filterSection;
     SubOscSectionComponent        subOscSection;
     CombinedOscSectionComponent   combinedOscSection;

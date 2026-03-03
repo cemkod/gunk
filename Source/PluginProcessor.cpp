@@ -194,7 +194,7 @@ JQGunkAudioProcessor::createParameterLayout()
         const juce::String n (i);
         layout.add (std::make_unique<juce::AudioParameterChoice> (
             "modSlot" + n + "Source", "Mod Slot " + n + " Source",
-            juce::StringArray { "None", "Envelope", "Pitch" }, 0));
+            juce::StringArray { "None", "Envelope", "Pitch", "Mod Env" }, 0));
         layout.add (std::make_unique<juce::AudioParameterChoice> (
             "modSlot" + n + "Target", "Mod Slot " + n + " Target",
             juce::StringArray { "None", "Morph 1", "Morph 2", "Filter Freq",
@@ -229,6 +229,18 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         timeFmt(), timeParse (0.0001f, 0.05f)));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "modEnvAttack", "Env Attack",
+        juce::NormalisableRange<float> (0.001f, 2.0f, 0.0f, 0.3f), 0.01f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        timeFmt(), timeParse (0.001f, 2.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "modEnvDecay", "Env Decay",
+        juce::NormalisableRange<float> (0.001f, 2.0f, 0.0f, 0.3f), 0.1f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        timeFmt(), timeParse (0.001f, 2.0f)));
+
     return layout;
 }
 
@@ -248,6 +260,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     subOscillator.reset();
     osc2.reset();
     envelope = 0.0f;
+    modEnvelope = 0.0f;
     glide.reset();
     gateIsOpen = false;
     envelopeFilter.reset();
@@ -381,7 +394,12 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // 1. Snapshot all block-rate parameters and their derived values
     BlockParams p = readBlockParams();
 
-    modMatrix.snapshot (apvts, envelope, glide.getLastDetectedFreq());
+    const float modAttack  = apvts.getRawParameterValue ("modEnvAttack")->load();
+    const float modDecay   = apvts.getRawParameterValue ("modEnvDecay")->load();
+    const float modAttCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modAttack));
+    const float modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
+
+    modMatrix.snapshot (apvts, envelope, modEnvelope, glide.getLastDetectedFreq());
 
     p.oscLevel   = juce::jlimit (0.0f, 2.0f,        p.oscLevel   + modMatrix.getOffset (ModTarget::Osc1Level));
     p.osc2Level  = juce::jlimit (0.0f, 2.0f,        p.osc2Level  + modMatrix.getOffset (ModTarget::Osc2Level));
@@ -412,6 +430,12 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             gateIsOpen = true;
         else if (gateIsOpen && envelope < p.gateThresh)
             gateIsOpen = false;
+
+        // Slew-limited mod envelope (independent ATK/DCY from gate envelope)
+        if (envelope > modEnvelope)
+            modEnvelope += modAttCoef * (envelope - modEnvelope);
+        else
+            modEnvelope += modDecCoef * (envelope - modEnvelope);
 
         // Transient detection (slope over lookback window)
         const float kSlopeThreshold = apvts.getRawParameterValue ("transientSlope")->load() * 5e-4f;
