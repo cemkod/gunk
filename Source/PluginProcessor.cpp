@@ -221,7 +221,8 @@ JQGunkAudioProcessor::createParameterLayout()
             "modSlot" + n + "Target", "Mod Slot " + n + " Target",
             juce::StringArray { "None", "Morph 1", "Morph 2", "Filter Freq",
                                 "Filter Res", "OSC 1 Level", "OSC 2 Level",
-                                "Unison 1 Detune", "Sub Level" }, 0));
+                                "Unison 1 Detune", "Sub Level",
+                                "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume" }, 0));
         layout.add (std::make_unique<juce::AudioParameterFloat> (
             "modSlot" + n + "Amount", "Mod Slot " + n + " Amount",
             juce::NormalisableRange<float> (-3.0f, 3.0f, 0.001f), 0.0f));
@@ -351,7 +352,9 @@ void JQGunkAudioProcessor::updateOsc2Params()
     }
 
     const int   numVoices   = juce::roundToInt (apvts.getRawParameterValue ("osc2UnisonVoices")->load());
-    const float detuneCents = apvts.getRawParameterValue ("osc2UnisonDetune")->load();
+    const float detuneCents = juce::jlimit (0.0f, 100.0f,
+        apvts.getRawParameterValue ("osc2UnisonDetune")->load()
+        + modMatrix.getOffset (ModTarget::Unison2Detune));
     const float uniBlend    = apvts.getRawParameterValue ("osc2UnisonBlend")->load();
     osc2.setUnisonParams (numVoices, detuneCents, uniBlend);
 
@@ -422,7 +425,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
 
     // LFO computation (once per block)
-    const float lfoFreq  = apvts.getRawParameterValue ("lfoRate")->load();
+    float lfoFreq  = apvts.getRawParameterValue ("lfoRate")->load();
     const float lfoShape = apvts.getRawParameterValue ("lfoShape")->load();
     lfoPhase = std::fmod (lfoPhase + lfoFreq / (float) currentSampleRate * (float) buffer.getNumSamples(), 1.0f);
     float lfoRaw;
@@ -436,7 +439,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     lfoValueAtomic.store (lfoRaw, std::memory_order_relaxed);
 
     const int ampEnvSourceIdx = (int) apvts.getRawParameterValue ("ampEnvSource")->load();
-    const float masterVolume  = apvts.getRawParameterValue ("masterVolume")->load();
+    float masterVolume  = apvts.getRawParameterValue ("masterVolume")->load();
 
     modMatrix.snapshot (apvts, envelope, modEnvelope, glide.getLastDetectedFreq(), lfoRaw);
 
@@ -445,6 +448,16 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     p.subLevel   = juce::jlimit (0.0f, 1.0f,        p.subLevel   + modMatrix.getOffset (ModTarget::SubLevel));
     p.filterFreq = juce::jlimit (-2000.0f, 4000.0f, p.filterFreq + modMatrix.getOffset (ModTarget::FilterFreq));
     p.resonance  = juce::jlimit (0.0f, 8.0f,        p.resonance  + modMatrix.getOffset (ModTarget::FilterRes));
+
+    // Glide mod
+    p.glideTime   = juce::jlimit (0.0f, 1.0f, p.glideTime + modMatrix.getOffset (ModTarget::Glide));
+    p.glideSamples = (p.glideTime > 0.0f) ? (int) (currentSampleRate * p.glideTime) : 0;
+
+    // LFO Rate mod (takes effect from next block)
+    lfoFreq = juce::jlimit (0.01f, 20.0f, lfoFreq + modMatrix.getOffset (ModTarget::LfoRate));
+
+    // Master Volume mod
+    masterVolume = juce::jlimit (0.0f, 2.0f, masterVolume + modMatrix.getOffset (ModTarget::MasterVolume));
 
     updateOscillatorParams();
     updateOsc2Params();

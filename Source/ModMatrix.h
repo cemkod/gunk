@@ -8,7 +8,8 @@ enum class ModSource : int { None = 0, Envelope = 1, Pitch = 2, ModEnvelope = 3,
 enum class ModTarget : int
 {
     None = 0, Morph1 = 1, Morph2 = 2, FilterFreq = 3, FilterRes = 4,
-    Osc1Level = 5, Osc2Level = 6, Unison1Detune = 7, SubLevel = 8
+    Osc1Level = 5, Osc2Level = 6, Unison1Detune = 7, SubLevel = 8,
+    Glide = 9, Unison2Detune = 10, LfoRate = 11, MasterVolume = 12
 };
 
 class ModMatrix
@@ -69,6 +70,10 @@ private:
         2.f,     // Osc2Level     (range 0..2)
         100.f,   // Unison1Detune (range 0..100)
         1.f,     // SubLevel      (range 0..1)
+        1.f,     // Glide         (range 0..1)
+        100.f,   // Unison2Detune (range 0..100)
+        20.f,    // LfoRate       (range 0.01..20)
+        2.f,     // MasterVolume  (range 0..2)
     };
 
     struct Slot { int source = 0; int target = 0; float amount = 0.0f; };

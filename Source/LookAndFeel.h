@@ -138,7 +138,7 @@ public:
         // Zero point and thumb position
         const float zeroFrac = (float) ((-slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum()));
         const float zeroX    = trackX + zeroFrac * trackW;
-        const float thumbX   = trackX + sliderPos * trackW;
+        const float thumbX   = sliderPos;
 
         // Fill from zero to thumb
         const float fillL = juce::jmin (zeroX, thumbX);
