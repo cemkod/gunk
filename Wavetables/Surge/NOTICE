@@ -1,0 +1,37 @@
+Surge XT Wavetables
+===================
+
+The wavetable files in this directory (*.wt and *.wav) are taken from the
+Surge XT synthesizer project and are redistributed here under the terms of
+the GNU General Public License, version 3 (GPL-3.0-or-later), which is the
+same license that governs this project.
+
+Source: https://github.com/surge-synthesizer/surge
+License: GNU General Public License v3 (https://www.gnu.org/licenses/gpl-3.0.html)
+
+Original author (Surge versions 1.0–1.6 alpha):
+  Claes Johanson <claes@bitwig.com>
+
+Contributors since open-sourcing (in alphabetical order):
+  Eduardo Abinader, Raymond Baker, David Bata, Alexandre Bique,
+  Hendrik van Boetzelaer, Davide Callea, David Carlier, Jatin Chowdhury,
+  Jean Pierre Cimalando, Filipe Coelho, Alec DiAstra, Andreya Ek Frisk,
+  Rich Elmes, The Emu (J Riley Hill), Matthias von Faber, Jani Frilander,
+  Amy Furniss, Cale Gibbard, Brian Ginsburg, Ben Goldwasser, Morgan Holly,
+  Kinga Janicka, Morgan Kanter, Nathan Kopp, Korridor, Mario Krušelj,
+  muhl, Marty Lake, nuoun, Luna Langton, Jacky Ligon, Erik-Jan Maalderink,
+  Kjetil Matheussen, Sean McGoff, Dalton Messmer, Dave Palmer, Adam Raisbeck,
+  Naren Ratan, Esa Juhani Ruoho, Mikko Saarinki, Jarkko Sakkinen,
+  Jeremy Sagan, Chad Scarborough, Sebastian Schwarzhuber, Tejas Singh,
+  Jeff Smith, Geert Smolders, Jon Spruyt, Phil Stone, Markku Tavasti,
+  John Valentine, Paul Walker, Xenakios, Keith Zantow, Vincent Zauhar,
+  Alexandr Zyurkalov, Daniel Hatadi, 簡志瑋.
+
+Waldorf wavetables (Wavetables/Surge/Waldorf/):
+  These wavetables originate from Waldorf synthesizer hardware (Microwave /
+  Wave series) and are included in Surge XT under GPL-3.0. They are
+  redistributed here under the same terms.
+
+The "Scripted" category (Surge's .wtscript format) is excluded from this
+distribution as those files require Surge's internal scripting engine and
+are not usable as standalone wavetable data.

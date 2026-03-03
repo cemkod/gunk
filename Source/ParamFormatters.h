@@ -81,4 +81,18 @@ namespace ParamFormatters
             return juce::jlimit (lo, hi, std::pow (10.0f, dB / 20.0f));
         };
     }
+    // semitones ↔ "+3.0 st" / "0 st"
+    inline auto semitoneFmt()
+    {
+        return [] (float v, int) -> juce::String
+        {
+            if (v >= 0.0f) return "+" + juce::String (v, 1) + " st";
+            return juce::String (v, 1) + " st";
+        };
+    }
+    inline auto semitoneParse (float lo, float hi)
+    {
+        return [lo, hi] (const juce::String& t) -> float
+            { return juce::jlimit (lo, hi, t.retainCharacters ("0123456789.-").getFloatValue()); };
+    }
 } // namespace ParamFormatters

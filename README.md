@@ -50,6 +50,18 @@ cmake --build build --target install-presets
 
 Copies the 8 factory presets to `~/.config/JQGunk/Factory Presets/`. User presets are saved to `~/.config/JQGunk/User Presets/`.
 
+## Installing Factory Wavetables
+
+```bash
+cmake --build build --target install-wavetables
+```
+
+Copies the factory wavetable library to `~/.config/JQGunk/Wavetables/`. 189 files across 6 categories (Basic, Generated, Oneshot, Rhythmic, Sampled, Waldorf) in `.wt` and `.wav` formats.
+
+### Third-party content
+
+The wavetables under `Wavetables/Surge/` are taken from the [Surge XT](https://github.com/surge-synthesizer/surge) synthesizer project and redistributed under the GNU General Public License v3, the same license as this project. See `Wavetables/Surge/NOTICE` for full attribution.
+
 ### Factory Presets
 
 | Preset | Description |

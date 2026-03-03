@@ -13,7 +13,12 @@ public:
     WavetableOscillator();
 
     void setWaveform (WaveformType type);
-    bool loadFromFile (const juce::File& file); // returns false on failure
+    bool loadFromFile (const juce::File& file); // WAV, returns false on failure
+    bool loadWTFile  (const juce::File& file);  // .wt binary format
+
+    void  setMorph (float pos);                 // 0..1
+    int   getNumFrames() const { return numFrames; }
+    std::vector<float> getFrameForDisplay (float morphPos) const;
 
     void  setFrequency (double freq, double sampleRate);
     void  setUnisonParams (int voices, float detuneCents, float blend);
@@ -30,7 +35,11 @@ private:
     void buildSawtoothTable();
     void recomputeVoiceIncrements();
 
-    std::vector<float> wavetable; // kTableSize+1 entries (last == first for wrap)
+    // Multi-frame wavetable: frames[frameIdx][sample], each kTableSize+1 entries
+    std::vector<std::vector<float>> frames;
+    int   numFrames      = 1;
+    float morphPosition  = 0.0f;  // 0..1
+
     double phaseIndex    [kMaxVoices] = {};
     double phaseIncrement[kMaxVoices] = {};
     double currentBaseFreq   = 0.0;
@@ -39,5 +48,5 @@ private:
     float  unisonDetuneCents = 0.0f;
     float  unisonBlend       = 0.5f;
     WaveformType currentWaveform = WaveformType::Sine;
-    juce::SpinLock tableLock;    // guards wavetable during loadFromFile
+    juce::SpinLock tableLock;    // guards frames during load
 };

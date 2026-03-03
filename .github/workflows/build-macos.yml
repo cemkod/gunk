@@ -1,0 +1,51 @@
+name: Build macOS DMG
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Configure
+        run: cmake --preset release
+
+      - name: Build
+        run: cmake --build build-release
+
+      - name: Package DMG
+        run: |
+          VST3_SRC="build-release/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3"
+          STAGING="staging"
+          DMG_NAME="JQGunk-macos.dmg"
+
+          mkdir -p "$STAGING"
+          cp -r "$VST3_SRC" "$STAGING/"
+          cp packaging/macos-install.txt "$STAGING/INSTALL.txt"
+
+          hdiutil create \
+            -volname "JQ Gunk" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "$DMG_NAME"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JQGunk-macos-dmg
+          path: JQGunk-macos.dmg
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: JQGunk-macos.dmg

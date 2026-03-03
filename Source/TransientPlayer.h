@@ -13,7 +13,7 @@ public:
 
     void trigger (float attackSec, float decaySec)
     {
-        playhead       = 0;
+        playheadFrac   = 0.0;
         attackSamples  = (int) (currentSampleRate * attackSec);
         attackCoeff    = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * attackSec));
         decayCoeff     = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * decaySec));
@@ -23,14 +23,16 @@ public:
         isPlaying      = true;
     }
 
-    float getNextSample()
+    // rate = playback speed ratio (1.0 = original pitch, 2.0 = +12 st, 0.5 = -12 st)
+    float getNextSample (float rate = 1.0f)
     {
         if (! isPlaying) return 0.0f;
 
         juce::SpinLock::ScopedTryLockType sl (sampleLock);
         if (! sl.isLocked()) return 0.0f;
 
-        if (sampleData.empty() || playhead >= (int) sampleData.size())
+        const int size = (int) sampleData.size();
+        if (size < 2 || playheadFrac >= (double) size)
         {
             isPlaying = false;
             return 0.0f;
@@ -52,9 +54,14 @@ public:
             envValue += decayCoeff * (0.0f - envValue);
         }
 
-        const float out = sampleData[(size_t) playhead] * envValue;
-        ++playhead;
-        return out;
+        // Linear interpolation at fractional playhead
+        const int   i0  = (int) playheadFrac;
+        const int   i1  = juce::jmin (i0 + 1, size - 1);
+        const float frac = (float) (playheadFrac - (double) i0);
+        const float s   = sampleData[(size_t) i0] + frac * (sampleData[(size_t) i1] - sampleData[(size_t) i0]);
+
+        playheadFrac += (double) rate;
+        return s * envValue;
     }
 
     bool loadFromFile (const juce::File& file)
@@ -105,7 +112,7 @@ public:
     void reset()
     {
         isPlaying       = false;
-        playhead        = 0;
+        playheadFrac    = 0.0;
         envValue        = 0.0f;
         envPhase        = EnvPhase::Idle;
         envPhaseCounter = 0;
@@ -121,7 +128,7 @@ private:
     juce::String       loadedFilePath;
 
     // Audio-thread only state (no lock needed)
-    int   playhead        = 0;
+    double playheadFrac   = 0.0;
     bool  isPlaying       = false;
     double currentSampleRate = 48000.0;
     float envValue        = 0.0f;

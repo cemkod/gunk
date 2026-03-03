@@ -56,6 +56,23 @@ public:
     bool isTransientSampleLoaded() const;
     juce::String getTransientSamplePath() const;
 
+    int getOscNumFrames()  const { return oscillator.getNumFrames(); }
+    int getOsc2NumFrames() const { return osc2.getNumFrames(); }
+
+    std::vector<float> getOscFrameForDisplay (int oscIdx) const
+    {
+        float morph = (oscIdx == 0)
+            ? lastModulatedMorph .load (std::memory_order_relaxed)
+            : lastModulatedMorph2.load (std::memory_order_relaxed);
+        return (oscIdx == 0 ? oscillator : osc2).getFrameForDisplay (morph);
+    }
+
+    juce::String getOscWavetableName (int oscIdx) const
+    {
+        const auto& p = (oscIdx == 0 ? customWavetablePath : customWavetable2Path);
+        return p.isEmpty() ? juce::String{} : juce::File (p).getFileNameWithoutExtension();
+    }
+
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
@@ -95,6 +112,7 @@ private:
         float transientLevel;
         float transientAttack;
         float transientDecay;
+        float transientPitch;
     };
 
     BlockParams readBlockParams() const;
@@ -120,6 +138,9 @@ private:
 
     GlideEngine glide;
 
+    std::atomic<float> lastModulatedMorph  { 0.0f };
+    std::atomic<float> lastModulatedMorph2 { 0.0f };
+
     // Envelope follower for the noise gate
     float envelope = 0.0f;
     static constexpr float kEnvAttack  = 0.010f;
@@ -127,7 +148,9 @@ private:
     bool gateIsOpen = false;
 
     // Transient detector
-    float prevEnvelope = 0.f;
+    static constexpr int kSlopeLookback = 3; 
+    std::array<float, kSlopeLookback> envHistory {};
+    int   envHistoryPos = 0;
     int   transientCooldown = 0;
     std::atomic<bool> transientFlag { false };
 

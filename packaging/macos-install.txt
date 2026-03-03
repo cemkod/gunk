@@ -1,0 +1,10 @@
+JQ Gunk - macOS VST3 Installation
+===================================
+
+1. Copy "JQ Gunk.vst3" to ~/Library/Audio/Plug-Ins/VST3/
+2. Restart your DAW and scan for new plugins.
+
+Note: This build is unsigned. On first use macOS Gatekeeper may block it.
+To bypass, right-click "JQ Gunk.vst3" and choose Open, or run:
+
+  xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/JQ\ Gunk.vst3

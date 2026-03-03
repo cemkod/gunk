@@ -3,15 +3,22 @@
 
 OscSectionComponent::OscSectionComponent (const juce::String& title,
                                            const OscParamIds& ids,
-                                           juce::AudioProcessorValueTreeState& avts)
+                                           juce::AudioProcessorValueTreeState& avts,
+                                           bool embedded)
     : LabelledSectionComponent (title),
       paramIds (ids),
       apvts (avts),
+      embedded_ (embedded),
       levelAttach        (avts, ids.level,        levelSlider),
       unisonVoicesAttach (avts, ids.unisonVoices, unisonVoicesSlider),
       unisonDetuneAttach (avts, ids.unisonDetune, unisonDetuneSlider),
-      unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider)
+      unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider),
+      morphAttach        (avts, ids.morph,         morphSlider),
+      morphEnvModAttach  (avts, ids.morphEnvMod,   morphEnvModSlider)
 {
+    if (embedded_)
+        setSuppressBorder (true);
+
     BassLookAndFeel::setupRotarySlider (levelSlider, levelLabel, "LEVEL", *this);
 
     BassLookAndFeel::setupRotarySlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
@@ -19,67 +26,28 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
     BassLookAndFeel::setupRotarySlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
     BassLookAndFeel::setupRotarySlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
 
-    buildWaveformIcons();
-    configureWaveformButtons();
+    // Morph knob — rotary
+    BassLookAndFeel::setupRotarySlider (morphSlider, morphLabel, "MORPH", *this);
+
+    // Env Mod knob — small rotary, no text box
+    morphEnvModSlider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+    morphEnvModSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    morphEnvModSlider.setColour (juce::Slider::thumbColourId,             BassLookAndFeel::accent);
+    morphEnvModSlider.setColour (juce::Slider::textBoxTextColourId,       BassLookAndFeel::textDim);
+    morphEnvModSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    morphEnvModSlider.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
+    morphEnvModSlider.setTooltip ("Envelope morph modulation");
+    addAndMakeVisible (morphEnvModSlider);
+
+    morphEnvModLabel.setText ("ENV", juce::dontSendNotification);
+    morphEnvModLabel.setFont (juce::Font (UIConst::uiFontSize - 1.0f));
+    morphEnvModLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
+    morphEnvModLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (morphEnvModLabel);
+
     configureOctaveButtons();
 
     updateButtonStates();
-}
-
-void OscSectionComponent::buildWaveformIcons()
-{
-    auto makeIcon = [](const juce::Path& path, juce::Colour colour)
-        -> std::unique_ptr<juce::DrawablePath>
-    {
-        auto dp = std::make_unique<juce::DrawablePath>();
-        dp->setPath (path);
-        dp->setFill (juce::FillType (juce::Colours::transparentBlack));
-        dp->setStrokeFill (juce::FillType (colour));
-        dp->setStrokeType (juce::PathStrokeType (13.0f));
-        return dp;
-    };
-
-    // Triangle
-    juce::Path triPath;
-    triPath.startNewSubPath (  0.0f, 50.0f);
-    triPath.lineTo           ( 25.0f, 10.0f);
-    triPath.lineTo           ( 75.0f, 90.0f);
-    triPath.lineTo           (100.0f, 50.0f);
-
-    // Square
-    juce::Path sqPath;
-    sqPath.startNewSubPath (  0.0f, 50.0f);
-    sqPath.lineTo          (  0.0f, 10.0f);
-    sqPath.lineTo          ( 50.0f, 10.0f);
-    sqPath.lineTo          ( 50.0f, 90.0f);
-    sqPath.lineTo          (100.0f, 90.0f);
-    sqPath.lineTo          (100.0f, 50.0f);
-
-    // Sawtooth
-    juce::Path sawPath;
-    sawPath.startNewSubPath (  0.0f, 90.0f);
-    sawPath.lineTo           ( 70.0f, 10.0f);
-    sawPath.lineTo           ( 70.0f, 90.0f);
-    sawPath.lineTo           (140.0f, 10.0f);
-
-    // Custom — three vertical bars representing audio waveform
-    juce::Path customPath;
-    customPath.startNewSubPath (20.0f, 30.0f); customPath.lineTo (20.0f, 70.0f);
-    customPath.startNewSubPath (50.0f, 15.0f); customPath.lineTo (50.0f, 85.0f);
-    customPath.startNewSubPath (80.0f, 35.0f); customPath.lineTo (80.0f, 65.0f);
-
-    auto applyIcons = [&](juce::DrawableButton& btn, const juce::Path& path)
-    {
-        auto dim    = makeIcon (path, BassLookAndFeel::iconDim);
-        auto bright = makeIcon (path, BassLookAndFeel::accent);
-        btn.setImages (dim.get(), nullptr, nullptr, nullptr,
-                       bright.get(), nullptr, nullptr, nullptr);
-    };
-
-    applyIcons (waveBtnTri,    triPath);
-    applyIcons (waveBtnSq,     sqPath);
-    applyIcons (waveBtnSaw,    sawPath);
-    applyIcons (waveBtnCustom, customPath);
 }
 
 void OscSectionComponent::configureOctaveButtons()
@@ -113,113 +81,63 @@ void OscSectionComponent::configureOctaveButtons()
     octBtn2.onClick = [setOctParam] { setOctParam (2); };
 }
 
-void OscSectionComponent::configureWaveformButtons()
-{
-    const int waveGroup = juce::Random::getSystemRandom().nextInt (0x7fffffff);
-    for (auto* b : { &waveBtnTri, &waveBtnSq, &waveBtnSaw })
-    {
-        b->setRadioGroupId (waveGroup);
-        b->setClickingTogglesState (true);
-        addAndMakeVisible (b);
-    }
-    addAndMakeVisible (waveBtnCustom);
-
-    waveBtnTri .onClick = [this] { setWaveformParam (0); };
-    waveBtnSq  .onClick = [this] { setWaveformParam (1); };
-    waveBtnSaw .onClick = [this] { setWaveformParam (2); };
-
-    waveBtnCustom.onClick = [this]
-    {
-        const bool loaded = isCustomWavetableLoaded && isCustomWavetableLoaded();
-        const bool active = isCustomWaveformActive  && isCustomWaveformActive();
-        if (! loaded)
-            openWavFileDialog();
-        else if (! active)
-        {
-            if (reactivateCustomWavetable) reactivateCustomWavetable();
-        }
-        else
-            openWavFileDialog(); // reload
-    };
-}
-
 OscSectionComponent::~OscSectionComponent()
 {
     setLookAndFeel (nullptr);
 }
 
-void OscSectionComponent::setWaveformParam (int idx)
-{
-    auto* p = dynamic_cast<juce::AudioParameterChoice*> (
-        apvts.getParameter (paramIds.waveform));
-    if (p) *p = idx;
-}
-
-void OscSectionComponent::openWavFileDialog()
-{
-    fileChooser = std::make_unique<juce::FileChooser> (
-        "Select a WAV file",
-        juce::File::getSpecialLocation (juce::File::userHomeDirectory),
-        "*.wav");
-    fileChooser->launchAsync (
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [this] (const juce::FileChooser& fc)
-        {
-            auto results = fc.getResults();
-            if (results.isEmpty()) return;
-            const bool ok = loadWavetableFromFile && loadWavetableFromFile (results.getFirst());
-            if (! ok)
-                juce::AlertWindow::showMessageBoxAsync (
-                    juce::AlertWindow::WarningIcon, "Load failed",
-                    "Could not read the selected WAV file.", "OK");
-            else
-                updateButtonStates();
-        });
-}
-
 void OscSectionComponent::updateButtonStates()
 {
-    const int idx = (int) apvts.getRawParameterValue (paramIds.waveform)->load();
-    const bool customActive = isCustomWaveformActive && isCustomWaveformActive();
-
-    waveBtnTri   .setToggleState (!customActive && idx == 0, juce::dontSendNotification);
-    waveBtnSq    .setToggleState (!customActive && idx == 1, juce::dontSendNotification);
-    waveBtnSaw   .setToggleState (!customActive && idx == 2, juce::dontSendNotification);
-    waveBtnCustom.setToggleState (customActive,              juce::dontSendNotification);
-
     const int octIdx = (int) apvts.getRawParameterValue (paramIds.octaveShift)->load();
     octBtn0.setToggleState (octIdx == 0, juce::dontSendNotification);
     octBtn1.setToggleState (octIdx == 1, juce::dontSendNotification);
     octBtn2.setToggleState (octIdx == 2, juce::dontSendNotification);
-}
 
+    const bool multiFrame = getNumFrames && (getNumFrames() > 1);
+    morphSlider.setEnabled (multiFrame);
+    morphLabel .setEnabled (multiFrame);
+    morphSlider.setAlpha (multiFrame ? 1.0f : 0.35f);
+    morphLabel .setAlpha (multiFrame ? 1.0f : 0.35f);
+
+    morphEnvModSlider.setEnabled (multiFrame);
+    morphEnvModLabel .setEnabled (multiFrame);
+    morphEnvModSlider.setAlpha (multiFrame ? 1.0f : 0.35f);
+    morphEnvModLabel .setAlpha (multiFrame ? 1.0f : 0.35f);
+}
 
 void OscSectionComponent::resized()
 {
     auto inner = getLocalBounds().reduced (8);
-    inner.removeFromTop (18); // skip section label row
+    if (! embedded_)
+        inner.removeFromTop (18); // skip section label row
 
-    // Waveform button row
-    auto waveRow = inner.removeFromTop (36);
-    const int btnW = waveRow.getWidth() / 4;
-    waveBtnTri   .setBounds (waveRow.removeFromLeft (btnW));
-    waveBtnSq    .setBounds (waveRow.removeFromLeft (btnW));
-    waveBtnSaw   .setBounds (waveRow.removeFromLeft (btnW));
-    waveBtnCustom.setBounds (waveRow); // remainder
-
-    inner.removeFromTop (10);
-
-    // Row 1: Mix | Octave gang (2 equal columns)
-    const int colW = inner.getWidth() / 2;
+    // Row 1: Level | Morph+EnvMod | Octave  (3 equal columns, 75px tall)
+    const int colW3 = inner.getWidth() / 3;
     auto knobRow = inner.removeFromTop (75);
     auto lblRow  = inner.removeFromTop (18);
 
-    levelSlider.setBounds (knobRow.removeFromLeft (colW));
-    levelLabel .setBounds (lblRow .removeFromLeft (colW));
+    // -- Level (col 0)
+    levelSlider.setBounds (knobRow.removeFromLeft (colW3));
+    levelLabel .setBounds (lblRow .removeFromLeft (colW3));
 
-    // Right column: octave label at top, then 3 stacked buttons
+    // -- Morph + EnvMod (col 1)
+    auto morphCol    = knobRow.removeFromLeft (colW3);
+    auto morphLblCol = lblRow .removeFromLeft (colW3);
+
+    constexpr int envModSize = 28;
+    // Small env-mod knob at top-right corner of morph column
+    morphEnvModSlider.setBounds (morphCol.getRight() - envModSize,
+                                 morphCol.getY(),
+                                 envModSize, envModSize);
+    morphEnvModLabel.setBounds  (morphLblCol.getRight() - envModSize,
+                                 morphLblCol.getY(),
+                                 envModSize, morphLblCol.getHeight());
+    morphLabel .setBounds (morphLblCol.withTrimmedRight (envModSize));
+    morphSlider.setBounds (morphCol); // rotary centres itself within bounds
+
+    // -- Octave (col 2 — remainder)
     auto octCol = knobRow;
-    lblRow.removeFromLeft (lblRow.getWidth()); // consume remainder
+    lblRow.removeFromLeft (lblRow.getWidth()); // consume remainder of label row
 
     octLabel.setBounds (octCol.removeFromTop (14));
     const int btnH = octCol.getHeight() / 3;
@@ -227,7 +145,7 @@ void OscSectionComponent::resized()
     octBtn1.setBounds (octCol.removeFromTop (btnH));
     octBtn2.setBounds (octCol);
 
-    inner.removeFromTop (8);
+    inner.removeFromTop (8); // gap
 
     // Row 2: Voices | Detune | Blend knobs
     const int knobW3 = inner.getWidth() / 3;

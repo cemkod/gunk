@@ -3,7 +3,7 @@
 #include "PluginProcessor.h"
 #include "LookAndFeel.h"
 #include "GateSectionComponent.h"
-#include "OscSectionComponent.h"
+#include "CombinedOscSectionComponent.h"
 #include "FilterSectionComponent.h"
 #include "SubOscSectionComponent.h"
 #include "TransientSectionComponent.h"
@@ -24,12 +24,11 @@ private:
 
     BassLookAndFeel lookAndFeel;
 
-    GateSectionComponent         gateSection;
-    FilterSectionComponent       filterSection;
-    SubOscSectionComponent       subOscSection;
-    OscSectionComponent          oscSection;
-    OscSectionComponent          osc2Section;
-    TransientSectionComponent    transientSection;
+    GateSectionComponent          gateSection;
+    FilterSectionComponent        filterSection;
+    SubOscSectionComponent        subOscSection;
+    CombinedOscSectionComponent   combinedOscSection;
+    TransientSectionComponent     transientSection;
 
     std::unique_ptr<juce::Drawable> logo;
 

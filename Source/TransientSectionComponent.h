@@ -14,10 +14,12 @@ public:
 
     TransientSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("TRANS"),
+          pitchAttach  (avts, "transientPitch",  pitchSlider),
           levelAttach  (avts, "transientLevel",  levelSlider),
           attackAttach (avts, "transientAttack", attackSlider),
           decayAttach  (avts, "transientDecay",  decaySlider)
     {
+        BassLookAndFeel::setupRotarySlider (pitchSlider,  pitchLabel,  "PITCH",  *this);
         BassLookAndFeel::setupRotarySlider (levelSlider,  levelLabel,  "LEVEL",  *this);
         BassLookAndFeel::setupRotarySlider (attackSlider, attackLabel, "ATTACK", *this);
         BassLookAndFeel::setupRotarySlider (decaySlider,  decayLabel,  "DECAY",  *this);
@@ -56,19 +58,27 @@ public:
         auto inner = getLocalBounds().reduced (8);
         inner.removeFromTop (18); // section label row
 
-        const int knobW = inner.getWidth() / 3;
+        const int halfW = inner.getWidth() / 2;
 
-        // Knob row
-        auto knobRow = inner.removeFromTop (75);
-        levelSlider .setBounds (knobRow.removeFromLeft (knobW));
-        attackSlider.setBounds (knobRow.removeFromLeft (knobW));
-        decaySlider .setBounds (knobRow);
+        // Row 1: Pitch + Level
+        auto knobRow1 = inner.removeFromTop (75);
+        pitchSlider.setBounds (knobRow1.removeFromLeft (halfW));
+        levelSlider.setBounds (knobRow1);
 
-        // Label row
-        auto labelRow = inner.removeFromTop (18);
-        levelLabel .setBounds (labelRow.removeFromLeft (knobW));
-        attackLabel.setBounds (labelRow.removeFromLeft (knobW));
-        decayLabel .setBounds (labelRow);
+        auto labelRow1 = inner.removeFromTop (18);
+        pitchLabel.setBounds (labelRow1.removeFromLeft (halfW));
+        levelLabel.setBounds (labelRow1);
+
+        inner.removeFromTop (4);
+
+        // Row 2: Attack + Decay (centred as 2-of-3)
+        auto knobRow2 = inner.removeFromTop (75);
+        attackSlider.setBounds (knobRow2.removeFromLeft (halfW));
+        decaySlider .setBounds (knobRow2);
+
+        auto labelRow2 = inner.removeFromTop (18);
+        attackLabel.setBounds (labelRow2.removeFromLeft (halfW));
+        decayLabel .setBounds (labelRow2);
 
         inner.removeFromTop (6);
 
@@ -96,10 +106,10 @@ private:
             });
     }
 
-    juce::Slider levelSlider, attackSlider, decaySlider;
-    juce::Label  levelLabel,  attackLabel,  decayLabel;
+    juce::Slider pitchSlider, levelSlider, attackSlider, decaySlider;
+    juce::Label  pitchLabel,  levelLabel,  attackLabel,  decayLabel;
 
-    juce::AudioProcessorValueTreeState::SliderAttachment levelAttach, attackAttach, decayAttach;
+    juce::AudioProcessorValueTreeState::SliderAttachment pitchAttach, levelAttach, attackAttach, decayAttach;
 
     juce::TextButton loadBtn { "DROP SAMPLE" };
 

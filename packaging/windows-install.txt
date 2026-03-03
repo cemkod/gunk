@@ -1,0 +1,40 @@
+JQ Gunk — Windows VST3 Installation
+=====================================
+
+Requirements
+------------
+- Windows 10 or later (64-bit)
+- A VST3-compatible DAW (Reaper, Bitwig, Ableton Live, FL Studio, etc.)
+
+Installation
+------------
+1. Copy the entire "JQ Gunk.vst3" folder (including its Contents subfolder)
+   into your VST3 plugins directory:
+
+     C:\Program Files\Common Files\VST3\
+
+   You can also use a per-user directory if your DAW supports it:
+
+     %LOCALAPPDATA%\Programs\Common\VST3\
+
+2. The libwinpthread-1.dll file inside the plugin folder is a required
+   runtime library. Do NOT remove it or move it out of the folder.
+
+3. Rescan plugins in your DAW.
+
+Factory Presets
+---------------
+Factory presets are built into the plugin and load automatically.
+
+Usage
+-----
+JQ Gunk is an audio effect — insert it on a bass track. It detects the
+pitch of the incoming signal and synthesizes a clean oscillator tone at
+that frequency, with an envelope-controlled resonant filter (auto-wah).
+
+Set the gate threshold so the gate opens cleanly on your playing, then
+dial in the filter sweep and mix to taste.
+
+Uninstallation
+--------------
+Delete the "JQ Gunk.vst3" folder from your VST3 directory.

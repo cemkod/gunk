@@ -60,6 +60,7 @@ target_sources(JQGunk PRIVATE
     Source/PitchDetector.cpp
     Source/GateSectionComponent.cpp
     Source/OscSectionComponent.cpp
+    Source/CombinedOscSectionComponent.cpp
     Source/FilterSectionComponent.cpp
     Source/FilterDisplayComponent.cpp
     Source/PresetManager.cpp
@@ -113,6 +114,15 @@ add_custom_target(install-presets
         "${CMAKE_SOURCE_DIR}/Presets/Factory"
         "$ENV{HOME}/.config/JQGunk/Factory Presets"
     COMMENT "Installing factory presets to ~/.config/JQGunk/Factory Presets"
+)
+
+add_custom_target(install-wavetables
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$ENV{HOME}/.config/JQGunk/Wavetables"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/Wavetables"
+        "$ENV{HOME}/.config/JQGunk/Wavetables"
+    COMMENT "Installing factory wavetables to ~/.config/JQGunk/Wavetables"
 )
 
 target_compile_definitions(JQGunk PUBLIC

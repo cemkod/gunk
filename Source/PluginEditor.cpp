@@ -9,27 +9,33 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       gateSection   (p.apvts),
       filterSection (p, p.apvts),
       subOscSection (p.apvts),
-      oscSection  ("OSC",   OscParamIds { "waveform",     "oscLevel",   "unisonVoices",    "unisonDetune",    "unisonBlend",    "octaveShift"    }, p.apvts),
-      osc2Section ("OSC 2", OscParamIds { "osc2Waveform", "osc2Level",  "osc2UnisonVoices","osc2UnisonDetune","osc2UnisonBlend","osc2OctaveShift" }, p.apvts),
+      combinedOscSection (p.apvts,
+          OscParamIds { "waveform",     "oscLevel",  "unisonVoices",     "unisonDetune",     "unisonBlend",     "octaveShift",     "morph",     "morphEnvMod"     },
+          OscParamIds { "osc2Waveform", "osc2Level", "osc2UnisonVoices", "osc2UnisonDetune", "osc2UnisonBlend", "osc2OctaveShift", "osc2Morph", "osc2MorphEnvMod" }),
       transientSection (p.apvts)
 {
-    // Wire OSC 1 wavetable callbacks
-    oscSection.isCustomWavetableLoaded   = [&p] { return p.isCustomWavetableLoaded(); };
-    oscSection.isCustomWaveformActive    = [&p] { return p.isCustomWaveformActive(); };
-    oscSection.reactivateCustomWavetable = [&p] { p.reactivateCustomWavetable(); };
-    oscSection.loadWavetableFromFile     = [&p] (const juce::File& f) { return p.loadWavetableFromFile (f); };
+    // Wire OSC 1 callbacks
+    combinedOscSection.isCustomWavetableLoaded[0]   = [&p] { return p.isCustomWavetableLoaded(); };
+    combinedOscSection.isCustomWaveformActive[0]    = [&p] { return p.isCustomWaveformActive(); };
+    combinedOscSection.reactivateCustomWavetable[0] = [&p] { p.reactivateCustomWavetable(); };
+    combinedOscSection.loadWavetableFromFile[0]     = [&p] (const juce::File& f) { return p.loadWavetableFromFile (f); };
+    combinedOscSection.getNumFrames[0]              = [&p] { return p.getOscNumFrames(); };
+    combinedOscSection.getDisplayFrame[0]           = [&p] { return p.getOscFrameForDisplay (0); };
+    combinedOscSection.getWavetableName[0]          = [&p] { return p.getOscWavetableName (0); };
 
-    // Wire OSC 2 wavetable callbacks
-    osc2Section.isCustomWavetableLoaded   = [&p] { return p.isCustomWavetable2Loaded(); };
-    osc2Section.isCustomWaveformActive    = [&p] { return p.isCustomWaveform2Active(); };
-    osc2Section.reactivateCustomWavetable = [&p] { p.reactivateCustomWavetable2(); };
-    osc2Section.loadWavetableFromFile     = [&p] (const juce::File& f) { return p.loadWavetable2FromFile (f); };
+    // Wire OSC 2 callbacks
+    combinedOscSection.isCustomWavetableLoaded[1]   = [&p] { return p.isCustomWavetable2Loaded(); };
+    combinedOscSection.isCustomWaveformActive[1]    = [&p] { return p.isCustomWaveform2Active(); };
+    combinedOscSection.reactivateCustomWavetable[1] = [&p] { p.reactivateCustomWavetable2(); };
+    combinedOscSection.loadWavetableFromFile[1]     = [&p] (const juce::File& f) { return p.loadWavetable2FromFile (f); };
+    combinedOscSection.getNumFrames[1]              = [&p] { return p.getOsc2NumFrames(); };
+    combinedOscSection.getDisplayFrame[1]           = [&p] { return p.getOscFrameForDisplay (1); };
+    combinedOscSection.getWavetableName[1]          = [&p] { return p.getOscWavetableName (1); };
 
     addAndMakeVisible (gateSection);
     addAndMakeVisible (filterSection);
     addAndMakeVisible (subOscSection);
-    addAndMakeVisible (oscSection);
-    addAndMakeVisible (osc2Section);
+    addAndMakeVisible (combinedOscSection);
     transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
     transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
     addAndMakeVisible (transientSection);
@@ -87,8 +93,7 @@ JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
 //==============================================================================
 void JQGunkAudioProcessorEditor::timerCallback()
 {
-    oscSection.updateButtonStates();
-    osc2Section.updateButtonStates();
+    combinedOscSection.updateButtonStates();
     subOscSection.updateButtonStates();
     transientSection.updateButtonStates();
     filterSection.updateButtonStates();
@@ -114,7 +119,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
         repaint (transientLedBounds);
     }
 
-    gateSection.setMeterValues (processor.getEnvelope(), nowOpen);
+    gateSection.setMeterValues (processor.getEnvelope(), nowOpen, newTransient);
 
     const int cur = processor.getPresetManager().getCurrentIndex();
     if (presetCombo.getSelectedItemIndex() != cur)
@@ -217,11 +222,12 @@ void JQGunkAudioProcessorEditor::resized()
 
     area.removeFromTop (UIConst::sectionGap);
 
-    // Osc row: 4 equal columns
+    // Osc row: sub (1 col) | combined osc (2 cols) | transient (1 col)
     auto oscRow = area.removeFromTop (UIConst::oscSectionH);
     subOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedRight (UIConst::sectionGap / 2));
-    oscSection   .setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedLeft (UIConst::sectionGap / 2).withTrimmedRight (UIConst::sectionGap / 2));
-    osc2Section  .setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedLeft (UIConst::sectionGap / 2).withTrimmedRight (UIConst::sectionGap / 2));
+    combinedOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW * 2)
+                                        .withTrimmedLeft (UIConst::sectionGap / 2)
+                                        .withTrimmedRight (UIConst::sectionGap / 2));
     transientSection.setBounds (oscRow.withTrimmedLeft (UIConst::sectionGap / 2));
 }
 

@@ -6,21 +6,19 @@
 
 struct OscParamIds
 {
-    juce::String waveform, level, unisonVoices, unisonDetune, unisonBlend, octaveShift;
+    juce::String waveform, level, unisonVoices, unisonDetune, unisonBlend, octaveShift, morph, morphEnvMod;
 };
 
 class OscSectionComponent : public LabelledSectionComponent
 {
 public:
-    // Callbacks for custom wavetable operations
-    std::function<bool()>                  isCustomWavetableLoaded;
-    std::function<bool()>                  isCustomWaveformActive;
-    std::function<void()>                  reactivateCustomWavetable;
-    std::function<bool(const juce::File&)> loadWavetableFromFile;
+    // Callback for morph enable/disable (returns oscillator frame count)
+    std::function<int()> getNumFrames;
 
     OscSectionComponent (const juce::String& title,
                          const OscParamIds& ids,
-                         juce::AudioProcessorValueTreeState& apvts);
+                         juce::AudioProcessorValueTreeState& apvts,
+                         bool embedded = false);
     ~OscSectionComponent() override;
 
     void resized() override;
@@ -30,6 +28,7 @@ public:
 private:
     OscParamIds paramIds;
     juce::AudioProcessorValueTreeState& apvts;
+    bool embedded_;
 
     juce::Slider levelSlider;
     juce::Label  levelLabel;
@@ -41,21 +40,18 @@ private:
                                                           unisonDetuneAttach,
                                                           unisonBlendAttach;
 
-    juce::DrawableButton waveBtnTri    { "triangle", juce::DrawableButton::ImageFitted };
-    juce::DrawableButton waveBtnSq     { "square",   juce::DrawableButton::ImageFitted };
-    juce::DrawableButton waveBtnSaw    { "sawtooth", juce::DrawableButton::ImageFitted };
-    juce::DrawableButton waveBtnCustom { "custom",   juce::DrawableButton::ImageFitted };
+    juce::Slider morphSlider;
+    juce::Label  morphLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment morphAttach;
+
+    juce::Slider morphEnvModSlider;
+    juce::Label  morphEnvModLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment morphEnvModAttach;
 
     juce::TextButton octBtn0 { "0" }, octBtn1 { "+1" }, octBtn2 { "+2" };
     juce::Label      octLabel;
 
-    std::unique_ptr<juce::FileChooser> fileChooser;
-
-    void buildWaveformIcons();
-    void configureWaveformButtons();
     void configureOctaveButtons();
-    void setWaveformParam (int idx);
-    void openWavFileDialog();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscSectionComponent)
 };

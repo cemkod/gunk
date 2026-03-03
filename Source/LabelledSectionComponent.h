@@ -11,8 +11,11 @@ public:
     explicit LabelledSectionComponent (juce::String title)
         : sectionTitle (std::move (title)) {}
 
+    void setSuppressBorder (bool b) { suppressBorder_ = b; }
+
     void paint (juce::Graphics& g) override
     {
+        if (suppressBorder_) return;
         const auto bounds = getLocalBounds();
         g.setColour (BassLookAndFeel::surface);
         g.fillRoundedRectangle (bounds.toFloat(), 6.0f);
@@ -26,4 +29,5 @@ public:
 
 private:
     juce::String sectionTitle;
+    bool suppressBorder_ = false;
 };
