@@ -7,11 +7,9 @@
 class EnvelopeFilter
 {
 public:
-    // Call in prepareToPlay and also once per block (updates decay coeff)
-    void prepare (double sampleRate, float decay)
+    void prepare (double sampleRate)
     {
         sr = sampleRate;
-        decayCoeff = 1.0f - std::exp (-1.0f / (float) (sr * decay));
     }
 
     void reset()
@@ -23,7 +21,8 @@ public:
     // filterFreq already includes any mod-matrix offset (Envelope/Pitch → Filter Freq).
     float processSample (float oscillatorSample,
                          float lastDetectedFreq, float filterFreq,
-                         float freqTracking, float resonance)
+                         float freqTracking, float resonance,
+                         FilterType filterType = FilterType::LP)
     {
         static constexpr float kFilterCutoffMinHz = 20.0f;
         static constexpr float kFilterCutoffMaxHz = 4000.0f;
@@ -31,14 +30,13 @@ public:
             filterFreq + lastDetectedFreq * freqTracking);
 
         currentCutoffHz.store (cutoff, std::memory_order_relaxed);
-        return svf.process (oscillatorSample, cutoff, resonance, (float) sr);
+        return svf.process (oscillatorSample, cutoff, resonance, (float) sr, filterType);
     }
 
     float getCurrentCutoffHz() const { return currentCutoffHz.load (std::memory_order_relaxed); }
 
 private:
-    ResonantLowpassFilter svf;
-    float decayCoeff = 0.0f;
+    StateVariableFilter svf;
     double sr = 48000.0;
     static constexpr float kDefaultCutoffHz = 200.0f;
     std::atomic<float> currentCutoffHz { kDefaultCutoffHz };

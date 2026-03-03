@@ -4,11 +4,14 @@
 #include <cmath>
 
 //==============================================================================
-struct ResonantLowpassFilter
+enum class FilterType { LP = 0, HP, BP };
+
+struct StateVariableFilter
 {
     float low = 0.0f, band = 0.0f;
 
-    float process (float input, float cutoffHz, float Q, float sampleRate)
+    float process (float input, float cutoffHz, float Q, float sampleRate,
+                   FilterType filterType = FilterType::LP)
     {
         static constexpr float kSVFMaxF = 1.99f;
         float f = 2.0f * std::sin (juce::MathConstants<float>::pi * cutoffHz / sampleRate);
@@ -19,7 +22,14 @@ struct ResonantLowpassFilter
         low  += f * band;
         float high = input - low - q * band;
         band += f * high;
-        return low;
+
+        switch (filterType)
+        {
+            case FilterType::HP: return high;
+            case FilterType::BP: return band;
+            case FilterType::LP:
+            default:             return low;
+        }
     }
 
     void reset() { low = band = 0.0f; }

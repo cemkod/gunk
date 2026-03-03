@@ -82,11 +82,10 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         scaledPctFmt (8.0f), scaledPctParse (0.0f, 8.0f)));
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        "envDecay", "Env Decay",
-        juce::NormalisableRange<float> (0.01f, 2.0f, 0.001f), 0.3f,
-        juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        timeFmt(), timeParse (0.01f, 2.0f)));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "filterType", "Filter Type",
+        juce::StringArray { "LP", "HP", "BP" },
+        0)); // default: LP
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "freqTracking", "Freq Tracking",
@@ -252,7 +251,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     glide.reset();
     gateIsOpen = false;
     envelopeFilter.reset();
-    envelopeFilter.prepare (sampleRate, 0.3f); // default decay; updated per-block
+    envelopeFilter.prepare (sampleRate);
     transientPlayer.prepare (sampleRate);
 
     pitchDetectorLPF.reset();
@@ -353,7 +352,7 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
                       :                         2.0f;
 
     p.resonance    = apvts.getRawParameterValue ("envResonance")->load();
-    p.decay        = apvts.getRawParameterValue ("envDecay")->load();
+    p.filterType   = (int) apvts.getRawParameterValue ("filterType")->load();
     p.freqTracking = apvts.getRawParameterValue ("freqTracking")->load();
     p.filterFreq   = apvts.getRawParameterValue ("filterFreq")->load();
 
@@ -392,7 +391,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     updateOscillatorParams();
     updateOsc2Params();
-    envelopeFilter.prepare (currentSampleRate, p.decay);
+    envelopeFilter.prepare (currentSampleRate);
 
     const int numChannels  = buffer.getNumChannels();
     const int numSamples   = buffer.getNumSamples();
@@ -470,7 +469,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float filterInput = p.subBypassFilter ? osc1And2 : (osc1And2 + subSample * p.subLevel);
         const float filteredSample = envelopeFilter.processSample (
             filterInput, glide.getLastDetectedFreq(),
-            p.filterFreq, p.freqTracking, p.resonance);
+            p.filterFreq, p.freqTracking, p.resonance,
+            static_cast<FilterType> (p.filterType));
 
         // 2g. Output mix
         const float oscWet    = filteredSample * envelope;

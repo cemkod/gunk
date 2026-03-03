@@ -100,7 +100,7 @@ private:
         float subOctaveMult;   // derived from subOctaveIdx
         bool  subBypassFilter;
         float resonance;
-        float decay;
+        int   filterType;
         float freqTracking;
         float filterFreq;
         float glideTime;

@@ -34,6 +34,7 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
 
     const float cutoffHz  = processor.getCurrentCutoffHz();
     const float Q         = juce::jlimit (0.1f, 100.0f, apvts.getRawParameterValue ("envResonance")->load());
+    const int   filterType = (int) apvts.getRawParameterValue ("filterType")->load();
 
     const float logRatio = std::log (fMax / fMin);
     const float yZero    = h * dBTop / dBRange;
@@ -70,7 +71,11 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
         const float ratio  = freq / fc;
         const float ratio2 = ratio * ratio;
         const float denom  = (1.0f - ratio2) * (1.0f - ratio2) + ratio2 / (Q * Q);
-        const float dB     = -10.0f * std::log10 (juce::jlimit (1e-10f, 1e10f, denom));
+        float mag2;
+        if      (filterType == 1) mag2 = (ratio2 * ratio2) / denom;          // HP
+        else if (filterType == 2) mag2 = (ratio2 / (Q * Q)) / denom;         // BP
+        else                      mag2 = 1.0f / denom;                        // LP
+        const float dB     = 10.0f * std::log10 (juce::jlimit (1e-10f, 1e10f, mag2));
         const float y      = juce::jlimit (0.0f, h, yZero - h * dB / dBRange);
 
         if (i == 0)
