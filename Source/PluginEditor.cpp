@@ -219,6 +219,12 @@ void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
             logoW, logoH);
         logo->drawWithin (g, logoBounds, juce::RectanglePlacement::centred, 1.0f);
     }
+
+    g.setFont (juce::Font (10.0f));
+    g.setColour (BassLookAndFeel::text.withAlpha (0.45f));
+    g.drawText ("v" JucePlugin_VersionString,
+                getLocalBounds().reduced (8).removeFromTop (18),
+                juce::Justification::topRight);
 }
 
 void JQGunkAudioProcessorEditor::resized()

@@ -1,0 +1,66 @@
+name: Build Linux
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libasound2-dev \
+            libx11-dev \
+            libxinerama-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxcursor-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libglu1-mesa-dev
+
+      - name: Configure
+        run: cmake --preset release
+
+      - name: Build
+        run: cmake --build build-release
+
+      - name: Package DEB
+        run: |
+          cd build-release
+          cpack -G DEB
+
+      - name: Package RPM
+        run: |
+          sudo apt-get install -y rpm
+          cd build-release
+          cpack -G RPM
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JQGunk-linux-deb
+          path: build-release/*.deb
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JQGunk-linux-rpm
+          path: build-release/*.rpm
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build-release/*.deb
+            build-release/*.rpm

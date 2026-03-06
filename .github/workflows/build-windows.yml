@@ -1,0 +1,57 @@
+name: Build Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            mingw-w64 \
+            libasound2-dev \
+            libx11-dev \
+            libxinerama-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxcursor-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libglu1-mesa-dev
+
+      # The Windows cross-compile needs moduleinfo.json from a native Linux build.
+      # Build the native (RelWithDebInfo) plugin first so the vst3_manifest_wrapper
+      # script can copy it during the Windows build.
+      - name: Configure (native Linux)
+        run: cmake --preset build
+
+      - name: Build (native Linux)
+        run: cmake --build build --target JQGunk_VST3
+
+      - name: Configure (Windows cross-compile)
+        run: cmake --preset windows
+
+      - name: Build Windows bundle
+        run: cmake --build build-windows --target bundle-windows
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JQGunk-windows-vst3
+          path: build-windows/JQGunk-windows-vst3.zip
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build-windows/JQGunk-windows-vst3.zip
