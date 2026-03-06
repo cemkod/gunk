@@ -5,8 +5,7 @@
 #include "PluginProcessor.h"
 #include "LabelledSectionComponent.h"
 
-class FilterSectionComponent : public LabelledSectionComponent,
-                                public juce::AudioProcessorValueTreeState::Listener
+class FilterSectionComponent : public LabelledSectionComponent
 {
 public:
     FilterSectionComponent (JQGunkAudioProcessor& proc,
@@ -14,19 +13,17 @@ public:
     ~FilterSectionComponent() override;
 
     void resized() override;
-    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
     void repaintDisplay() { displayComponent.repaint(); }
 
 private:
-    void updateButtonStates (int filterTypeIdx);
-
     JQGunkAudioProcessor& processor;
     juce::AudioProcessorValueTreeState& apvts;
 
     FilterDisplayComponent displayComponent;
 
-    juce::TextButton lpButton { "LP" }, hpButton { "HP" }, bpButton { "BP" };
+    juce::ComboBox filterTypeCombo;
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment filterTypeAttach;
 
     juce::Slider filterFreqSlider, resonanceSlider, freqTrackingSlider;
     juce::Label  filterFreqLabel,  resonanceLabel,  freqTrackingLabel;

@@ -90,7 +90,7 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     filled.lineTo (0.0f, h);
     filled.closeSubPath();
 
-    g.setColour (BassLookAndFeel::accent.withAlpha (0.10f));
+    g.setColour (BassLookAndFeel::accent.withAlpha (UIConst::displayFillAlpha));
     g.fillPath (filled);
 
     g.setColour (BassLookAndFeel::accent.withAlpha (0.80f));

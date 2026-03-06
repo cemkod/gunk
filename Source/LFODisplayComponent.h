@@ -35,7 +35,7 @@ public:
             return y0 + h * (1.0f - juce::jlimit (0.0f, 1.0f, v));
         };
 
-        const juce::Colour lineColour { 0xff4fcfff };
+        const juce::Colour lineColour = BassLookAndFeel::accent;
 
         juce::Path wavePath, fillPath;
         bool pathStarted = false;

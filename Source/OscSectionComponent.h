@@ -23,6 +23,33 @@ public:
     ~OscSectionComponent() override;
 
     void resized() override;
+    void paint (juce::Graphics& g) override
+    {
+        if (dividerY <= 0) return;
+
+        const int   lineY  = dividerY + 10;   // vertically centred in rowH
+        const float lx     = 0.0f;
+        const float lw     = (float) getWidth();
+
+        // Full-width divider line
+        g.setColour (BassLookAndFeel::border);
+        g.fillRect (lx, (float) lineY, lw, 1.0f);
+
+        // Text with background cutout so line doesn't show through
+        juce::Font font (UIConst::fontSectionTitle, juce::Font::bold);
+        g.setFont (font);
+        const juce::String txt = "UNISON";
+        const float tw  = font.getStringWidthFloat (txt) + 6.0f;
+        const float tx  = 0.0f;
+        const float th  = (float) 20;
+        const float ty  = (float) dividerY;
+
+        g.setColour (BassLookAndFeel::surface);
+        g.fillRect (tx, ty, tw, th);
+
+        g.setColour (BassLookAndFeel::textDim);
+        g.drawText (txt, (int) tx, (int) ty, (int) tw, (int) th, juce::Justification::centredLeft);
+    }
 
     void updateButtonStates();
 
@@ -37,6 +64,7 @@ private:
 
     juce::Slider unisonVoicesSlider, unisonDetuneSlider, unisonBlendSlider;
     juce::Label  unisonVoicesLabel,  unisonDetuneLabel,  unisonBlendLabel;
+    int dividerY = 0;
     juce::AudioProcessorValueTreeState::SliderAttachment unisonVoicesAttach,
                                                           unisonDetuneAttach,
                                                           unisonBlendAttach;
@@ -49,10 +77,6 @@ private:
     juce::Label  coarseTuneLabel,  fineTuneLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment coarseTuneAttach, fineTuneAttach;
 
-    juce::TextButton octBtn0 { "0" }, octBtn1 { "+1" }, octBtn2 { "+2" };
-    juce::Label      octLabel;
-
-    void configureOctaveButtons();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscSectionComponent)
 };

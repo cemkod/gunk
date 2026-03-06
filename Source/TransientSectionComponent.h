@@ -55,35 +55,35 @@ public:
 
     void resized() override
     {
-        auto inner = getLocalBounds().reduced (8);
-        inner.removeFromTop (18); // section label row
+        auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
+        inner.removeFromTop (UIConst::sectionHeaderH); // section label row
 
         const int halfW = inner.getWidth() / 2;
 
         // Row 1: Pitch + Level
-        auto knobRow1 = inner.removeFromTop (75);
+        auto knobRow1 = inner.removeFromTop (UIConst::knobRowH);
         pitchSlider.setBounds (knobRow1.removeFromLeft (halfW));
         levelSlider.setBounds (knobRow1);
 
-        auto labelRow1 = inner.removeFromTop (18);
+        auto labelRow1 = inner.removeFromTop (UIConst::knobLabelH);
         pitchLabel.setBounds (labelRow1.removeFromLeft (halfW));
         levelLabel.setBounds (labelRow1);
 
-        inner.removeFromTop (4);
+        inner.removeFromTop (UIConst::knobGap);
 
-        // Row 2: Attack + Decay (centred as 2-of-3)
-        auto knobRow2 = inner.removeFromTop (75);
+        // Row 2: Attack + Decay
+        auto knobRow2 = inner.removeFromTop (UIConst::knobRowH);
         attackSlider.setBounds (knobRow2.removeFromLeft (halfW));
         decaySlider .setBounds (knobRow2);
 
-        auto labelRow2 = inner.removeFromTop (18);
+        auto labelRow2 = inner.removeFromTop (UIConst::knobLabelH);
         attackLabel.setBounds (labelRow2.removeFromLeft (halfW));
         decayLabel .setBounds (labelRow2);
 
-        inner.removeFromTop (6);
+        inner.removeFromTop (UIConst::knobGap);
 
         // Load button full width
-        loadBtn.setBounds (inner.removeFromTop (28));
+        loadBtn.setBounds (inner.removeFromTop (UIConst::buttonH));
     }
 
 private:

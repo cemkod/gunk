@@ -11,8 +11,6 @@ class WaveformDisplayComponent : public juce::Component,
 {
 public:
     std::function<std::vector<float>()> getDisplayFrame;
-    std::function<juce::String()>       getWavetableName;
-    std::function<void()>               onMouseDown;
 
     WaveformDisplayComponent()
     {
@@ -30,20 +28,11 @@ public:
 
         // Background + border
         g.setColour (BassLookAndFeel::surfaceDark);
-        g.fillRoundedRectangle (bounds.toFloat(), 3.0f);
+        g.fillRoundedRectangle (bounds.toFloat(), UIConst::displayCornerRadius);
         g.setColour (BassLookAndFeel::border);
-        g.drawRoundedRectangle (bounds.toFloat(), 3.0f, 1.0f);
+        g.drawRoundedRectangle (bounds.toFloat(), UIConst::displayCornerRadius, 1.0f);
 
-        // Info bar at bottom
-        constexpr int infoBarH = 14;
         auto drawArea = bounds.reduced (1);
-        auto infoArea = drawArea.removeFromBottom (infoBarH);
-
-        juce::String name = getWavetableName ? getWavetableName() : juce::String{};
-        g.setFont (juce::Font (UIConst::uiFontSize));
-        g.setColour (BassLookAndFeel::textDim);
-        g.drawText (name.isEmpty() ? "click to select" : name,
-                    infoArea.reduced (4, 0), juce::Justification::centredLeft);
 
         // Waveform path
         if (getDisplayFrame)
@@ -59,22 +48,25 @@ public:
                 const float amp = h * 0.45f;
 
                 const int n = (int) frame.size();
-                juce::Path path;
+                juce::Path path, fill;
                 path.startNewSubPath (x0, cy - frame[0] * amp);
+                fill.startNewSubPath (x0, y0 + h);
+                fill.lineTo (x0, cy - frame[0] * amp);
                 for (int i = 1; i < n; ++i)
                 {
                     const float x = x0 + (float) i / (float) (n - 1) * w;
-                    path.lineTo (x, cy - frame[(size_t) i] * amp);
+                    const float py = cy - frame[(size_t) i] * amp;
+                    path.lineTo (x, py);
+                    fill.lineTo (x, py);
                 }
+                fill.lineTo (x0 + w, y0 + h);
+                fill.closeSubPath();
+                g.setColour (BassLookAndFeel::accent.withAlpha (UIConst::displayFillAlpha));
+                g.fillPath (fill);
                 g.setColour (BassLookAndFeel::accent);
-                g.strokePath (path, juce::PathStrokeType (1.5f));
+                g.strokePath (path, juce::PathStrokeType (UIConst::displayStrokeWidth));
             }
         }
-    }
-
-    void mouseDown (const juce::MouseEvent&) override
-    {
-        if (onMouseDown) onMouseDown();
     }
 
 private:

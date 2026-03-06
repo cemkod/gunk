@@ -36,6 +36,9 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     combinedOscSection.getDisplayFrame[1]           = [&p] { return p.getOscFrameForDisplay (1); };
     combinedOscSection.getWavetableName[1]          = [&p] { return p.getOscWavetableName (1); };
 
+    combinedOscSection.getModDetune = [&p] (int idx) { return p.getModulatedDetune (idx); };
+    combinedOscSection.getModBlend  = [&p] (int idx) { return p.getModulatedBlend  (idx); };
+
     addAndMakeVisible (gateSection);
     addAndMakeVisible (envelopeSection);
     addAndMakeVisible (filterSection);
@@ -210,9 +213,9 @@ void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
 {
     if (logo != nullptr)
     {
-        constexpr float logoH = 140.0f;
+        constexpr float logoH = 120.0f;
         constexpr float logoW = logoH * (184.0f / 98.0f);
-        auto headerBounds = getLocalBounds().removeFromTop (60).toFloat();
+        auto headerBounds = getLocalBounds().removeFromTop (UIConst::headerHeight).toFloat();
         juce::Rectangle<float> logoBounds (
             (headerBounds.getWidth() - logoW) * 0.5f,
             (headerBounds.getHeight() - logoH) * 0.6f,
@@ -254,8 +257,8 @@ void JQGunkAudioProcessorEditor::resized()
 
     // Top row: gate | envelope | filter | output
     auto topRow = area.removeFromTop (UIConst::topRowH);
-    constexpr int gateW     = 200;
-    constexpr int envelopeW = 200;
+    constexpr int gateW     = 190;
+    constexpr int envelopeW = 185;
     const int     g         = UIConst::sectionGap;
     gateSection    .setBounds (topRow.removeFromLeft (gateW));
     topRow.removeFromLeft (g);

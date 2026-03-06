@@ -7,7 +7,8 @@ static const juce::StringArray kTargetNames { "None", "Morph 1", "Morph 2", "Fil
                                                "Filter Res", "OSC 1 Level", "OSC 2 Level",
                                                "Unison 1 Detune", "Sub Level",
                                                "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
-                                               "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount" };
+                                               "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
+                                               "Uni1 Blend", "Uni2 Blend" };
 
 ModMatrixComponent::ModMatrixComponent (juce::AudioProcessorValueTreeState& apvts)
 {

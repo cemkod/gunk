@@ -131,7 +131,7 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "octaveShift", "Octave Shift",
-        juce::StringArray { "0", "+1", "+2" }, 0));
+        juce::StringArray { "-2", "-1", "0", "+1", "+2" }, 2));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "subOctave", "Sub Octave",
@@ -175,7 +175,7 @@ JQGunkAudioProcessor::createParameterLayout()
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         "osc2OctaveShift", "OSC 2 Octave Shift",
-        juce::StringArray { "0", "+1", "+2" }, 0));
+        juce::StringArray { "-2", "-1", "0", "+1", "+2" }, 2));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "coarseTune", "Coarse Tune",
@@ -265,7 +265,8 @@ JQGunkAudioProcessor::createParameterLayout()
                                 "Filter Res", "OSC 1 Level", "OSC 2 Level",
                                 "Unison 1 Detune", "Sub Level",
                                 "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
-                                "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount" }, 0));
+                                "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
+                                "Uni1 Blend", "Uni2 Blend" }, 0));
         layout.add (std::make_unique<juce::AudioParameterFloat> (
             "modSlot" + n + "Amount", "Mod Slot " + n + " Amount",
             juce::NormalisableRange<float> (-3.0f, 3.0f, 0.001f), 0.0f));
@@ -372,7 +373,12 @@ void JQGunkAudioProcessor::updateOscillatorParams()
     const float detuneCents = juce::jlimit (0.0f, 100.0f,
         apvts.getRawParameterValue ("unisonDetune")->load()
         + modMatrix.getOffset (ModTarget::Unison1Detune));
-    const float uniBlend    = apvts.getRawParameterValue ("unisonBlend")->load();
+    const float detuneOffset = modMatrix.getOffset (ModTarget::Unison1Detune);
+    const float blendOffset  = modMatrix.getOffset (ModTarget::Unison1Blend);
+    lastModDetuneOffset .store (detuneOffset, std::memory_order_relaxed);
+    lastModBlendOffset  .store (blendOffset,  std::memory_order_relaxed);
+    const float uniBlend = juce::jlimit (0.0f, 1.0f,
+        apvts.getRawParameterValue ("unisonBlend")->load() + blendOffset);
     oscillator.setUnisonParams (numVoices, detuneCents, uniBlend);
 
     {
@@ -398,7 +404,12 @@ void JQGunkAudioProcessor::updateOsc2Params()
     const float detuneCents = juce::jlimit (0.0f, 100.0f,
         apvts.getRawParameterValue ("osc2UnisonDetune")->load()
         + modMatrix.getOffset (ModTarget::Unison2Detune));
-    const float uniBlend    = apvts.getRawParameterValue ("osc2UnisonBlend")->load();
+    const float detuneOffset2 = modMatrix.getOffset (ModTarget::Unison2Detune);
+    const float blendOffset2  = modMatrix.getOffset (ModTarget::Unison2Blend);
+    lastModDetune2Offset.store (detuneOffset2, std::memory_order_relaxed);
+    lastModBlend2Offset .store (blendOffset2,  std::memory_order_relaxed);
+    const float uniBlend = juce::jlimit (0.0f, 1.0f,
+        apvts.getRawParameterValue ("osc2UnisonBlend")->load() + blendOffset2);
     osc2.setUnisonParams (numVoices, detuneCents, uniBlend);
 
     {
@@ -574,8 +585,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         float filteredForPitch = pitchDetectorLPF.processSample (inputSample);
         float detectedFreq     = detector.processSample (filteredForPitch, currentSampleRate);
 
-        if (p.octaveShift > 0)
-            detectedFreq *= (p.octaveShift == 1 ? 2.0f : 4.0f);
+        // octaveShift indices: 0=-2, 1=-1, 2=0, 3=+1, 4=+2
+        static constexpr float kOctMult[] = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f };
+        detectedFreq *= kOctMult[juce::jlimit (0, 4, p.octaveShift)];
 
         detectedFreq *= p.osc1PitchMult;
 
@@ -587,8 +599,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             oscillator.setFrequency    (glidedFreq,                  currentSampleRate);
             subOscillator.setFrequency (glidedFreq * p.subOctaveMult, currentSampleRate);
+            static constexpr float kOct2Mult[] = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f };
             const float freq2 = glidedFreq
-                              * (p.osc2OctaveShift == 1 ? 2.0f : p.osc2OctaveShift == 2 ? 4.0f : 1.0f)
+                              * kOct2Mult[juce::jlimit (0, 4, p.osc2OctaveShift)]
                               * p.osc2PitchMult;
             osc2.setFrequency (freq2, currentSampleRate);
         }

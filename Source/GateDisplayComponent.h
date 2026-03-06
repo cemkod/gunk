@@ -59,8 +59,8 @@ public:
 
         // Build waveform path
         const juce::Colour lineColour = lastGateOpen
-            ? juce::Colour (0xff44ff88)
-            : juce::Colour (0xff44ff88).withAlpha (0.35f);
+            ? BassLookAndFeel::accent
+            : BassLookAndFeel::accent.withAlpha (0.35f);
 
         juce::Path wavePath, fillPath;
         bool pathStarted = false;

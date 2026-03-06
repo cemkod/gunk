@@ -32,31 +32,31 @@ void GateSectionComponent::paint (juce::Graphics& g)
 
 void GateSectionComponent::resized()
 {
-    auto inner = getLocalBounds().reduced (8);
-    inner.removeFromTop (18); // skip section label row
-    displayComponent.setBounds (inner.removeFromTop (70));
-    inner.removeFromTop (6);  // gap between graph and knobs
+    auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
+    inner.removeFromTop (UIConst::sectionHeaderH); // skip section label row
+    displayComponent.setBounds (inner.removeFromTop (UIConst::displayH_small));
+    inner.removeFromTop (UIConst::knobGap);
 
     // Row 1: THRS, HYST, GLIDE
     const int w = inner.getWidth();
     const int knobW1 = w / 3;
-    auto knobRow1 = inner.removeFromTop (58);
+    auto knobRow1 = inner.removeFromTop (UIConst::knobRowH);
     gateThresholdSlider .setBounds (knobRow1.removeFromLeft (knobW1));
     gateHysteresisSlider.setBounds (knobRow1.removeFromLeft (knobW1));
     glideSlider         .setBounds (knobRow1);
-    auto lblRow1 = inner.removeFromTop (16);
+    auto lblRow1 = inner.removeFromTop (UIConst::knobLabelH);
     gateThresholdLabel .setBounds (lblRow1.removeFromLeft (knobW1));
     gateHysteresisLabel.setBounds (lblRow1.removeFromLeft (knobW1));
     glideLabel         .setBounds (lblRow1);
 
-    inner.removeFromTop (4);
+    inner.removeFromTop (UIConst::knobGap);
 
     // Row 2: DRY, SLOPE
     const int knobW2 = w / 2;
-    auto knobRow2 = inner.removeFromTop (57);
+    auto knobRow2 = inner.removeFromTop (UIConst::knobRowH);
     drySlider           .setBounds (knobRow2.removeFromLeft (knobW2));
     transientSlopeSlider.setBounds (knobRow2);
-    auto lblRow2 = inner.removeFromTop (16);
+    auto lblRow2 = inner.removeFromTop (UIConst::knobLabelH);
     dryLabel           .setBounds (lblRow2.removeFromLeft (knobW2));
     transientSlopeLabel.setBounds (lblRow2);
 }

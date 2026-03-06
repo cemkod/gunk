@@ -74,6 +74,21 @@ public:
         return p.isEmpty() ? juce::String{} : juce::File (p).getFileNameWithoutExtension();
     }
 
+    float getModulatedDetune (int oscIdx) const {
+        const auto id = oscIdx == 0 ? "unisonDetune" : "osc2UnisonDetune";
+        const float base   = apvts.getRawParameterValue (id)->load();
+        const float offset = (oscIdx == 0 ? lastModDetuneOffset : lastModDetune2Offset)
+                                 .load (std::memory_order_relaxed);
+        return juce::jlimit (0.0f, 100.0f, base + offset);
+    }
+    float getModulatedBlend (int oscIdx) const {
+        const auto id = oscIdx == 0 ? "unisonBlend" : "osc2UnisonBlend";
+        const float base   = apvts.getRawParameterValue (id)->load();
+        const float offset = (oscIdx == 0 ? lastModBlendOffset : lastModBlend2Offset)
+                                 .load (std::memory_order_relaxed);
+        return juce::jlimit (0.0f, 1.0f, base + offset);
+    }
+
     float getDetectedFrequency() const { return detector.getFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
@@ -144,6 +159,10 @@ private:
 
     std::atomic<float> lastModulatedMorph  { 0.0f };
     std::atomic<float> lastModulatedMorph2 { 0.0f };
+    std::atomic<float> lastModDetuneOffset  { 0.0f };
+    std::atomic<float> lastModDetune2Offset { 0.0f };
+    std::atomic<float> lastModBlendOffset   { 0.0f };
+    std::atomic<float> lastModBlend2Offset  { 0.0f };
 
     // Envelope follower for the noise gate
     float envelope = 0.0f;

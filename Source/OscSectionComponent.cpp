@@ -20,55 +20,20 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
     if (embedded_)
         setSuppressBorder (true);
 
-    BassLookAndFeel::setupRotarySlider (levelSlider, levelLabel, "LEVEL", *this);
-
-    BassLookAndFeel::setupRotarySlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
+    BassLookAndFeel::setupLinearSlider (levelSlider,        levelLabel,        "LEVEL",  *this);
+    BassLookAndFeel::setupLinearSlider (morphSlider,        morphLabel,        "MORPH",  *this);
+    BassLookAndFeel::setupLinearSlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
-    BassLookAndFeel::setupRotarySlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
-    BassLookAndFeel::setupRotarySlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
+    BassLookAndFeel::setupLinearSlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
+    BassLookAndFeel::setupLinearSlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
 
-    // Morph knob — rotary
-    BassLookAndFeel::setupRotarySlider (morphSlider, morphLabel, "MORPH", *this);
-
-    BassLookAndFeel::setupRotarySlider (coarseTuneSlider, coarseTuneLabel, "COARSE", *this);
+    BassLookAndFeel::setupLinearSlider (coarseTuneSlider,   coarseTuneLabel,   "COARSE", *this);
     coarseTuneSlider.setNumDecimalPlacesToDisplay (0);
-    BassLookAndFeel::setupRotarySlider (fineTuneSlider, fineTuneLabel, "FINE", *this);
-
-    configureOctaveButtons();
+    BassLookAndFeel::setupLinearSlider (fineTuneSlider,     fineTuneLabel,     "FINE",   *this);
 
     updateButtonStates();
 }
 
-void OscSectionComponent::configureOctaveButtons()
-{
-    octLabel.setText ("OCTAVE", juce::dontSendNotification);
-    octLabel.setFont (juce::Font (UIConst::uiFontSize));
-    octLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
-    octLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (octLabel);
-
-    const int octGroup = juce::Random::getSystemRandom().nextInt (0x7fffffff);
-    for (auto* b : { &octBtn0, &octBtn1, &octBtn2 })
-    {
-        b->setRadioGroupId (octGroup);
-        b->setClickingTogglesState (true);
-        b->setColour (juce::TextButton::buttonColourId,     BassLookAndFeel::surface);
-        b->setColour (juce::TextButton::buttonOnColourId,   BassLookAndFeel::accent);
-        b->setColour (juce::TextButton::textColourOffId,    BassLookAndFeel::iconDim);
-        b->setColour (juce::TextButton::textColourOnId,     juce::Colours::black);
-        addAndMakeVisible (b);
-    }
-
-    auto setOctParam = [this](int idx)
-    {
-        auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (paramIds.octaveShift));
-        if (p) *p = idx;
-    };
-
-    octBtn0.onClick = [setOctParam] { setOctParam (0); };
-    octBtn1.onClick = [setOctParam] { setOctParam (1); };
-    octBtn2.onClick = [setOctParam] { setOctParam (2); };
-}
 
 OscSectionComponent::~OscSectionComponent()
 {
@@ -77,11 +42,6 @@ OscSectionComponent::~OscSectionComponent()
 
 void OscSectionComponent::updateButtonStates()
 {
-    const int octIdx = (int) apvts.getRawParameterValue (paramIds.octaveShift)->load();
-    octBtn0.setToggleState (octIdx == 0, juce::dontSendNotification);
-    octBtn1.setToggleState (octIdx == 1, juce::dontSendNotification);
-    octBtn2.setToggleState (octIdx == 2, juce::dontSendNotification);
-
     const bool multiFrame = getNumFrames && (getNumFrames() > 1);
     morphSlider.setEnabled (multiFrame);
     morphLabel .setEnabled (multiFrame);
@@ -92,56 +52,33 @@ void OscSectionComponent::updateButtonStates()
 
 void OscSectionComponent::resized()
 {
-    auto inner = getLocalBounds().reduced (8);
+    auto inner = embedded_ ? getLocalBounds() : getLocalBounds().reduced (UIConst::sectionInnerPad);
     if (! embedded_)
-        inner.removeFromTop (18); // skip section label row
+        inner.removeFromTop (UIConst::sectionHeaderH);
 
-    // Row 1: Level | Morph+EnvMod | Octave  (3 equal columns, 75px tall)
-    const int colW3 = inner.getWidth() / 3;
-    auto knobRow = inner.removeFromTop (75);
-    auto lblRow  = inner.removeFromTop (18);
+    const int rowH   = 20;
+    const int gap    = 3;
+    const int labelW = 46;
 
-    // -- Level (col 0)
-    levelSlider.setBounds (knobRow.removeFromLeft (colW3));
-    levelLabel .setBounds (lblRow .removeFromLeft (colW3));
+    auto sliderRow = [&] (juce::Label& lbl, juce::Slider& sl)
+    {
+        auto row = inner.removeFromTop (rowH);
+        lbl.setBounds (row.removeFromLeft (labelW));
+        sl .setBounds (row);
+        inner.removeFromTop (gap);
+    };
 
-    // -- Morph (col 1)
-    auto morphCol    = knobRow.removeFromLeft (colW3);
-    auto morphLblCol = lblRow .removeFromLeft (colW3);
+    sliderRow (levelLabel,      levelSlider);
+    sliderRow (morphLabel,      morphSlider);
+    sliderRow (coarseTuneLabel, coarseTuneSlider);
+    sliderRow (fineTuneLabel,   fineTuneSlider);
 
-    morphLabel .setBounds (morphLblCol);
-    morphSlider.setBounds (morphCol);
+    inner.removeFromTop (gap);
+    dividerY = inner.getY();
+    inner.removeFromTop (20);   // separator row — same height as sliders
+    inner.removeFromTop (gap);
 
-    // -- Octave (col 2 — remainder)
-    auto octCol = knobRow;
-    lblRow.removeFromLeft (lblRow.getWidth()); // consume remainder of label row
-
-    octLabel.setBounds (octCol.removeFromTop (14));
-    const int btnH = octCol.getHeight() / 3;
-    octBtn0.setBounds (octCol.removeFromTop (btnH));
-    octBtn1.setBounds (octCol.removeFromTop (btnH));
-    octBtn2.setBounds (octCol);
-
-    inner.removeFromTop (8); // gap
-
-    // Row 2: Voices | Detune | Blend knobs
-    const int knobW3 = inner.getWidth() / 3;
-    auto knobRow2 = inner.removeFromTop (75);
-    unisonVoicesSlider.setBounds (knobRow2.removeFromLeft (knobW3));
-    unisonDetuneSlider.setBounds (knobRow2.removeFromLeft (knobW3));
-    unisonBlendSlider .setBounds (knobRow2);
-
-    auto lblRow2 = inner.removeFromTop (18);
-    unisonVoicesLabel.setBounds (lblRow2.removeFromLeft (knobW3));
-    unisonDetuneLabel.setBounds (lblRow2.removeFromLeft (knobW3));
-    unisonBlendLabel .setBounds (lblRow2);
-
-    inner.removeFromTop (8); // gap
-    const int knobW2 = inner.getWidth() / 2;
-    auto knobRow3 = inner.removeFromTop (75);
-    coarseTuneSlider.setBounds (knobRow3.removeFromLeft (knobW2));
-    fineTuneSlider  .setBounds (knobRow3);
-    auto lblRow3 = inner.removeFromTop (18);
-    coarseTuneLabel .setBounds (lblRow3.removeFromLeft (knobW2));
-    fineTuneLabel   .setBounds (lblRow3);
+    sliderRow (unisonVoicesLabel, unisonVoicesSlider);
+    sliderRow (unisonDetuneLabel, unisonDetuneSlider);
+    sliderRow (unisonBlendLabel,  unisonBlendSlider);
 }

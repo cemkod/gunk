@@ -10,7 +10,8 @@ enum class ModTarget : int
     None = 0, Morph1 = 1, Morph2 = 2, FilterFreq = 3, FilterRes = 4,
     Osc1Level = 5, Osc2Level = 6, Unison1Detune = 7, SubLevel = 8,
     Glide = 9, Unison2Detune = 10, LfoRate = 11, MasterVolume = 12,
-    Osc1FineTune = 13, Osc2FineTune = 14, LfoAmount = 15
+    Osc1FineTune = 13, Osc2FineTune = 14, LfoAmount = 15,
+    Unison1Blend = 16, Unison2Blend = 17
 };
 
 class ModMatrix
@@ -78,6 +79,8 @@ private:
         200.f,   // Osc1FineTune  (cents; amount=1,src=1 → 200 ct = 2 st)
         200.f,   // Osc2FineTune  (cents; amount=1,src=1 → 200 ct = 2 st)
         1.f,     // LfoAmount     (range 0..1)
+        1.f,     // Unison1Blend  (range 0..1)
+        1.f,     // Unison2Blend  (range 0..1)
     };
 
     struct Slot { int source = 0; int target = 0; float amount = 0.0f; };

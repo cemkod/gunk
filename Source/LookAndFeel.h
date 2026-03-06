@@ -7,6 +7,7 @@ class BassLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     inline static const juce::Colour bg         { 0xff1a1a2e };
+    inline static const juce::Colour headerBar  { 0xff141426 };
     inline static const juce::Colour surfaceDark { 0xff1d1d30 };
     inline static const juce::Colour surface    { 0xff252540 };
     inline static const juce::Colour border     { 0xff333355 };
@@ -28,7 +29,24 @@ public:
 
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        l.setFont (juce::Font (UIConst::fontKnobLabel, juce::Font::bold));
+        l.setColour (juce::Label::textColourId, text);
+        parent.addAndMakeVisible (l);
+    }
+
+    static void setupLinearSlider (juce::Slider& s, juce::Label& l,
+                                    const juce::String& name, juce::Component& parent)
+    {
+        s.setSliderStyle (juce::Slider::LinearHorizontal);
+        s.setTextBoxStyle (juce::Slider::TextBoxRight, false, 42, 14);
+        s.setColour (juce::Slider::textBoxTextColourId,       text);
+        s.setColour (juce::Slider::textBoxBackgroundColourId, surfaceDark);
+        s.setColour (juce::Slider::textBoxOutlineColourId,    borderDim);
+        parent.addAndMakeVisible (s);
+
+        l.setText (name, juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centredLeft);
+        l.setFont (juce::Font (UIConst::fontKnobLabel, juce::Font::bold));
         l.setColour (juce::Label::textColourId, text);
         parent.addAndMakeVisible (l);
     }
@@ -106,7 +124,7 @@ public:
     {
         const bool on = button.getToggleState();
         g.setColour (on ? accent : textDim);
-        g.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        g.setFont (juce::Font (UIConst::fontButtonText, juce::Font::bold));
         g.drawFittedText (button.getButtonText(),
                           button.getLocalBounds(),
                           juce::Justification::centred, 1);
@@ -118,13 +136,14 @@ public:
                            const juce::Slider::SliderStyle style,
                            juce::Slider& slider) override
     {
-        const bool isBipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
-        if (style != juce::Slider::LinearHorizontal || !isBipolar)
+        if (style != juce::Slider::LinearHorizontal)
         {
             juce::LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos,
                                                     minSliderPos, maxSliderPos, style, slider);
             return;
         }
+
+        const bool isBipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
 
         const float trackH = 4.0f;
         const float trackY = y + (height - trackH) * 0.5f;
@@ -135,23 +154,32 @@ public:
         g.setColour (border);
         g.fillRoundedRectangle (trackX, trackY, trackW, trackH, trackH * 0.5f);
 
-        // Zero point and thumb position
-        const float zeroFrac = (float) ((-slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum()));
-        const float zeroX    = trackX + zeroFrac * trackW;
-        const float thumbX   = sliderPos;
+        const float thumbX = sliderPos;
+        float fillL, fillR;
 
-        // Fill from zero to thumb
-        const float fillL = juce::jmin (zeroX, thumbX);
-        const float fillR = juce::jmax (zeroX, thumbX);
+        if (isBipolar)
+        {
+            const float zeroFrac = (float) ((-slider.getMinimum()) / (slider.getMaximum() - slider.getMinimum()));
+            const float zeroX    = trackX + zeroFrac * trackW;
+            fillL = juce::jmin (zeroX, thumbX);
+            fillR = juce::jmax (zeroX, thumbX);
+
+            // Center tick
+            g.setColour (textDim);
+            g.fillRect (zeroX - 0.5f, trackY - 2.0f, 1.0f, trackH + 4.0f);
+        }
+        else
+        {
+            fillL = trackX;
+            fillR = thumbX;
+        }
+
+        // Value fill
         if (fillR > fillL + 0.5f)
         {
             g.setColour (accent);
             g.fillRoundedRectangle (fillL, trackY, fillR - fillL, trackH, trackH * 0.5f);
         }
-
-        // Center tick
-        g.setColour (textDim);
-        g.fillRect (zeroX - 0.5f, trackY - 2.0f, 1.0f, trackH + 4.0f);
 
         // Thumb
         const float thumbW = 8.0f;

@@ -3,17 +3,15 @@
 namespace UIConst {
     // Editor dimensions
     constexpr int editorWidth    = 833;
-    constexpr int editorHeight   = 813;  // +85 for coarse/fine tune row
-    constexpr int editorPad      = 10;
-    constexpr int headerHeight   = 60;
-    constexpr int labelRowH      = 16;
-    constexpr int presetStripH   = 28;
-    constexpr int sectionGap     = 8;
-    constexpr int gateSectionH   = 149;
-    constexpr int oscSectionH    = 425;  // +85 for coarse/fine tune row
-    constexpr int filterSectionH = 261;
-    constexpr int topRowH        = 261;  // gate+filter row height
-    constexpr int oscColW        = 165;  // fixed column width
+    constexpr int editorHeight   = 613;
+    constexpr int editorPad      = 8;
+    constexpr int headerHeight   = 52;
+    constexpr int labelRowH      = 14;
+    constexpr int presetStripH   = 24;
+    constexpr int sectionGap     = 6;
+    constexpr int oscSectionH    = 305;
+    constexpr int topRowH        = 202;  // gate+envelope+filter+output row
+    constexpr int oscColW        = 155;  // fixed column width
 
     // Gate LED
     constexpr int gateLedSize    = 8;
@@ -24,13 +22,36 @@ namespace UIConst {
 
     // LookAndFeel
     constexpr float sectionCornerRadius  = 4.0f;
-    constexpr float knobArcStrokeWidth   = 3.0f;
+    constexpr float knobArcStrokeWidth   = 2.5f;
     constexpr float knobBodyRadiusRatio  = 0.65f;
     constexpr float knobPointerPosRatio  = 0.6f;
-    constexpr float knobPointerRadius    = 3.0f;
-    constexpr int   sliderTextBoxW       = 60;
-    constexpr int   sliderTextBoxH       = 20;
-    constexpr float uiFontSize           = 11.0f;
+    constexpr float knobPointerRadius    = 2.5f;
+    constexpr int   sliderTextBoxW       = 50;
+    constexpr int   sliderTextBoxH       = 16;
+    constexpr float uiFontSize           = 10.0f;
     constexpr float buttonCornerRadius   = 4.0f;
     constexpr float comboBoxCornerRadius = 4.0f;
+
+    // Section header bar
+    constexpr int   sectionHeaderH   = 18;
+    constexpr int   sectionInnerPad  = 6;
+    constexpr float fontSectionTitle = 9.0f;
+    constexpr float fontKnobLabel    = 9.0f;
+    constexpr float fontButtonText   = 9.5f;
+
+    // Layout
+    constexpr int   knobRowH          = 48;
+    constexpr int   knobLabelH        = 13;
+    constexpr int   buttonH           = 22;
+    constexpr int   knobGap           = 3;
+
+    // Display heights
+    constexpr int   displayH_small    = 44;
+    constexpr int   displayH_filter   = 70;
+    constexpr int   displayH_waveform = 59;
+
+    // Display style
+    constexpr float displayCornerRadius = 4.0f;
+    constexpr float displayStrokeWidth  = 1.5f;
+    constexpr float displayFillAlpha    = 0.12f;
 }

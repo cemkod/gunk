@@ -20,18 +20,18 @@ public:
 
     void resized() override
     {
-        auto inner = getLocalBounds().reduced (8);
-        inner.removeFromTop (18); // skip section label
+        auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
+        inner.removeFromTop (UIConst::sectionHeaderH); // skip section label
 
-        displayComponent.setBounds (inner.removeFromTop (70));
-        inner.removeFromTop (6);
+        displayComponent.setBounds (inner.removeFromTop (UIConst::displayH_small));
+        inner.removeFromTop (UIConst::knobGap);
 
         const int knobW = inner.getWidth() / 2;
-        auto knobRow = inner.removeFromTop (55);
+        auto knobRow = inner.removeFromTop (UIConst::knobRowH);
         attackSlider.setBounds (knobRow.removeFromLeft (knobW));
         decaySlider .setBounds (knobRow);
 
-        auto lblRow = inner.removeFromTop (16);
+        auto lblRow = inner.removeFromTop (UIConst::knobLabelH);
         attackLabel.setBounds (lblRow.removeFromLeft (knobW));
         decayLabel .setBounds (lblRow);
     }

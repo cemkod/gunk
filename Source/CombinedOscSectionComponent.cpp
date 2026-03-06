@@ -8,7 +8,9 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     : LabelledSectionComponent ("OSC"),
       apvts (avts),
       osc1    ("", ids1, avts, true),
-      osc2Comp("", ids2, avts, true)
+      osc2Comp("", ids2, avts, true),
+      octAttach1 (avts, ids1.octaveShift, octCombo1),
+      octAttach2 (avts, ids2.octaveShift, octCombo2)
 {
     paramIds[0] = ids1;
     paramIds[1] = ids2;
@@ -29,9 +31,35 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     tabBtn2.onClick = [this] { selectOsc (1); };
     tabBtn1.setToggleState (true, juce::dontSendNotification);
 
-    // Waveform display
-    waveformDisplay.onMouseDown = [this] { showWaveformMenu(); };
+    // Waveform display + unison display
     addAndMakeVisible (waveformDisplay);
+    addAndMakeVisible (unisonDisplay);
+    selectOsc (0); // initialises unisonDisplay callbacks
+
+    // Waveform combos
+    setupWaveCombo (waveCombo1, 0);
+    setupWaveCombo (waveCombo2, 1);
+    waveCombo2.setVisible (false);
+
+    // Octave combos
+    auto setupOct = [this] (juce::ComboBox& combo)
+    {
+        combo.addItem ("-2", 1);
+        combo.addItem ("-1", 2);
+        combo.addItem ( "0", 3);
+        combo.addItem ("+1", 4);
+        combo.addItem ("+2", 5);
+        addAndMakeVisible (combo);
+    };
+    setupOct (octCombo1);
+    setupOct (octCombo2);
+    octCombo2.setVisible (false);
+
+    octLabel.setText ("OCT", juce::dontSendNotification);
+    octLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+    octLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
+    octLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (octLabel);
 
     addAndMakeVisible (osc1);
     addAndMakeVisible (osc2Comp);
@@ -52,29 +80,84 @@ void CombinedOscSectionComponent::selectOsc (int idx)
     tabBtn1.setToggleState (idx == 0, juce::dontSendNotification);
     tabBtn2.setToggleState (idx == 1, juce::dontSendNotification);
 
-    waveformDisplay.getDisplayFrame  = getDisplayFrame[(size_t) idx];
-    waveformDisplay.getWavetableName = getWavetableName[(size_t) idx];
+    waveformDisplay.getDisplayFrame = getDisplayFrame[(size_t) idx];
     waveformDisplay.repaint();
+
+    unisonDisplay.getVoices = [this, idx] {
+        auto* p = apvts.getParameter (paramIds[idx].unisonVoices);
+        return p ? p->getValue() * 7.0f + 1.0f : 1.0f;
+    };
+    unisonDisplay.getDetune = [this, idx] {
+        return getModDetune ? getModDetune (idx) : 0.0f;
+    };
+    unisonDisplay.getBlend = [this, idx] {
+        return getModBlend ? getModBlend (idx) : 1.0f;
+    };
+
+    waveCombo1.setVisible (idx == 0);
+    waveCombo2.setVisible (idx == 1);
+    octCombo1.setVisible (idx == 0);
+    octCombo2.setVisible (idx == 1);
+    syncWaveCombo (idx);
 }
 
-void CombinedOscSectionComponent::showWaveformMenu()
+void CombinedOscSectionComponent::setupWaveCombo (juce::ComboBox& combo, int oscIdx)
 {
-    const int osc = selectedOsc;
-    juce::PopupMenu menu;
-    menu.addItem (1, "Triangle");
-    menu.addItem (2, "Square");
-    menu.addItem (3, "Sawtooth");
-    menu.addSeparator();
-    menu.addItem (4, "Load WAV or WT file\xe2\x80\xa6");
+    combo.addItem ("Triangle", 1);
+    combo.addItem ("Square",   2);
+    combo.addItem ("Sawtooth", 3);
+    combo.addSeparator();
+    combo.addItem ("Load WAV\xe2\x80\xa6", 99);
 
-    menu.showMenuAsync (juce::PopupMenu::Options{}.withTargetComponent (waveformDisplay),
-        [this, osc] (int result)
+    combo.onChange = [this, &combo, oscIdx]
+    {
+        const int id = combo.getSelectedId();
+        if (id >= 1 && id <= 3)
         {
-            if (result >= 1 && result <= 3)
-                setWaveformParam (osc, result - 1);
-            else if (result == 4)
-                openWavFileDialog (osc);
-        });
+            setWaveformParam (oscIdx, id - 1);
+        }
+        else if (id == 99)
+        {
+            // Reset selection back to current before opening dialog
+            combo.setSelectedId (0, juce::dontSendNotification);
+            openWavFileDialog (oscIdx);
+        }
+        // id 50 = loaded custom wavetable — no action needed, already active
+    };
+
+    addAndMakeVisible (combo);
+}
+
+void CombinedOscSectionComponent::syncWaveCombo (int oscIdx)
+{
+    auto& combo = (oscIdx == 0) ? waveCombo1 : waveCombo2;
+    const auto idx = (size_t) oscIdx;
+
+    // If a custom wavetable is active, show it
+    if (isCustomWaveformActive[idx] && isCustomWaveformActive[idx]())
+    {
+        juce::String name = getWavetableName[idx] ? getWavetableName[idx]() : "Custom";
+        // Rebuild if the custom item doesn't exist or name changed
+        if (combo.getItemText (combo.getNumItems() - 1) != name
+            || combo.getItemId  (combo.getNumItems() - 1) != 50)
+        {
+            combo.clear (juce::dontSendNotification);
+            combo.addItem ("Triangle", 1);
+            combo.addItem ("Square",   2);
+            combo.addItem ("Sawtooth", 3);
+            combo.addSeparator();
+            combo.addItem ("Load WAV\xe2\x80\xa6", 99);
+            combo.addSeparator();
+            combo.addItem (name, 50);
+        }
+        combo.setSelectedId (50, juce::dontSendNotification);
+        return;
+    }
+
+    // Sync to APVTS waveform param (0=Triangle,1=Square,2=Sawtooth → IDs 1,2,3)
+    auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (paramIds[oscIdx].waveform));
+    if (p)
+        combo.setSelectedId ((int) p->getIndex() + 1, juce::dontSendNotification);
 }
 
 void CombinedOscSectionComponent::setWaveformParam (int oscIdx, int waveIdx)
@@ -98,7 +181,9 @@ void CombinedOscSectionComponent::openWavFileDialog (int oscIdx)
             if (results.isEmpty()) return;
             const bool ok = loadWavetableFromFile[(size_t) oscIdx]
                             && loadWavetableFromFile[(size_t) oscIdx] (results.getFirst());
-            if (! ok)
+            if (ok)
+                syncWaveCombo (oscIdx);
+            else
                 juce::AlertWindow::showMessageBoxAsync (
                     juce::AlertWindow::WarningIcon, "Load failed",
                     "Could not read the selected WAV or WT file.", "OK");
@@ -111,8 +196,10 @@ void CombinedOscSectionComponent::updateButtonStates()
     osc2Comp.getNumFrames = getNumFrames[1];
 
     // Keep display callbacks current (also fixes initial null on first load)
-    waveformDisplay.getDisplayFrame  = getDisplayFrame[(size_t) selectedOsc];
-    waveformDisplay.getWavetableName = getWavetableName[(size_t) selectedOsc];
+    waveformDisplay.getDisplayFrame = getDisplayFrame[(size_t) selectedOsc];
+
+    syncWaveCombo (0);
+    syncWaveCombo (1);
 
     if (selectedOsc == 0)
         osc1.updateButtonStates();
@@ -122,22 +209,43 @@ void CombinedOscSectionComponent::updateButtonStates()
 
 void CombinedOscSectionComponent::resized()
 {
-    auto inner = getLocalBounds().reduced (8);
-    inner.removeFromTop (18); // section label row
+    auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
+    inner.removeFromTop (UIConst::sectionHeaderH); // section label row
 
-    // Tab row (20px)
-    auto tabRow = inner.removeFromTop (20);
-    const int tabW = 28;
-    tabBtn1.setBounds (tabRow.removeFromLeft (tabW));
-    tabRow.removeFromLeft (4);
-    tabBtn2.setBounds (tabRow.removeFromLeft (tabW));
+    // Tab buttons sit in the header bar (not consuming inner space)
+    {
+        const int btnW = 18;
+        const int btnH = 13;
+        const int pad  = UIConst::sectionInnerPad;
+        auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
+        auto btnArea = header.removeFromRight (pad + btnW * 2)
+                             .withSizeKeepingCentre (btnW * 2, btnH);
+        tabBtn1.setBounds (btnArea.removeFromLeft (btnW));
+        tabBtn2.setBounds (btnArea);
+    }
+
+    // Waveform display (left half) + placeholder (right half)
+    auto displayRow = inner.removeFromTop (UIConst::displayH_waveform);
+    const int gap = 4;
+    waveformDisplay  .setBounds (displayRow.removeFromLeft (displayRow.getWidth() / 2 - gap / 2));
+    displayRow.removeFromLeft (gap);
+    unisonDisplay.setBounds (displayRow);
 
     inner.removeFromTop (4);
 
-    // Waveform display (56px)
-    waveformDisplay.setBounds (inner.removeFromTop (56));
+    // Waveform selector + octave selector (side by side)
+    auto comboRow = inner.removeFromTop (UIConst::buttonH);
+    const int octW   = 46;
+    const int octLblW = 28;
+    auto octComboArea = comboRow.removeFromRight (octW);
+    auto octLblArea   = comboRow.removeFromRight (octLblW);
+    octLabel  .setBounds (octLblArea);
+    octCombo1 .setBounds (octComboArea);
+    octCombo2 .setBounds (octComboArea);
+    waveCombo1.setBounds (comboRow);
+    waveCombo2.setBounds (comboRow);
 
-    inner.removeFromTop (4);
+    inner.removeFromTop (UIConst::knobGap);
 
     // Remaining: osc controls (both at same bounds, one visible)
     osc1    .setBounds (inner);

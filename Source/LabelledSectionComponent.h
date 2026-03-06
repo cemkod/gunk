@@ -1,10 +1,10 @@
 #pragma once
 #include <JuceHeader.h>
 #include "LookAndFeel.h"
+#include "UIConstants.h"
 
 // Base component that paints the shared rounded-rect background, border, and
-// bold section label.  Subclasses override paint() and call this first if they
-// need to draw additional content on top (e.g. the gate VU meter).
+// a Surge XT-style dark header bar with section title.
 class LabelledSectionComponent : public juce::Component
 {
 public:
@@ -17,14 +17,32 @@ public:
     {
         if (suppressBorder_) return;
         const auto bounds = getLocalBounds();
+        const float r = UIConst::sectionCornerRadius;
+
+        // Body fill + border
         g.setColour (BassLookAndFeel::surface);
-        g.fillRoundedRectangle (bounds.toFloat(), 6.0f);
+        g.fillRoundedRectangle (bounds.toFloat(), r);
         g.setColour (BassLookAndFeel::border);
-        g.drawRoundedRectangle (bounds.toFloat(), 6.0f, 1.0f);
-        g.setColour (BassLookAndFeel::text);
-        g.setFont (juce::Font (11.0f, juce::Font::bold));
-        g.drawText (sectionTitle, bounds.reduced (6, 4).removeFromTop (14),
-                    juce::Justification::topLeft);
+        g.drawRoundedRectangle (bounds.toFloat(), r, 1.0f);
+
+        // Dark header bar clipped to rounded top
+        {
+            juce::Graphics::ScopedSaveState ss (g);
+            juce::Path clip;
+            clip.addRoundedRectangle (bounds.toFloat(), r);
+            g.reduceClipRegion (clip);
+
+            g.setColour (BassLookAndFeel::headerBar);
+            g.fillRect (bounds.withHeight (UIConst::sectionHeaderH));
+        }
+
+        // Section title in header bar
+        g.setColour (BassLookAndFeel::textDim);
+        g.setFont (juce::Font (UIConst::fontSectionTitle, juce::Font::bold));
+        g.drawText (sectionTitle,
+                    getLocalBounds().removeFromTop (UIConst::sectionHeaderH)
+                                    .reduced (UIConst::sectionInnerPad, 0),
+                    juce::Justification::centredLeft);
     }
 
 private:
