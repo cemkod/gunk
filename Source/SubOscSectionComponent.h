@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "LabelledSectionComponent.h"
+#include "ParameterIDs.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 
@@ -11,8 +12,8 @@ public:
     SubOscSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("SUB"),
           apvts (avts),
-          subLevelAttach (avts, "subLevel",   subLevelSlider),
-          subOctAttach   (avts, "subOctave",  subOctCombo)
+          subLevelAttach (avts, ParamIDs::subLevel,  subLevelSlider),
+          subOctAttach   (avts, ParamIDs::subOctave, subOctCombo)
     {
         BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "LEVEL", *this);
 
@@ -35,7 +36,7 @@ public:
         bypassFilterBtn.setColour (juce::TextButton::textColourOnId,   juce::Colours::black);
         bypassFilterBtn.onClick = [this]
         {
-            auto* p = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter ("subBypassFilter"));
+            auto* p = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (ParamIDs::subBypassFilter));
             if (p) *p = bypassFilterBtn.getToggleState();
         };
         addAndMakeVisible (bypassFilterBtn);
@@ -50,7 +51,7 @@ public:
 
     void updateButtonStates()
     {
-        const bool bypass = apvts.getRawParameterValue ("subBypassFilter")->load() > 0.5f;
+        const bool bypass = apvts.getRawParameterValue (ParamIDs::subBypassFilter)->load() > 0.5f;
         bypassFilterBtn.setToggleState (bypass, juce::dontSendNotification);
     }
 

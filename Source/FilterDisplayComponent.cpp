@@ -1,5 +1,6 @@
 #include "FilterDisplayComponent.h"
 #include "LookAndFeel.h"
+#include "ParameterIDs.h"
 
 static constexpr float kDisplayFreqMin    = 20.0f;
 static constexpr float kDisplayFreqMax    = 4000.0f;
@@ -33,8 +34,8 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     constexpr float dBRange = dBTop - dBBot; // 72
 
     const float cutoffHz  = processor.getCurrentCutoffHz();
-    const float Q         = juce::jlimit (0.1f, 100.0f, apvts.getRawParameterValue ("envResonance")->load());
-    const int   filterType = (int) apvts.getRawParameterValue ("filterType")->load();
+    const float Q         = juce::jlimit (0.1f, 100.0f, apvts.getRawParameterValue (ParamIDs::envResonance)->load());
+    const int   filterType = (int) apvts.getRawParameterValue (ParamIDs::filterType)->load();
 
     const float logRatio = std::log (fMax / fMin);
     const float yZero    = h * dBTop / dBRange;

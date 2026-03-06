@@ -21,12 +21,12 @@ public:
         "None", "Envelope", "Pitch", "Mod Env", "LFO"
     };
     inline static const juce::StringArray kTargetNames {
-        "None", "Morph 1", "Morph 2", "Filter Freq",
+        "None", "OSC 1 Morph", "OSC 2 Morph", "Filter Freq",
         "Filter Res", "OSC 1 Level", "OSC 2 Level",
-        "Unison 1 Detune", "Sub Level",
-        "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
+        "OSC 1 Unison Detune", "Sub Level",
+        "Glide", "OSC2 Unison Detune", "LFO Rate", "Master Volume",
         "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
-        "Uni1 Blend", "Uni2 Blend"
+        "OSC 1 Unison Blend", "OSC 2 Unison Blend"
     };
 
     static void addParameters (juce::AudioProcessorValueTreeState::ParameterLayout& layout)

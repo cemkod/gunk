@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "ParameterIDs.h"
 #include "Oscillator.h"
 #include "PitchDetector.h"
 #include "FilterEngine.h"
@@ -76,14 +77,14 @@ public:
     }
 
     float getModulatedDetune (int oscIdx) const {
-        const auto id = oscIdx == 0 ? "unisonDetune" : "osc2UnisonDetune";
+        const auto id = oscIdx == 0 ? ParamIDs::unisonDetune : ParamIDs::osc2UnisonDetune;
         const float base   = apvts.getRawParameterValue (id)->load();
         const float offset = (oscIdx == 0 ? lastModDetuneOffset : lastModDetune2Offset)
                                  .load (std::memory_order_relaxed);
         return juce::jlimit (0.0f, 100.0f, base + offset);
     }
     float getModulatedBlend (int oscIdx) const {
-        const auto id = oscIdx == 0 ? "unisonBlend" : "osc2UnisonBlend";
+        const auto id = oscIdx == 0 ? ParamIDs::unisonBlend : ParamIDs::osc2UnisonBlend;
         const float base   = apvts.getRawParameterValue (id)->load();
         const float offset = (oscIdx == 0 ? lastModBlendOffset : lastModBlend2Offset)
                                  .load (std::memory_order_relaxed);
@@ -132,6 +133,9 @@ private:
         float transientAttack;
         float transientDecay;
         float transientPitch;
+        float modAttCoef;
+        float modDecCoef;
+        float transientSlopeThresh;
     };
 
     BlockParams readBlockParams() const;
@@ -155,6 +159,16 @@ private:
     };
 
     void updateOscParams (const OscUpdateConfig& cfg);
+
+    void  updateGateFollower       (float absSample, const BlockParams& p);
+    void  updateModEnvelope        (const BlockParams& p);
+    void  updateTransientDetection (const BlockParams& p);
+    void  setOscillatorFrequencies (float glidedFreq, const BlockParams& p);
+    float applyFilterAndMix        (float sawSample, float subSample, float osc2Sample,
+                                    float glidedFreq, float inputSample,
+                                    int ampEnvSourceIdx, float masterVolume,
+                                    const BlockParams& p);
+    void  restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx);
 
     PresetManager presetManager { apvts };
 

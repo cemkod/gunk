@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "LookAndFeel.h"
+#include "ParameterIDs.h"
 
 class GateDisplayComponent : public juce::Component
 {
@@ -43,8 +44,8 @@ public:
         };
 
         // Read threshold params
-        const float thresh = *apvts.getRawParameterValue ("gateThreshold");
-        const float hyst   = *apvts.getRawParameterValue ("gateHysteresis");
+        const float thresh = *apvts.getRawParameterValue (ParamIDs::gateThreshold);
+        const float hyst   = *apvts.getRawParameterValue (ParamIDs::gateHysteresis);
 
         // Hysteresis open threshold line (amber, dimmer)
         const float openThresh = thresh * std::pow (10.0f, hyst / 20.0f);
