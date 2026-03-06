@@ -1,14 +1,8 @@
 #include "ModMatrixComponent.h"
 #include "LookAndFeel.h"
+#include "ModMatrix.h"
 #include "UIConstants.h"
 
-static const juce::StringArray kSourceNames { "None", "Envelope", "Pitch", "Mod Env", "LFO" };
-static const juce::StringArray kTargetNames { "None", "Morph 1", "Morph 2", "Filter Freq",
-                                               "Filter Res", "OSC 1 Level", "OSC 2 Level",
-                                               "Unison 1 Detune", "Sub Level",
-                                               "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
-                                               "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
-                                               "Uni1 Blend", "Uni2 Blend" };
 
 ModMatrixComponent::ModMatrixComponent (juce::AudioProcessorValueTreeState& apvts)
 {
@@ -18,8 +12,8 @@ ModMatrixComponent::ModMatrixComponent (juce::AudioProcessorValueTreeState& apvt
         const juce::String n (i);
 
         // Source combo
-        for (int j = 0; j < kSourceNames.size(); ++j)
-            row.sourceCombo.addItem (kSourceNames[j], j + 1);
+        for (int j = 0; j < ModMatrix::kSourceNames.size(); ++j)
+            row.sourceCombo.addItem (ModMatrix::kSourceNames[j], j + 1);
         row.sourceCombo.setColour (juce::ComboBox::backgroundColourId, BassLookAndFeel::surface);
         row.sourceCombo.setColour (juce::ComboBox::textColourId,       BassLookAndFeel::text);
         row.sourceCombo.setColour (juce::ComboBox::outlineColourId,    BassLookAndFeel::border);
@@ -28,8 +22,8 @@ ModMatrixComponent::ModMatrixComponent (juce::AudioProcessorValueTreeState& apvt
         addAndMakeVisible (row.sourceCombo);
 
         // Target combo
-        for (int j = 0; j < kTargetNames.size(); ++j)
-            row.targetCombo.addItem (kTargetNames[j], j + 1);
+        for (int j = 0; j < ModMatrix::kTargetNames.size(); ++j)
+            row.targetCombo.addItem (ModMatrix::kTargetNames[j], j + 1);
         row.targetCombo.setColour (juce::ComboBox::backgroundColourId, BassLookAndFeel::surface);
         row.targetCombo.setColour (juce::ComboBox::textColourId,       BassLookAndFeel::text);
         row.targetCombo.setColour (juce::ComboBox::outlineColourId,    BassLookAndFeel::border);

@@ -23,7 +23,6 @@ public:
     void  setFrequency (double freq, double sampleRate);
     void  setUnisonParams (int voices, float detuneCents, float blend);
     float getNextSample();
-    float getNextSampleUnison();
     void  reset();
 
     WaveformType getCurrentWaveform() const { return currentWaveform; }
@@ -49,4 +48,26 @@ private:
     float  unisonBlend       = 0.5f;
     WaveformType currentWaveform = WaveformType::Sine;
     juce::SpinLock tableLock;    // guards frames during load
+};
+
+class SineOscillator
+{
+public:
+    void setFrequency (double freq, double sampleRate)
+    {
+        phaseIncrement = juce::MathConstants<double>::twoPi * freq / sampleRate;
+    }
+    float getNextSample()
+    {
+        float s = (float) std::sin (phase);
+        phase  += phaseIncrement;
+        if (phase >= juce::MathConstants<double>::twoPi)
+            phase -= juce::MathConstants<double>::twoPi;
+        return s;
+    }
+    void reset() { phase = 0.0; }
+
+private:
+    double phase          = 0.0;
+    double phaseIncrement = 0.0;
 };

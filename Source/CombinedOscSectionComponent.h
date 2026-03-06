@@ -104,12 +104,14 @@ private:
     int selectedOsc = 0;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::Array<juce::File> factoryWavetables;
 
     void selectOsc (int idx);
     void setWaveformParam (int oscIdx, int waveIdx);
     void openWavFileDialog (int oscIdx);
     void syncWaveCombo (int oscIdx);
     void setupWaveCombo (juce::ComboBox& combo, int oscIdx);
+    void addFactorySubmenu (juce::ComboBox& combo);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CombinedOscSectionComponent)
 };

@@ -1,0 +1,3 @@
+# .clangd
+CompileFlags:
+    CompilationDatabase: build

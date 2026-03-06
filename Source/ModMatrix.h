@@ -7,16 +7,44 @@ enum class ModSource : int { None = 0, Envelope = 1, Pitch = 2, ModEnvelope = 3,
 
 enum class ModTarget : int
 {
-    None = 0, Morph1 = 1, Morph2 = 2, FilterFreq = 3, FilterRes = 4,
-    Osc1Level = 5, Osc2Level = 6, Unison1Detune = 7, SubLevel = 8,
-    Glide = 9, Unison2Detune = 10, LfoRate = 11, MasterVolume = 12,
-    Osc1FineTune = 13, Osc2FineTune = 14, LfoAmount = 15,
-    Unison1Blend = 16, Unison2Blend = 17
+    None = 1, Morph1 = 2, Morph2 = 3, FilterFreq = 4, FilterRes = 5,
+    Osc1Level = 6, Osc2Level = 7, Unison1Detune = 8, SubLevel = 9,
+    Glide = 10, Unison2Detune = 11, LfoRate = 12, MasterVolume = 13,
+    Osc1FineTune = 14, Osc2FineTune = 15, LfoAmount = 16,
+    Unison1Blend = 17, Unison2Blend = 18
 };
 
 class ModMatrix
 {
 public:
+    inline static const juce::StringArray kSourceNames {
+        "None", "Envelope", "Pitch", "Mod Env", "LFO"
+    };
+    inline static const juce::StringArray kTargetNames {
+        "None", "Morph 1", "Morph 2", "Filter Freq",
+        "Filter Res", "OSC 1 Level", "OSC 2 Level",
+        "Unison 1 Detune", "Sub Level",
+        "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
+        "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
+        "Uni1 Blend", "Uni2 Blend"
+    };
+
+    static void addParameters (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
+    {
+        for (int i = 0; i < 8; ++i)
+        {
+            const juce::String n (i);
+            layout.add (std::make_unique<juce::AudioParameterChoice> (
+                "modSlot" + n + "Source", "Mod Slot " + n + " Source", kSourceNames, 0));
+            layout.add (std::make_unique<juce::AudioParameterChoice> (
+                "modSlot" + n + "Target", "Mod Slot " + n + " Target", kTargetNames, 0));
+            layout.add (std::make_unique<juce::AudioParameterFloat> (
+                "modSlot" + n + "Amount", "Mod Slot " + n + " Amount",
+                juce::NormalisableRange<float> (-3.0f, 3.0f, 0.001f), 0.0f));
+        }
+    }
+
+
     // Called once per block before updateOscillatorParams().
     // envelopeVal: current amplitude follower value (0..1 range typical).
     // pitchHz:     last detected frequency in Hz (0 = no detection).
@@ -38,7 +66,7 @@ public:
         {
             const juce::String n (i);
             slots[(size_t) i].source = (int) apvts.getRawParameterValue ("modSlot" + n + "Source")->load();
-            slots[(size_t) i].target = (int) apvts.getRawParameterValue ("modSlot" + n + "Target")->load();
+            slots[(size_t) i].target = (int) apvts.getRawParameterValue ("modSlot" + n + "Target")->load() + 1;
             slots[(size_t) i].amount = apvts.getRawParameterValue ("modSlot" + n + "Amount")->load();
         }
     }
@@ -63,7 +91,8 @@ public:
 private:
     // Scale: amount(-1..1) * sourceVal(0..1) * scale = offset in parameter units.
     static constexpr float kTargetScale[] = {
-        0.f,     // None
+        0.f,     // index 0 (unused — enum starts at 1)
+        0.f,     // None          (= 1, never queried directly)
         1.f,     // Morph1        (range 0..1)
         1.f,     // Morph2        (range 0..1)
         6000.f,  // FilterFreq    (range -2000..4000, span 6000)

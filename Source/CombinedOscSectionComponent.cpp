@@ -1,6 +1,18 @@
 #include "CombinedOscSectionComponent.h"
 #include "LookAndFeel.h"
 
+static juce::File getWavetablesDir()
+{
+    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                 .getChildFile ("JQGunk/Wavetables");
+    if (d.isDirectory()) return d;
+   #if ! JUCE_WINDOWS
+    juce::File sys ("/usr/share/JQGunk/Wavetables");
+    if (sys.isDirectory()) return sys;
+   #endif
+    return d;
+}
+
 CombinedOscSectionComponent::CombinedOscSectionComponent (
     juce::AudioProcessorValueTreeState& avts,
     const OscParamIds& ids1,
@@ -14,6 +26,25 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
 {
     paramIds[0] = ids1;
     paramIds[1] = ids2;
+
+    // Populate factory wavetable list (scan Wavetables/Surge or Wavetables root)
+    {
+        auto wavetablesRoot = getWavetablesDir();
+        auto surgeDir = wavetablesRoot.getChildFile ("Surge");
+        auto scanRoot = surgeDir.isDirectory() ? surgeDir : wavetablesRoot;
+
+        juce::Array<juce::File> categoryDirs;
+        scanRoot.findChildFiles (categoryDirs, juce::File::findDirectories, false);
+        categoryDirs.sort();
+
+        for (auto& catDir : categoryDirs)
+        {
+            juce::Array<juce::File> files;
+            catDir.findChildFiles (files, juce::File::findFiles, false, "*.wav;*.wt");
+            files.sort();
+            factoryWavetables.addArray (files);
+        }
+    }
 
     // Tab buttons
     const int tabGroup = juce::Random::getSystemRandom().nextInt (0x7fffffff);
@@ -101,13 +132,57 @@ void CombinedOscSectionComponent::selectOsc (int idx)
     syncWaveCombo (idx);
 }
 
+void CombinedOscSectionComponent::addFactorySubmenu (juce::ComboBox& combo)
+{
+    if (factoryWavetables.isEmpty())
+        return;
+
+    auto wavetablesRoot = getWavetablesDir();
+    auto surgeDir = wavetablesRoot.getChildFile ("Surge");
+    auto scanRoot = surgeDir.isDirectory() ? surgeDir : wavetablesRoot;
+
+    juce::Array<juce::File> categoryDirs;
+    scanRoot.findChildFiles (categoryDirs, juce::File::findDirectories, false);
+    categoryDirs.sort();
+
+    juce::PopupMenu factoryMenu;
+    bool anyCategory = false;
+
+    for (auto& catDir : categoryDirs)
+    {
+        juce::Array<juce::File> files;
+        catDir.findChildFiles (files, juce::File::findFiles, false, "*.wav;*.wt");
+        files.sort();
+
+        if (files.isEmpty())
+            continue;
+
+        juce::PopupMenu catMenu;
+        for (auto& f : files)
+        {
+            int id = 100 + factoryWavetables.indexOf (f);
+            if (id >= 100)
+                catMenu.addItem (id, f.getFileNameWithoutExtension());
+        }
+        factoryMenu.addSubMenu (catDir.getFileName(), catMenu);
+        anyCategory = true;
+    }
+
+    if (anyCategory)
+    {
+        combo.addSeparator();
+        combo.getRootMenu()->addSubMenu ("Factory Wavetables", factoryMenu);
+    }
+}
+
 void CombinedOscSectionComponent::setupWaveCombo (juce::ComboBox& combo, int oscIdx)
 {
     combo.addItem ("Triangle", 1);
     combo.addItem ("Square",   2);
     combo.addItem ("Sawtooth", 3);
     combo.addSeparator();
-    combo.addItem ("Load WAV\xe2\x80\xa6", 99);
+    combo.addItem ("Load Wavetable", 99);
+    addFactorySubmenu (combo);
 
     combo.onChange = [this, &combo, oscIdx]
     {
@@ -121,6 +196,12 @@ void CombinedOscSectionComponent::setupWaveCombo (juce::ComboBox& combo, int osc
             // Reset selection back to current before opening dialog
             combo.setSelectedId (0, juce::dontSendNotification);
             openWavFileDialog (oscIdx);
+        }
+        else if (id >= 100 && id < 100 + factoryWavetables.size())
+        {
+            combo.setSelectedId (0, juce::dontSendNotification);
+            if (loadWavetableFromFile[(size_t) oscIdx])
+                loadWavetableFromFile[(size_t) oscIdx] (factoryWavetables[id - 100]);
         }
         // id 50 = loaded custom wavetable — no action needed, already active
     };
@@ -146,7 +227,8 @@ void CombinedOscSectionComponent::syncWaveCombo (int oscIdx)
             combo.addItem ("Square",   2);
             combo.addItem ("Sawtooth", 3);
             combo.addSeparator();
-            combo.addItem ("Load WAV\xe2\x80\xa6", 99);
+            combo.addItem ("Load Wavetable", 99);
+            addFactorySubmenu (combo);
             combo.addSeparator();
             combo.addItem (name, 50);
         }

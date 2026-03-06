@@ -307,16 +307,15 @@ void WavetableOscillator::setUnisonParams (int voices, float detuneCents, float 
 //==============================================================================
 // Helper: read one interpolated sample from a frame at a given phase position,
 // blended across two frames by morphFrac.
-static inline float readMorphedSample (const std::vector<std::vector<float>>& frames,
-                                       int frameA, int frameB, float frameFrac,
+static inline float readMorphedSample (const std::vector<float>& fA,
+                                       const std::vector<float>& fB,
+                                       float frameFrac,
                                        double phase)
 {
     auto   i    = (size_t) phase;
     double frac = phase - (double) i;
-    float  sA   = (float) ((1.0 - frac) * frames[(size_t) frameA][i]
-                          + frac         * frames[(size_t) frameA][i + 1]);
-    float  sB   = (float) ((1.0 - frac) * frames[(size_t) frameB][i]
-                          + frac         * frames[(size_t) frameB][i + 1]);
+    float  sA   = (float) ((1.0 - frac) * fA[i] + frac * fA[i + 1]);
+    float  sB   = (float) ((1.0 - frac) * fB[i] + frac * fB[i + 1]);
     return sA + frameFrac * (sB - sA);
 }
 
@@ -331,30 +330,13 @@ float WavetableOscillator::getNextSample()
     const int   frameB    = juce::jmin (frameA + 1, numFrames - 1);
     const float frameFrac = morphPos - (float) frameA;
 
-    float s = readMorphedSample (frames, frameA, frameB, frameFrac, phaseIndex[0]);
-
-    phaseIndex[0] += phaseIncrement[0];
-    if (phaseIndex[0] >= kTableSize)
-        phaseIndex[0] -= kTableSize;
-
-    return s;
-}
-
-float WavetableOscillator::getNextSampleUnison()
-{
-    juce::SpinLock::ScopedTryLockType sl (tableLock);
-    if (! sl.isLocked())
-        return 0.0f;
-
-    const float morphPos  = morphPosition * (float) (numFrames - 1);
-    const int   frameA    = (int) morphPos;
-    const int   frameB    = juce::jmin (frameA + 1, numFrames - 1);
-    const float frameFrac = morphPos - (float) frameA;
+    const auto& fA = frames[(size_t) frameA];
+    const auto& fB = frames[(size_t) frameB];
 
     float sum = 0.0f;
     for (int v = 0; v < unisonVoices; ++v)
     {
-        sum += readMorphedSample (frames, frameA, frameB, frameFrac, phaseIndex[v]);
+        sum += readMorphedSample (fA, fB, frameFrac, phaseIndex[v]);
         phaseIndex[v] += phaseIncrement[v];
         if (phaseIndex[v] >= kTableSize) phaseIndex[v] -= kTableSize;
     }

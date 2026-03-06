@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "ModMatrix.h"
 #include "PluginEditor.h"
 #include "ParamFormatters.h"
 
@@ -253,24 +254,7 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         pctFmt(), pctParse (0.0f, 1.0f)));
 
-    for (int i = 0; i < 8; ++i)
-    {
-        const juce::String n (i);
-        layout.add (std::make_unique<juce::AudioParameterChoice> (
-            "modSlot" + n + "Source", "Mod Slot " + n + " Source",
-            juce::StringArray { "None", "Envelope", "Pitch", "Mod Env", "LFO" }, 0));
-        layout.add (std::make_unique<juce::AudioParameterChoice> (
-            "modSlot" + n + "Target", "Mod Slot " + n + " Target",
-            juce::StringArray { "None", "Morph 1", "Morph 2", "Filter Freq",
-                                "Filter Res", "OSC 1 Level", "OSC 2 Level",
-                                "Unison 1 Detune", "Sub Level",
-                                "Glide", "Unison 2 Detune", "LFO Rate", "Master Volume",
-                                "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
-                                "Uni1 Blend", "Uni2 Blend" }, 0));
-        layout.add (std::make_unique<juce::AudioParameterFloat> (
-            "modSlot" + n + "Amount", "Mod Slot " + n + " Amount",
-            juce::NormalisableRange<float> (-3.0f, 3.0f, 0.001f), 0.0f));
-    }
+    ModMatrix::addParameters (layout);
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "transientPitch", "Transient Pitch",
@@ -355,68 +339,37 @@ bool JQGunkAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
 }
 
 //==============================================================================
-void JQGunkAudioProcessor::updateOscillatorParams()
+void JQGunkAudioProcessor::updateOscParams (const OscUpdateConfig& cfg)
 {
-    const int waveIdx = (int) apvts.getRawParameterValue ("waveform")->load();
-    // Param choices are Triangle/Square/Sawtooth (0/1/2); add 1 to map to WaveformType enum
+    // --- Waveform ---
+    const int waveIdx = (int) apvts.getRawParameterValue (cfg.waveformId)->load();
     const auto requested = static_cast<WaveformType> (waveIdx + 1);
-    // If a custom WAV is active, only switch away when the user picks a different
-    // waveform (i.e. the parameter has changed since the WAV was loaded).
-    const bool customActive = (oscillator.getCurrentWaveform() == WaveformType::Custom);
-    if (!customActive || waveIdx != paramWhenCustomLoaded)
+    const bool customActive = (cfg.osc.getCurrentWaveform() == WaveformType::Custom);
+    if (!customActive || waveIdx != cfg.paramWhenCustomLoaded)
     {
-        if (oscillator.getCurrentWaveform() != requested)
-            oscillator.setWaveform (requested);
+        if (cfg.osc.getCurrentWaveform() != requested)
+            cfg.osc.setWaveform (requested);
     }
 
-    const int   numVoices   = juce::roundToInt (apvts.getRawParameterValue ("unisonVoices")->load());
+    // --- Unison ---
+    const int   numVoices    = juce::roundToInt (apvts.getRawParameterValue (cfg.voicesId)->load());
+    const float detuneOffset = modMatrix.getOffset (cfg.detuneTarget);
+    const float blendOffset  = modMatrix.getOffset (cfg.blendTarget);
+    cfg.lastDetuneOffset.store (detuneOffset, std::memory_order_relaxed);
+    cfg.lastBlendOffset .store (blendOffset,  std::memory_order_relaxed);
     const float detuneCents = juce::jlimit (0.0f, 100.0f,
-        apvts.getRawParameterValue ("unisonDetune")->load()
-        + modMatrix.getOffset (ModTarget::Unison1Detune));
-    const float detuneOffset = modMatrix.getOffset (ModTarget::Unison1Detune);
-    const float blendOffset  = modMatrix.getOffset (ModTarget::Unison1Blend);
-    lastModDetuneOffset .store (detuneOffset, std::memory_order_relaxed);
-    lastModBlendOffset  .store (blendOffset,  std::memory_order_relaxed);
+        apvts.getRawParameterValue (cfg.detuneId)->load() + detuneOffset);
     const float uniBlend = juce::jlimit (0.0f, 1.0f,
-        apvts.getRawParameterValue ("unisonBlend")->load() + blendOffset);
-    oscillator.setUnisonParams (numVoices, detuneCents, uniBlend);
+        apvts.getRawParameterValue (cfg.blendId)->load() + blendOffset);
+    cfg.osc.setUnisonParams (numVoices, detuneCents, uniBlend);
 
+    // --- Morph ---
     {
-        const float morphBase = apvts.getRawParameterValue ("morph")->load();
-        const float modulated = juce::jlimit (0.0f, 1.0f, morphBase + modMatrix.getOffset (ModTarget::Morph1));
-        lastModulatedMorph.store (modulated, std::memory_order_relaxed);
-        oscillator.setMorph (modulated);
-    }
-}
-
-void JQGunkAudioProcessor::updateOsc2Params()
-{
-    const int waveIdx = (int) apvts.getRawParameterValue ("osc2Waveform")->load();
-    const auto requested = static_cast<WaveformType> (waveIdx + 1);
-    const bool customActive = (osc2.getCurrentWaveform() == WaveformType::Custom);
-    if (!customActive || waveIdx != param2WhenCustomLoaded)
-    {
-        if (osc2.getCurrentWaveform() != requested)
-            osc2.setWaveform (requested);
-    }
-
-    const int   numVoices   = juce::roundToInt (apvts.getRawParameterValue ("osc2UnisonVoices")->load());
-    const float detuneCents = juce::jlimit (0.0f, 100.0f,
-        apvts.getRawParameterValue ("osc2UnisonDetune")->load()
-        + modMatrix.getOffset (ModTarget::Unison2Detune));
-    const float detuneOffset2 = modMatrix.getOffset (ModTarget::Unison2Detune);
-    const float blendOffset2  = modMatrix.getOffset (ModTarget::Unison2Blend);
-    lastModDetune2Offset.store (detuneOffset2, std::memory_order_relaxed);
-    lastModBlend2Offset .store (blendOffset2,  std::memory_order_relaxed);
-    const float uniBlend = juce::jlimit (0.0f, 1.0f,
-        apvts.getRawParameterValue ("osc2UnisonBlend")->load() + blendOffset2);
-    osc2.setUnisonParams (numVoices, detuneCents, uniBlend);
-
-    {
-        const float morphBase = apvts.getRawParameterValue ("osc2Morph")->load();
-        const float modulated = juce::jlimit (0.0f, 1.0f, morphBase + modMatrix.getOffset (ModTarget::Morph2));
-        lastModulatedMorph2.store (modulated, std::memory_order_relaxed);
-        osc2.setMorph (modulated);
+        const float morphBase = apvts.getRawParameterValue (cfg.morphId)->load();
+        const float modulated = juce::jlimit (0.0f, 1.0f,
+            morphBase + modMatrix.getOffset (cfg.morphTarget));
+        cfg.lastMorphModulated.store (modulated, std::memory_order_relaxed);
+        cfg.osc.setMorph (modulated);
     }
 }
 
@@ -490,20 +443,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
 
     // LFO computation (once per block)
-    // Use modulated rate/amount from the previous block so LfoRate/LfoAmount
-    // mod targets actually take effect (avoids local-variable no-op).
-    const float lfoShape = apvts.getRawParameterValue ("lfoShape")->load();
-    lfoPhase = std::fmod (lfoModulatedRate / (float) currentSampleRate * (float) buffer.getNumSamples() + lfoPhase, 1.0f);
-    float lfoRaw;
-    switch ((int) lfoShape)
-    {
-        case 1:  lfoRaw = lfoPhase < 0.5f ? lfoPhase * 2.0f : 2.0f - lfoPhase * 2.0f; break; // Triangle
-        case 2:  lfoRaw = lfoPhase < 0.5f ? 1.0f : 0.0f; break;                               // Square
-        case 3:  lfoRaw = lfoPhase; break;                                                      // Sawtooth
-        default: lfoRaw = 0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * lfoPhase); // Sine
-    }
-    const float lfoScaled = lfoRaw * lfoModulatedAmount;
-    lfoValueAtomic.store (lfoScaled, std::memory_order_relaxed);
+    const float lfoShape  = apvts.getRawParameterValue ("lfoShape")->load();
+    const float lfoScaled = lfo.tick (lfoShape, buffer.getNumSamples(), currentSampleRate);
 
     const int ampEnvSourceIdx = (int) apvts.getRawParameterValue ("ampEnvSource")->load();
     float masterVolume  = apvts.getRawParameterValue ("masterVolume")->load();
@@ -520,11 +461,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     p.glideTime   = juce::jlimit (0.0f, 1.0f, p.glideTime + modMatrix.getOffset (ModTarget::Glide));
     p.glideSamples = (p.glideTime > 0.0f) ? (int) (currentSampleRate * p.glideTime) : 0;
 
-    // LFO Rate/Amount mods: write to persistent members so next block picks them up
-    lfoModulatedRate   = juce::jlimit (0.01f, 20.0f,
-        apvts.getRawParameterValue ("lfoRate")->load() + modMatrix.getOffset (ModTarget::LfoRate));
-    lfoModulatedAmount = juce::jlimit (0.0f, 1.0f,
-        apvts.getRawParameterValue ("lfoAmount")->load() + modMatrix.getOffset (ModTarget::LfoAmount));
+    // LFO Rate/Amount mods: persist for next block so mod targets take effect
+    lfo.updateModulated (apvts.getRawParameterValue ("lfoRate")->load(),   modMatrix.getOffset (ModTarget::LfoRate),
+                         apvts.getRawParameterValue ("lfoAmount")->load(), modMatrix.getOffset (ModTarget::LfoAmount));
 
     // Master Volume mod
     masterVolume = juce::jlimit (0.0f, 2.0f, masterVolume + modMatrix.getOffset (ModTarget::MasterVolume));
@@ -533,8 +472,15 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     p.osc1PitchMult *= std::pow (2.0f, modMatrix.getOffset (ModTarget::Osc1FineTune) / 1200.0f);
     p.osc2PitchMult *= std::pow (2.0f, modMatrix.getOffset (ModTarget::Osc2FineTune) / 1200.0f);
 
-    updateOscillatorParams();
-    updateOsc2Params();
+    updateOscParams ({ oscillator, paramWhenCustomLoaded,
+        "waveform", "unisonVoices", "unisonDetune", "unisonBlend", "morph",
+        ModTarget::Unison1Detune, ModTarget::Unison1Blend, ModTarget::Morph1,
+        lastModDetuneOffset, lastModBlendOffset, lastModulatedMorph });
+
+    updateOscParams ({ osc2, param2WhenCustomLoaded,
+        "osc2Waveform", "osc2UnisonVoices", "osc2UnisonDetune", "osc2UnisonBlend", "osc2Morph",
+        ModTarget::Unison2Detune, ModTarget::Unison2Blend, ModTarget::Morph2,
+        lastModDetune2Offset, lastModBlend2Offset, lastModulatedMorph2 });
     envelopeFilter.prepare (currentSampleRate);
 
     const int numChannels  = buffer.getNumChannels();
@@ -613,9 +559,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
 
         // 2e. Oscillator sample generation
-        const float sawSample  = oscillator.getNextSampleUnison();
+        const float sawSample  = oscillator.getNextSample();
         const float subSample  = subOscillator.getNextSample();
-        const float osc2Sample = osc2.getNextSampleUnison();
+        const float osc2Sample = osc2.getNextSample();
 
         // 2f. Filter routing
         // subBypassFilter=true: sub added after filter (default, bypasses auto-wah)

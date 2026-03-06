@@ -8,6 +8,7 @@
 #include "PresetManager.h"
 #include "TransientPlayer.h"
 #include "ModMatrix.h"
+#include "LFOEngine.h"
 
 //==============================================================================
 class JQGunkAudioProcessor : public juce::AudioProcessor
@@ -95,7 +96,7 @@ public:
     float getModEnvelope() const noexcept { return modEnvelope; }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
     bool  consumeTransient()           { return transientFlag.exchange (false, std::memory_order_relaxed); }
-    float getLFOValue() const          { return lfoValueAtomic.load (std::memory_order_relaxed); }
+    float getLFOValue() const          { return lfo.getValue(); }
 
     PresetManager& getPresetManager() { return presetManager; }
     void syncOscillatorAfterPresetLoad();
@@ -136,14 +137,30 @@ private:
     BlockParams readBlockParams() const;
 
     // processBlock helpers
-    void updateOscillatorParams();
-    void updateOsc2Params();
+    struct OscUpdateConfig
+    {
+        WavetableOscillator&  osc;
+        int&                  paramWhenCustomLoaded;
+        const char*           waveformId;
+        const char*           voicesId;
+        const char*           detuneId;
+        const char*           blendId;
+        const char*           morphId;
+        ModTarget             detuneTarget;
+        ModTarget             blendTarget;
+        ModTarget             morphTarget;
+        std::atomic<float>&   lastDetuneOffset;
+        std::atomic<float>&   lastBlendOffset;
+        std::atomic<float>&   lastMorphModulated;
+    };
+
+    void updateOscParams (const OscUpdateConfig& cfg);
 
     PresetManager presetManager { apvts };
 
     AutocorrelationPitchDetector detector;
     WavetableOscillator oscillator;
-    WavetableOscillator subOscillator;
+    SineOscillator subOscillator;
     juce::String customWavetablePath;
     int paramWhenCustomLoaded = -1; // waveform param index active when a WAV was loaded
 
@@ -185,11 +202,7 @@ private:
 
     double currentSampleRate = 48000;
 
-    // LFO state
-    float lfoPhase            = 0.0f;
-    float lfoModulatedRate    = 1.0f;  // persists lfoFreq after LfoRate mod target
-    float lfoModulatedAmount  = 1.0f;  // persists lfoAmount after LfoAmount mod target
-    std::atomic<float> lfoValueAtomic { 0.0f };
+    LFOEngine lfo;
 
     // Low-pass filter applied to input before pitch detection (~500 Hz cutoff)
     juce::dsp::IIR::Filter<float> pitchDetectorLPF;
