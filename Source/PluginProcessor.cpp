@@ -112,6 +112,10 @@ JQGunkAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        ParamIDs::pitchWindow, "Pitch Window",
+        juce::StringArray { "4096 (B0)", "2048 (fast)" }, 0));
+
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "gateThreshold", "Gate Threshold",
         logAmpRange (0.001f, 0.04f),
@@ -446,6 +450,12 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         ModTarget::Unison2Detune, ModTarget::Unison2Blend, ModTarget::Morph2,
         lastModDetune2Offset, lastModBlend2Offset, lastModulatedMorph2 });
     envelopeFilter.prepare (currentSampleRate);
+
+    // Pitch window: index 0 = 4096, index 1 = 2048
+    {
+        const int windowIdx = (int) apvts.getRawParameterValue (ParamIDs::pitchWindow)->load();
+        detector.setWindowSize (windowIdx == 0 ? 4096 : 2048);
+    }
 
     const int numChannels  = buffer.getNumChannels();
     const int numSamples   = buffer.getNumSamples();

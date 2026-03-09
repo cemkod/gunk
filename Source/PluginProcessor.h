@@ -197,7 +197,7 @@ private:
 
     // Envelope follower for the noise gate
     float envelope = 0.0f;
-    static constexpr float kEnvAttack  = 0.010f;
+    static constexpr float kEnvAttack  = 0.002f;
     static constexpr float kEnvRelease = 0.100f;
     bool gateIsOpen = false;
 

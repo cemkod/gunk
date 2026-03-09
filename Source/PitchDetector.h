@@ -22,6 +22,13 @@ public:
     hopCounter = 0;
   }
 
+  // 2048 = fast (low latency), 4096 = accurate (needed for B0/~31 Hz).
+  // Capped to kWindowSize. Takes effect on the next analysis hop.
+  void setWindowSize (int w)
+  {
+    activeWindowSize = juce::jlimit (2048, kWindowSize, w);
+  }
+
 private:
   static constexpr int kBufferSize = 16384;
   static constexpr int kHopSize = 128;
@@ -41,6 +48,8 @@ private:
   int minLag = 110;
   int maxLag = 1102;
 
+  int activeWindowSize = kWindowSize; // runtime: 2048 or 4096
+
   // FFT workspace — real-only FFT uses 2*N floats
   juce::dsp::FFT fft{kFFTOrder};
   float fftData[kFFTSize * 2] = {};
@@ -48,9 +57,6 @@ private:
   // Autocorrelation result (only need up to maxLag)
   float acf[kMaxLag + 1] = {};
 
-  // Precomputed rising half-Hann window (length = kWindowSize + maxLag,
-  // recomputed in setSampleRate)
-  float window[kWindowSize + kMaxLag] = {};
 
   float readBuffer(int offset) const;
   void runAutocorrelation();

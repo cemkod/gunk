@@ -192,6 +192,19 @@ bool WavetableOscillator::loadFromFile (const juce::File& file)
         }
     }
 
+    // Global normalization: one gain for the whole wavetable
+    float peak = 0.0f;
+    for (const auto& f : newFrames)
+        for (int i = 0; i < kTableSize; ++i)
+            peak = std::max (peak, std::abs (f[(size_t) i]));
+    if (peak > 0.0f)
+    {
+        const float inv = 1.0f / peak;
+        for (auto& f : newFrames)
+            for (int i = 0; i <= kTableSize; ++i)
+                f[(size_t) i] *= inv;
+    }
+
     juce::SpinLock::ScopedLockType sl (tableLock);
     frames    = std::move (newFrames);
     numFrames = nFrames;
@@ -255,6 +268,19 @@ bool WavetableOscillator::loadWTFile (const juce::File& file)
                        + frac         * rawFrame[(size_t) (idx + 1)]);
         }
         newFrames[(size_t) t][(size_t) kTableSize] = newFrames[(size_t) t][0];
+    }
+
+    // Global normalization: one gain for the whole wavetable
+    float peak = 0.0f;
+    for (const auto& f : newFrames)
+        for (int i = 0; i < kTableSize; ++i)
+            peak = std::max (peak, std::abs (f[(size_t) i]));
+    if (peak > 0.0f)
+    {
+        const float inv = 1.0f / peak;
+        for (auto& f : newFrames)
+            for (int i = 0; i <= kTableSize; ++i)
+                f[(size_t) i] *= inv;
     }
 
     juce::SpinLock::ScopedLockType sl (tableLock);

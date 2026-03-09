@@ -9,6 +9,7 @@ namespace ParamIDs {
     // Gate
     inline constexpr const char* gateThreshold  = "gateThreshold";
     inline constexpr const char* gateHysteresis = "gateHysteresis";
+    inline constexpr const char* pitchWindow     = "pitchWindow";
 
     // Signal path
     inline constexpr const char* glide    = "glide";

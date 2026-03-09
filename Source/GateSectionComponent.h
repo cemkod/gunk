@@ -24,5 +24,9 @@ private:
     juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel,  dryLabel,  transientSlopeLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach, dryAttach, transientSlopeAttach;
 
+    juce::ComboBox pitchWindowCombo;
+    juce::Label    pitchWindowLabel;
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment pitchWindowAttach;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GateSectionComponent)
 };

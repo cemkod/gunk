@@ -23,13 +23,6 @@ void AutocorrelationPitchDetector::setSampleRate(double sr) {
   if (maxLag > kMaxLag)
     maxLag = kMaxLag;
 
-  // Precompute rising half-Hann window: w[i] = 0.5 * (1 - cos(pi * i / (N-1)))
-  // Biases autocorrelation toward recent samples, reducing spectral smearing
-  // during bends.
-  const int totalLen = kWindowSize;
-  for (int i = 0; i < totalLen; ++i)
-    window[i] = 0.5f * (1.0f - std::cos(juce::MathConstants<float>::pi *
-                                        (float)i / (float)(totalLen - 1)));
 }
 
 float AutocorrelationPitchDetector::processSample(float sample,
@@ -49,24 +42,23 @@ float AutocorrelationPitchDetector::processSample(float sample,
 }
 
 float AutocorrelationPitchDetector::readBuffer(int offset) const {
-  int idx = bufferIndex - kWindowSize - maxLag + offset;
+  int idx = bufferIndex - activeWindowSize + offset;
   while (idx < 0)
     idx += kBufferSize;
   return circularBuffer[idx % kBufferSize];
 }
 
 void AutocorrelationPitchDetector::runAutocorrelation() {
-  const int W = kWindowSize;
-  const int N = kFFTSize;
+  const int W      = activeWindowSize;
+  const int N      = kFFTSize;
+  const int effMax = juce::jmin (maxLag, W - 1); // lags >= W have no valid autocorrelation
 
   // 1. Copy analysis window into FFT buffer, zero-pad the rest
   for (int i = 0; i < N * 2; ++i)
     fftData[i] = 0.0f;
 
   for (int i = 0; i < W; ++i)
-     fftData[i] = readBuffer (i) * window[i];
-    //  Removed windowing to test if it makes detection worse
-    //fftData[i] = readBuffer(i);
+    fftData[i] = readBuffer(i);
 
   // 2. Forward FFT (JUCE performRealOnlyForwardTransform)
   fft.performRealOnlyForwardTransform(fftData);
@@ -83,24 +75,21 @@ void AutocorrelationPitchDetector::runAutocorrelation() {
   fft.performRealOnlyInverseTransform(fftData);
 
   // 5. Extract autocorrelation values for lags we care about
-  for (int tau = 0; tau <= maxLag; ++tau)
+  for (int tau = 0; tau <= effMax; ++tau)
     acf[tau] = fftData[tau];
 
   // 6. Compute NSDF normalization using prefix sums of squared samples
-  //    m'(tau) = 2 * sum_{j=0}^{W-1-tau} (x[j]^2 + x[j+tau]^2)
-  //    which equals 2 * (cumSum[W] - cumSum[tau] + cumSum[W+tau] - cumSum[tau])
-  //    Simplified: use running sum approach
-  float squaredSum[kWindowSize + kMaxLag + 1] = {};
-  for (int i = 0; i < W + maxLag; ++i) {
-     float s = readBuffer (i) * window[i];
-    // Removed windowing to test if it makes detection worse
-    //float s = readBuffer(i);
+  //    m'(tau) = sum_{j=0}^{W-1-tau} x[j]^2 + sum_{j=tau}^{W-1} x[j]^2
+  //           = squaredSum[W-tau] + squaredSum[W] - squaredSum[tau]
+  float squaredSum[kWindowSize + 1] = {};
+  for (int i = 0; i < W; ++i) {
+    float s = readBuffer(i);
     squaredSum[i + 1] = squaredSum[i] + s * s;
   }
 
   // NSDF values
   float nsdf[kMaxLag + 1] = {};
-  for (int tau = minLag - 1; tau <= maxLag; ++tau) {
+  for (int tau = minLag - 1; tau <= effMax; ++tau) {
     float energy = squaredSum[W - tau] + squaredSum[W] - squaredSum[tau];
     nsdf[tau] =
         (energy > kMinEnergyThreshold) ? (2.0f * acf[tau] / energy) : 0.0f;
@@ -123,7 +112,7 @@ void AutocorrelationPitchDetector::runAutocorrelation() {
   int regionBestLag = inPositiveRegion ? (minLag - 1) : minLag;
   float regionBestVal = inPositiveRegion ? nsdf[minLag - 1] : -1.0f;
 
-  for (int tau = minLag; tau <= maxLag; ++tau) {
+  for (int tau = minLag; tau <= effMax; ++tau) {
     if (nsdf[tau] > 0.0f) {
       if (!inPositiveRegion) {
         // Entering a new positive region
@@ -177,77 +166,40 @@ void AutocorrelationPitchDetector::runAutocorrelation() {
     return;
   }
 
-  // 8. Continuity-based peak selection
+  // 8. Peak selection — MPM first-above-threshold (shortest lag = highest pitch)
   int bestLag = -1;
 
-  static constexpr float kMPMThreshold = 0.93f; // first-above-threshold ratio
-  static constexpr float kContinuityWindow = 0.06f; // ±6% ~ 1 semitone
-  static constexpr float kContinuityMinPeak = 0.4f;
-  static constexpr float kOctavePenalty = 0.18f;
+  static constexpr float kMPMThreshold = 0.93f;
+  float threshold = kMPMThreshold * maxPeakVal;
 
-  if (detectedFrequency > 0.0f) {
-    float prevLag = (float)(sampleRate / detectedFrequency);
-
-    // Check whether a strong peak still exists near the previous lag.
-    // If so, the old note is sustaining and we should resist octave jumps.
-    float prevRegionBest = 0.0f;
-    for (int i = 0; i < numPeaks; ++i) {
-      float ratio = peaks[i].lag / prevLag;
-      if (ratio >= (1.0f - kContinuityWindow) &&
-          ratio <= (1.0f + kContinuityWindow))
-        prevRegionBest = std::max(prevRegionBest, peaks[i].value);
+  for (int i = 0; i < numPeaks; ++i) {
+    if (peaks[i].value >= threshold) {
+      bestLag = peaks[i].lag;
+      break;
     }
-    const bool hasContinuity = prevRegionBest >= kContinuityMinPeak;
+  }
 
-    if (hasContinuity) {
-      // Note is sustaining — use MPM first-above-threshold, but penalise
-      // peaks that are far from the previous lag to resist octave jumps.
-      float threshold = kMPMThreshold * maxPeakVal;
-      float bestScore = -1.0f;
-
-      for (int i = 0; i < numPeaks; ++i) {
-        if (peaks[i].value < threshold)
-          continue;
-
-        float ratio = peaks[i].lag / prevLag;
-        float penalty = std::abs(std::log2(ratio)) * kOctavePenalty;
-        float score = peaks[i].value - penalty;
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestLag = peaks[i].lag;
-        }
-      }
-    } else {
-      // Previous note has died — treat as a fresh onset (fall through below)
-      detectedFrequency = 0.0f;
-    }
-  } else {
-    // New onset: MPM first-above-threshold — pick the shortest lag
-    // (highest pitch) whose peak reaches the threshold. This is the
-    // core MPM rule that prevents octave-down errors.
-    float threshold = kMPMThreshold * maxPeakVal;
-
+  // Fallback: strongest peak
+  if (bestLag < minLag) {
+    float bestVal = -1.0f;
     for (int i = 0; i < numPeaks; ++i) {
-      if (peaks[i].value >= threshold) {
+      if (peaks[i].value > bestVal) {
+        bestVal = peaks[i].value;
         bestLag = peaks[i].lag;
-        break; // first (shortest lag) wins
-      }
-    }
-
-    // If nothing passed the threshold, fall back to the strongest peak
-    if (bestLag < minLag) {
-      float bestVal = -1.0f;
-      for (int i = 0; i < numPeaks; ++i) {
-        if (peaks[i].value > bestVal) {
-          bestVal = peaks[i].value;
-          bestLag = peaks[i].lag;
-        }
       }
     }
   }
+
   if (bestLag < minLag)
     return;
+
+  // 9. Clarity gate — reject low-confidence frames
+  static constexpr float kClarityThreshold = 0.85f;
+  if (nsdf[bestLag] < kClarityThreshold) {
+    detectedFrequency = 0.0f;
+    isTracking = false;
+    return;
+  }
 
   // 8. Sub-sample interpolation for refined lag estimate.
   //    Gaussian interpolation (log-parabola) is more robust than parabolic for
