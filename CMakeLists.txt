@@ -9,6 +9,23 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
+set(Q_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(Q_BUILD_TEST     OFF CACHE BOOL "" FORCE)
+set(Q_BUILD_IO       OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    cycfi_q
+    GIT_REPOSITORY https://github.com/cycfi/q.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(cycfi_q)
+
+# Treat cycfi_q headers as system includes so their warnings don't propagate
+get_target_property(_q_incs libq INTERFACE_INCLUDE_DIRECTORIES)
+if(_q_incs)
+    set_property(TARGET libq APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_q_incs})
+endif()
+
 if(CMAKE_CROSSCOMPILING)
     # juce_vst3_helper dlopen()s the built DLL to extract class IDs, which fails
     # when the DLL is a Windows PE binary on a Linux host. Register a stub before
@@ -138,11 +155,14 @@ target_compile_definitions(JQGunk PUBLIC
     $<$<CONFIG:RelWithDebInfo>:ENABLE_DEBUG_LOG>
 )
 
+target_compile_features(JQGunk PRIVATE cxx_std_20)
+
 target_link_libraries(JQGunk
     PRIVATE
         JQGunkData
         juce::juce_audio_utils
         juce::juce_dsp
+        libq
     PUBLIC
         juce::juce_recommended_config_flags
         $<$<CONFIG:Release>:juce::juce_recommended_lto_flags>
