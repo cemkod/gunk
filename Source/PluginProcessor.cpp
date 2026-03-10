@@ -274,6 +274,11 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlo
     oscillator.reset();
     subOscillator.reset();
     osc2.reset();
+    {
+        using namespace cycfi::q::literals;
+        qEnvFollower = std::make_unique<cycfi::q::ar_envelope_follower>(2_ms, 100_ms, (float)sampleRate);
+        qGate        = std::make_unique<cycfi::q::noise_gate>(-30_dB);
+    }
     envelope = 0.0f;
     modEnvelope = 0.0f;
     glide.reset();
@@ -348,9 +353,6 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
     p.gateThresh = apvts.getRawParameterValue (ParamIDs::gateThreshold)->load();
     const float gateHyst = apvts.getRawParameterValue (ParamIDs::gateHysteresis)->load();
     p.openThresh = p.gateThresh * std::pow (10.0f, gateHyst / 20.0f);
-
-    p.attackCoeff  = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvAttack));
-    p.releaseCoeff = 1.0f - std::exp (-1.0f / (float) (currentSampleRate * kEnvRelease));
 
     p.subLevel        = apvts.getRawParameterValue (ParamIDs::subLevel)->load();
     p.subOctaveIdx    = (int) apvts.getRawParameterValue (ParamIDs::subOctave)->load();
@@ -457,6 +459,12 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         detector.setWindowSize (windowIdx == 0 ? 4096 : 2048);
     }
 
+    if (qGate)
+    {
+        qGate->onset_threshold   (p.openThresh);
+        qGate->release_threshold (p.gateThresh);
+    }
+
     const int numChannels  = buffer.getNumChannels();
     const int numSamples   = buffer.getNumSamples();
     const float* inputData = buffer.getReadPointer (0);
@@ -465,7 +473,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         const float inputSample = inputData[i];
 
-        updateGateFollower (std::abs (inputSample), p);
+        envelope   = qEnvFollower ? (*qEnvFollower)(std::abs (inputSample)) : 0.0f;
+        gateIsOpen = qGate        ? (*qGate)(envelope)                      : false;
         updateModEnvelope (p);
         updateTransientDetection (p);
 
@@ -495,20 +504,6 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         for (int ch = 0; ch < numChannels; ++ch)
             buffer.getWritePointer (ch)[i] = out;
     }
-}
-
-//==============================================================================
-void JQGunkAudioProcessor::updateGateFollower (float absSample, const BlockParams& p)
-{
-    if (absSample > envelope)
-        envelope += p.attackCoeff  * (absSample - envelope);
-    else
-        envelope += p.releaseCoeff * (absSample - envelope);
-
-    if (!gateIsOpen && envelope >= p.openThresh)
-        gateIsOpen = true;
-    else if (gateIsOpen && envelope < p.gateThresh)
-        gateIsOpen = false;
 }
 
 void JQGunkAudioProcessor::updateModEnvelope (const BlockParams& p)

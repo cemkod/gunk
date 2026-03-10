@@ -10,6 +10,9 @@
 #include "TransientPlayer.h"
 #include "ModMatrix.h"
 #include "LFOEngine.h"
+#include <q/fx/envelope.hpp>
+#include <q/fx/noise_gate.hpp>
+#include <q/support/literals.hpp>
 
 //==============================================================================
 class JQGunkAudioProcessor : public juce::AudioProcessor
@@ -112,8 +115,6 @@ private:
         float dryLevel;
         float gateThresh;
         float openThresh;      // derived: gateThresh * 10^(gateHyst/20)
-        float attackCoeff;     // derived from kEnvAttack  + currentSampleRate
-        float releaseCoeff;    // derived from kEnvRelease + currentSampleRate
         float subLevel;
         int   subOctaveIdx;
         float subOctaveMult;   // derived from subOctaveIdx
@@ -160,7 +161,6 @@ private:
 
     void updateOscParams (const OscUpdateConfig& cfg);
 
-    void  updateGateFollower       (float absSample, const BlockParams& p);
     void  updateModEnvelope        (const BlockParams& p);
     void  updateTransientDetection (const BlockParams& p);
     void  setOscillatorFrequencies (float glidedFreq, const BlockParams& p);
@@ -195,11 +195,11 @@ private:
     std::atomic<float> lastModBlendOffset   { 0.0f };
     std::atomic<float> lastModBlend2Offset  { 0.0f };
 
-    // Envelope follower for the noise gate
-    float envelope = 0.0f;
-    static constexpr float kEnvAttack  = 0.002f;
-    static constexpr float kEnvRelease = 0.100f;
-    bool gateIsOpen = false;
+    // Envelope follower and noise gate (Cycfi Q)
+    std::unique_ptr<cycfi::q::ar_envelope_follower> qEnvFollower;
+    std::unique_ptr<cycfi::q::noise_gate>           qGate;
+    float envelope  = 0.0f;
+    bool  gateIsOpen = false;
 
     // Slew-limited modulation envelope (driven by modEnvAttack/modEnvDecay params)
     float modEnvelope = 0.0f;

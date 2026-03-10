@@ -49,7 +49,7 @@ void PresetManager::addPresetsFromDir (const juce::File& dir, bool isFactory)
 bool PresetManager::loadPreset (int index)
 {
     if (index < 0 || index >= (int) presets.size()) return false;
-    auto xml = juce::XmlDocument::parse (presets[index].file);
+    auto xml = juce::XmlDocument::parse (presets[(size_t) index].file);
     if (! xml || ! xml->hasTagName (apvts.state.getType())) return false;
     apvts.replaceState (juce::ValueTree::fromXml (*xml));
     currentIndex = index;
@@ -71,8 +71,8 @@ bool PresetManager::saveUserPreset (const juce::String& name)
 bool PresetManager::deleteUserPreset (int index)
 {
     if (index < 0 || index >= (int) presets.size()) return false;
-    if (presets[index].isFactory) return false;
-    bool ok = presets[index].file.deleteFile();
+    if (presets[(size_t) index].isFactory) return false;
+    bool ok = presets[(size_t) index].file.deleteFile();
     if (ok)
     {
         presets.erase (presets.begin() + index);
