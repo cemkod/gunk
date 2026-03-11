@@ -1,25 +1,32 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <juce_dsp/juce_dsp.h>
+#include <aubio/aubio.h>
 
 //==============================================================================
 // FFT-based autocorrelation pitch detector for bass guitar (40–400 Hz).
 // Uses McLeod Pitch Method (MPM) with FFT-accelerated autocorrelation.
-// Buffer sized to avoid overrun at 96 kHz: W(4096) + maxLag(2400) = 6496 <
-// 8192.
+// Uses aubio's FFT for cross-platform performance (ooura backend).
+// Caller is responsible for providing a window buffer of at least activeWindowSize
+// samples. No internal audio buffering — see PitchDetectorThread.
 class AutocorrelationPitchDetector {
 public:
+  AutocorrelationPitchDetector();
+  ~AutocorrelationPitchDetector();
+
   void reset();
   void setSampleRate(double sr);
-  float processSample(float sample, double /*sampleRate*/);
+  void setLPFCutoff(double cutoffHz);
+
+  // Append numSamples into internal circular buffer, run one detection pass,
+  // and return the detected frequency (0 if not enough data yet).
+  float processBlock(const float* data, int numSamples);
 
   float getFrequency() const { return detectedFrequency; }
 
   void clearHistory() {
     detectedFrequency = 0.0f;
     isTracking = false;
-    hopCounter = 0;
   }
 
   // 2048 = fast (low latency), 4096 = accurate (needed for B0/~31 Hz).
@@ -29,19 +36,19 @@ public:
     activeWindowSize = juce::jlimit (2048, kWindowSize, w);
   }
 
-private:
-  static constexpr int kBufferSize = 16384;
-  static constexpr int kHopSize = 128;
-  static constexpr int kMaxLag = 3200;
   static constexpr int kWindowSize = 4096;
-  // FFT order 13 → size 8192, enough for zero-padded autocorrelation
-  static constexpr int kFFTOrder = 14;
-  static constexpr int kFFTSize = 1 << kFFTOrder; // 16384
 
-  float circularBuffer[kBufferSize] = {};
-  int bufferIndex = 0;
-  int samplesWritten = 0;
-  int hopCounter = 0;
+private:
+  static constexpr int kMaxLag = 3200;
+  // FFT size 8192, enough for zero-padded autocorrelation
+  // (need >= windowSize + maxLag = 4096 + 3200 = 7296)
+  static constexpr int kFFTSize = 8192;
+
+  // Circular analysis buffer
+  float windowBuf[kWindowSize] = {};
+  int writePos = 0;
+  int totalWritten = 0;  // tracks how many samples written since reset
+
   float detectedFrequency = 0.0f;
   bool isTracking = false;
   double sampleRate = 44100.0;
@@ -50,14 +57,16 @@ private:
 
   int activeWindowSize = kWindowSize; // runtime: 2048 or 4096
 
-  // FFT workspace — real-only FFT uses 2*N floats
-  juce::dsp::FFT fft{kFFTOrder};
-  float fftData[kFFTSize * 2] = {};
+  // aubio FFT
+  aubio_fft_t* fft = nullptr;
+  fvec_t* fftIn = nullptr;       // real input (kFFTSize)
+  fvec_t* fftCompspec = nullptr;  // packed real/imag output (kFFTSize)
 
   // Autocorrelation result (only need up to maxLag)
   float acf[kMaxLag + 1] = {};
 
-
-  float readBuffer(int offset) const;
   void runAutocorrelation();
+
+  // LPF applied to incoming samples before storing in windowBuf
+  juce::dsp::IIR::Filter<float> lpf;
 };

@@ -58,11 +58,13 @@ namespace ParamIDs {
     inline constexpr const char* lfoAmount = "lfoAmount";
 
     // Transient
-    inline constexpr const char* transientSlope  = "transientSlope";
+    inline constexpr const char* transientSens   = "transientSens";
     inline constexpr const char* transientPitch  = "transientPitch";
     inline constexpr const char* transientLevel  = "transientLevel";
     inline constexpr const char* transientAttack = "transientAttack";
+    inline constexpr const char* transientHold   = "transientHold";
     inline constexpr const char* transientDecay  = "transientDecay";
+    inline constexpr const char* transientDry    = "transientDry";
 
     // Mod envelope
     inline constexpr const char* modEnvAttack = "modEnvAttack";

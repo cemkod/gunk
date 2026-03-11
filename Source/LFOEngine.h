@@ -10,20 +10,26 @@ struct LFOEngine
     // Returns the scaled LFO value [0, 1].
     float tick (float shape, int numSamples, double sampleRate)
     {
-        phase = std::fmod (modulatedRate / (float) sampleRate * (float) numSamples + phase, 1.0f);
+        phase = std::fmod (modulatedRate / sampleRate * (double) numSamples + phase, 1.0);
 
-        float raw;
-        switch ((int) shape)
-        {
-            case 1:  raw = phase < 0.5f ? phase * 2.0f : 2.0f - phase * 2.0f; break; // Triangle
-            case 2:  raw = phase < 0.5f ? 1.0f : 0.0f; break;                         // Square
-            case 3:  raw = phase; break;                                                // Sawtooth
-            default: raw = 0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * phase); // Sine
-        }
-
+        const float raw    = computeShape (shape, (float) phase);
         const float scaled = raw * modulatedAmount;
         valueAtomic.store (scaled, std::memory_order_relaxed);
         return scaled;
+    }
+
+    // Fills out[0..n-1] with per-sample LFO values, advancing phase sample-by-sample.
+    // Call after updateModulated() each block.
+    void renderBlock (float* out, int n, float shape, double sampleRate)
+    {
+        const double phaseInc = modulatedRate / sampleRate;
+        for (int i = 0; i < n; ++i)
+        {
+            const float raw = computeShape (shape, (float) phase);
+            out[i] = juce::jlimit (0.0f, 1.0f, raw * modulatedAmount);
+            phase  = std::fmod (phase + phaseInc, 1.0);
+        }
+        valueAtomic.store (out[n - 1], std::memory_order_relaxed);
     }
 
     // Call after modMatrix.snapshot() to update rate/amount for the next block.
@@ -42,6 +48,17 @@ struct LFOEngine
     float modulatedAmount = 1.0f;
 
 private:
-    float phase = 0.0f;
+    double phase = 0.0;
     std::atomic<float> valueAtomic { 0.0f };
+
+    static float computeShape (float shape, float p) noexcept
+    {
+        switch ((int) shape)
+        {
+            case 1:  return p < 0.5f ? p * 2.0f : 2.0f - p * 2.0f;  // Triangle
+            case 2:  return p < 0.5f ? 1.0f : 0.0f;                   // Square
+            case 3:  return p;                                          // Sawtooth
+            default: return 0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * p); // Sine
+        }
+    }
 };

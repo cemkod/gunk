@@ -16,12 +16,16 @@ public:
         : LabelledSectionComponent ("TRANS"),
           pitchAttach  (avts, "transientPitch",  pitchSlider),
           levelAttach  (avts, "transientLevel",  levelSlider),
+          dryAttach    (avts, "transientDry",    drySlider),
           attackAttach (avts, "transientAttack", attackSlider),
+          holdAttach   (avts, "transientHold",   holdSlider),
           decayAttach  (avts, "transientDecay",  decaySlider)
     {
         BassLookAndFeel::setupRotarySlider (pitchSlider,  pitchLabel,  "PITCH",  *this);
         BassLookAndFeel::setupRotarySlider (levelSlider,  levelLabel,  "LEVEL",  *this);
+        BassLookAndFeel::setupRotarySlider (drySlider,    dryLabel,    "DRY",    *this);
         BassLookAndFeel::setupRotarySlider (attackSlider, attackLabel, "ATTACK", *this);
+        BassLookAndFeel::setupRotarySlider (holdSlider,   holdLabel,   "HOLD",   *this);
         BassLookAndFeel::setupRotarySlider (decaySlider,  decayLabel,  "DECAY",  *this);
 
         loadBtn.setColour (juce::TextButton::buttonColourId,  BassLookAndFeel::surface);
@@ -58,26 +62,30 @@ public:
         auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
         inner.removeFromTop (UIConst::sectionHeaderH); // section label row
 
-        const int halfW = inner.getWidth() / 2;
+        const int thirdW = inner.getWidth() / 3;
 
-        // Row 1: Pitch + Level
+        // Row 1: Pitch + Level + Dry
         auto knobRow1 = inner.removeFromTop (UIConst::knobRowH);
-        pitchSlider.setBounds (knobRow1.removeFromLeft (halfW));
-        levelSlider.setBounds (knobRow1);
+        pitchSlider.setBounds (knobRow1.removeFromLeft (thirdW));
+        levelSlider.setBounds (knobRow1.removeFromLeft (thirdW));
+        drySlider  .setBounds (knobRow1);
 
         auto labelRow1 = inner.removeFromTop (UIConst::knobLabelH);
-        pitchLabel.setBounds (labelRow1.removeFromLeft (halfW));
-        levelLabel.setBounds (labelRow1);
+        pitchLabel.setBounds (labelRow1.removeFromLeft (thirdW));
+        levelLabel.setBounds (labelRow1.removeFromLeft (thirdW));
+        dryLabel  .setBounds (labelRow1);
 
         inner.removeFromTop (UIConst::knobGap);
 
-        // Row 2: Attack + Decay
+        // Row 2: Attack + Hold + Decay
         auto knobRow2 = inner.removeFromTop (UIConst::knobRowH);
-        attackSlider.setBounds (knobRow2.removeFromLeft (halfW));
+        attackSlider.setBounds (knobRow2.removeFromLeft (thirdW));
+        holdSlider  .setBounds (knobRow2.removeFromLeft (thirdW));
         decaySlider .setBounds (knobRow2);
 
         auto labelRow2 = inner.removeFromTop (UIConst::knobLabelH);
-        attackLabel.setBounds (labelRow2.removeFromLeft (halfW));
+        attackLabel.setBounds (labelRow2.removeFromLeft (thirdW));
+        holdLabel  .setBounds (labelRow2.removeFromLeft (thirdW));
         decayLabel .setBounds (labelRow2);
 
         inner.removeFromTop (UIConst::knobGap);
@@ -106,10 +114,10 @@ private:
             });
     }
 
-    juce::Slider pitchSlider, levelSlider, attackSlider, decaySlider;
-    juce::Label  pitchLabel,  levelLabel,  attackLabel,  decayLabel;
+    juce::Slider pitchSlider, levelSlider, drySlider, attackSlider, holdSlider, decaySlider;
+    juce::Label  pitchLabel,  levelLabel,  dryLabel,  attackLabel,  holdLabel,  decayLabel;
 
-    juce::AudioProcessorValueTreeState::SliderAttachment pitchAttach, levelAttach, attackAttach, decayAttach;
+    juce::AudioProcessorValueTreeState::SliderAttachment pitchAttach, levelAttach, dryAttach, attackAttach, holdAttach, decayAttach;
 
     juce::TextButton loadBtn { "DROP SAMPLE" };
 

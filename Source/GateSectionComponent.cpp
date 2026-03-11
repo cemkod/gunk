@@ -10,14 +10,14 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
       gateHysteresisAttach (avts, "gateHysteresis",  gateHysteresisSlider),
       glideAttach          (avts, "glide",            glideSlider),
       dryAttach            (avts, "dryLevel",         drySlider),
-      transientSlopeAttach (avts, "transientSlope",   transientSlopeSlider),
+      transientSensAttach  (avts, "transientSens",    transientSensSlider),
       pitchWindowAttach    (avts, "pitchWindow",      pitchWindowCombo)
 {
     BassLookAndFeel::setupRotarySlider (gateThresholdSlider,  gateThresholdLabel,  "THRS",  *this);
     BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYST",  *this);
     BassLookAndFeel::setupRotarySlider (glideSlider,          glideLabel,          "GLIDE", *this);
     BassLookAndFeel::setupRotarySlider (drySlider,            dryLabel,            "DRY",   *this);
-    BassLookAndFeel::setupRotarySlider (transientSlopeSlider, transientSlopeLabel, "SLOPE", *this);
+    BassLookAndFeel::setupRotarySlider (transientSensSlider, transientSensLabel, "SENS",  *this);
     addAndMakeVisible (displayComponent);
 
     pitchWindowCombo.addItem ("4096 (B0)", 1);
@@ -64,16 +64,16 @@ void GateSectionComponent::resized()
 
     inner.removeFromTop (UIConst::knobGap);
 
-    // Row 2: DRY, SLOPE, WINDOW (combo)
+    // Row 2: DRY, SENS, WINDOW (combo)
     const int knobW2 = w / 3;
     auto knobRow2 = inner.removeFromTop (UIConst::knobRowH);
     drySlider           .setBounds (knobRow2.removeFromLeft (knobW2));
-    transientSlopeSlider.setBounds (knobRow2.removeFromLeft (knobW2));
+    transientSensSlider.setBounds (knobRow2.removeFromLeft (knobW2));
     // combo sits centred vertically in the knob area
     pitchWindowCombo.setBounds (knobRow2.reduced (2, knobRow2.getHeight() / 4));
     auto lblRow2 = inner.removeFromTop (UIConst::knobLabelH);
     dryLabel           .setBounds (lblRow2.removeFromLeft (knobW2));
-    transientSlopeLabel.setBounds (lblRow2.removeFromLeft (knobW2));
+    transientSensLabel.setBounds (lblRow2.removeFromLeft (knobW2));
     pitchWindowLabel   .setBounds (lblRow2);
 }
 

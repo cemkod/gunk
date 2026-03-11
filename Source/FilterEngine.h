@@ -33,6 +33,13 @@ public:
         return svf.process (oscillatorSample, cutoff, resonance, (float) sr, filterType);
     }
 
+    void processBlock (float* buf, const float* cutoffBuf, int n,
+                       float resonance, FilterType filterType)
+    {
+        svf.processBlock (buf, cutoffBuf, n, resonance, (float) sr, filterType);
+        currentCutoffHz.store (cutoffBuf[n - 1], std::memory_order_relaxed);
+    }
+
     float getCurrentCutoffHz() const { return currentCutoffHz.load (std::memory_order_relaxed); }
 
 private:

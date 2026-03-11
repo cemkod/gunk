@@ -32,5 +32,13 @@ struct StateVariableFilter
         }
     }
 
+    // Processes buf in-place with a per-sample cutoff array.
+    void processBlock (float* buf, const float* cutoffHz, int n, float Q, float sampleRate,
+                       FilterType filterType = FilterType::LP)
+    {
+        for (int i = 0; i < n; ++i)
+            buf[i] = process (buf[i], cutoffHz[i], Q, sampleRate, filterType);
+    }
+
     void reset() { low = band = 0.0f; }
 };

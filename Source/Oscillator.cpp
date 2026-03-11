@@ -345,8 +345,60 @@ static inline float readMorphedSample (const std::vector<float>& fA,
     return sA + frameFrac * (sB - sA);
 }
 
+void WavetableOscillator::processBlock (const float* freqBuf, float* out, int n)
+{
+    juce::SpinLock::ScopedTryLockType sl (tableLock);
+    if (! sl.isLocked())
+    {
+        juce::FloatVectorOperations::fill (out, 0.0f, n);
+        return;
+    }
+
+    const float morphPos  = morphPosition * (float) (numFrames - 1);
+    const int   frameA    = (int) morphPos;
+    const int   frameB    = juce::jmin (frameA + 1, numFrames - 1);
+    const float frameFrac = morphPos - (float) frameA;
+    const auto& fA = frames[(size_t) frameA];
+    const auto& fB = frames[(size_t) frameB];
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float freq = freqBuf[i];
+
+        if (freq <= 0.0f)
+        {
+            if (currentBaseFreq > 0.0)
+            {
+                for (int v = 0; v < kMaxVoices; ++v)
+                    phaseIndex[v] = (double) v / kMaxVoices * kTableSize;
+                currentBaseFreq = 0.0;
+            }
+            out[i] = 0.0f;
+            continue;
+        }
+
+        if ((double) freq != currentBaseFreq)
+        {
+            currentBaseFreq = (double) freq;
+            recomputeVoiceIncrements();
+        }
+
+        float sum = 0.0f;
+        for (int v = 0; v < unisonVoices; ++v)
+        {
+            sum += readMorphedSample (fA, fB, frameFrac, phaseIndex[v]);
+            phaseIndex[v] += phaseIncrement[v];
+            if (phaseIndex[v] >= kTableSize) phaseIndex[v] -= kTableSize;
+        }
+        out[i] = sum / (float) unisonVoices;
+    }
+}
+
 float WavetableOscillator::getNextSample()
 {
+    if (currentBaseFreq <= 0.0)
+        return 0.0f;
+
     juce::SpinLock::ScopedTryLockType sl (tableLock);
     if (! sl.isLocked())
         return 0.0f;

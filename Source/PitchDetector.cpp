@@ -1,19 +1,33 @@
 #include "PitchDetector.h"
 #include <cmath>
+#include <cstring>
 
 static constexpr double kMinPitchHz = 30.0;
 static constexpr double kMaxPitchHz = 400.0;
 static constexpr float kMinEnergyThreshold = 1e-12f;
 static constexpr float kFreqHysteresisRatio = 0.004f;
 
+AutocorrelationPitchDetector::AutocorrelationPitchDetector()
+{
+    fft         = new_aubio_fft (kFFTSize);
+    fftIn       = new_fvec (kFFTSize);
+    fftCompspec = new_fvec (kFFTSize);
+}
+
+AutocorrelationPitchDetector::~AutocorrelationPitchDetector()
+{
+    if (fft)         del_aubio_fft (fft);
+    if (fftIn)       del_fvec (fftIn);
+    if (fftCompspec) del_fvec (fftCompspec);
+}
+
 void AutocorrelationPitchDetector::reset() {
-  bufferIndex = 0;
-  samplesWritten = 0;
-  hopCounter = 0;
+  std::memset (windowBuf, 0, sizeof (windowBuf));
+  writePos = 0;
+  totalWritten = 0;
   detectedFrequency = 0.0f;
   isTracking = false;
-  for (int i = 0; i < kBufferSize; ++i)
-    circularBuffer[i] = 0.0f;
+  lpf.reset();
 }
 
 void AutocorrelationPitchDetector::setSampleRate(double sr) {
@@ -22,30 +36,29 @@ void AutocorrelationPitchDetector::setSampleRate(double sr) {
   maxLag = (int)(sr / kMinPitchHz); // lower pitch bound → max lag
   if (maxLag > kMaxLag)
     maxLag = kMaxLag;
-
+  setLPFCutoff (500.0);
 }
 
-float AutocorrelationPitchDetector::processSample(float sample,
-                                                  double /*sampleRate*/) {
-  circularBuffer[bufferIndex] = sample;
-  bufferIndex = (bufferIndex + 1) % kBufferSize;
-  if (samplesWritten < kBufferSize)
-    ++samplesWritten;
-  ++hopCounter;
+void AutocorrelationPitchDetector::setLPFCutoff(double cutoffHz) {
+  *lpf.coefficients = *juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, (float) cutoffHz);
+  lpf.reset();
+}
 
-  if (hopCounter >= kHopSize && samplesWritten >= kBufferSize) {
-    hopCounter = 0;
-    runAutocorrelation();
+float AutocorrelationPitchDetector::processBlock(const float* data, int numSamples)
+{
+  // LPF and append samples into circular buffer
+  for (int i = 0; i < numSamples; ++i)
+  {
+    windowBuf[writePos] = lpf.processSample (data[i]);
+    writePos = (writePos + 1) % kWindowSize;
   }
+  totalWritten += numSamples;
+
+  // Run detection if we have accumulated enough data
+  if (totalWritten >= activeWindowSize)
+    runAutocorrelation();
 
   return detectedFrequency;
-}
-
-float AutocorrelationPitchDetector::readBuffer(int offset) const {
-  int idx = bufferIndex - activeWindowSize + offset;
-  while (idx < 0)
-    idx += kBufferSize;
-  return circularBuffer[idx % kBufferSize];
 }
 
 void AutocorrelationPitchDetector::runAutocorrelation() {
@@ -53,42 +66,52 @@ void AutocorrelationPitchDetector::runAutocorrelation() {
   const int N      = kFFTSize;
   const int effMax = juce::jmin (maxLag, W - 1); // lags >= W have no valid autocorrelation
 
-  // 1. Copy analysis window into FFT buffer, zero-pad the rest
-  for (int i = 0; i < N * 2; ++i)
-    fftData[i] = 0.0f;
+  // 1. Copy analysis window from circular buffer into FFT input, zero-pad the rest
+  const int startPos = ((writePos - W) % kWindowSize + kWindowSize) % kWindowSize;
+  const int firstChunk = juce::jmin (W, kWindowSize - startPos);
+  float* inData = fftIn->data;
+  std::memcpy (inData, windowBuf + startPos, (size_t) firstChunk * sizeof (float));
+  if (firstChunk < W)
+    std::memcpy (inData + firstChunk, windowBuf, (size_t) (W - firstChunk) * sizeof (float));
+  std::memset (inData + W, 0, (size_t) (N - W) * sizeof (float));
 
+  // 1b. Compute prefix sums of squared samples BEFORE FFT overwrites data
+  float squaredSum[kWindowSize + 1];
+  squaredSum[0] = 0.0f;
   for (int i = 0; i < W; ++i)
-    fftData[i] = readBuffer(i);
+    squaredSum[i + 1] = squaredSum[i] + inData[i] * inData[i];
 
-  // 2. Forward FFT (JUCE performRealOnlyForwardTransform)
-  fft.performRealOnlyForwardTransform(fftData);
+  // 2. Forward FFT (aubio packed complex format)
+  //    Output layout: [R0, R1..R(N/2), I(N-1)..I(N/2+1)]
+  aubio_fft_do_complex (fft, fftIn, fftCompspec);
 
-  // 3. Compute power spectrum in-place (complex multiply by conjugate)
-  for (int i = 0; i < N * 2; i += 2) {
-    float re = fftData[i];
-    float im = fftData[i + 1];
-    fftData[i] = re * re + im * im;
-    fftData[i + 1] = 0.0f;
+  // 3. Compute power spectrum in-place in packed format
+  //    For autocorrelation we need |X[k]|² then IFFT.
+  //    Power spectrum is real-valued, so imag parts become 0.
+  float* cs = fftCompspec->data;
+  cs[0] = cs[0] * cs[0];             // DC: real only
+  cs[N / 2] = cs[N / 2] * cs[N / 2]; // Nyquist: real only
+  for (int k = 1; k < N / 2; ++k)
+  {
+    const float re = cs[k];
+    const float im = cs[N - k];
+    cs[k]     = re * re + im * im;  // power → real part
+    cs[N - k] = 0.0f;               // imag = 0 (power is real)
   }
 
   // 4. Inverse FFT to get autocorrelation
-  fft.performRealOnlyInverseTransform(fftData);
+  aubio_fft_rdo_complex (fft, fftCompspec, fftIn);
 
   // 5. Extract autocorrelation values for lags we care about
+  //    (result is in fftIn->data after inverse)
+  float* result = fftIn->data;
   for (int tau = 0; tau <= effMax; ++tau)
-    acf[tau] = fftData[tau];
+    acf[tau] = result[tau];
 
-  // 6. Compute NSDF normalization using prefix sums of squared samples
-  //    m'(tau) = sum_{j=0}^{W-1-tau} x[j]^2 + sum_{j=tau}^{W-1} x[j]^2
-  //           = squaredSum[W-tau] + squaredSum[W] - squaredSum[tau]
-  float squaredSum[kWindowSize + 1] = {};
-  for (int i = 0; i < W; ++i) {
-    float s = readBuffer(i);
-    squaredSum[i + 1] = squaredSum[i] + s * s;
-  }
+  // 6. Compute NSDF normalization using prefix sums (computed in step 1b)
 
   // NSDF values
-  float nsdf[kMaxLag + 1] = {};
+  float nsdf[kMaxLag + 1];
   for (int tau = minLag - 1; tau <= effMax; ++tau) {
     float energy = squaredSum[W - tau] + squaredSum[W] - squaredSum[tau];
     nsdf[tau] =
@@ -201,10 +224,10 @@ void AutocorrelationPitchDetector::runAutocorrelation() {
     return;
   }
 
-  // 8. Sub-sample interpolation for refined lag estimate.
-  //    Gaussian interpolation (log-parabola) is more robust than parabolic for
-  //    broad or asymmetric NSDF peaks, which occur during pitch bends.
-  //    Falls back to parabolic if any neighbour is non-positive.
+  // 10. Sub-sample interpolation for refined lag estimate.
+  //     Gaussian interpolation (log-parabola) is more robust than parabolic for
+  //     broad or asymmetric NSDF peaks, which occur during pitch bends.
+  //     Falls back to parabolic if any neighbour is non-positive.
   float refinedLag = (float)bestLag;
   if (bestLag > minLag && bestLag < maxLag) {
     float a = nsdf[bestLag - 1];

@@ -26,6 +26,37 @@ if(_q_incs)
     set_property(TARGET libq APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${_q_incs})
 endif()
 
+# aubio — build from source so all platform targets are self-contained.
+# We skip the io/ subsystem (sndfile / avcodec / CoreAudio) and use aubio's
+# bundled ooura FFT, avoiding every platform-specific optional dependency.
+FetchContent_Declare(
+    aubio_src
+    GIT_REPOSITORY https://github.com/aubio/aubio.git
+    GIT_TAG        0.4.9
+    GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(aubio_src)
+if(NOT aubio_src_POPULATED)
+    FetchContent_Populate(aubio_src)
+
+    file(GLOB_RECURSE _aubio_all_srcs "${aubio_src_SOURCE_DIR}/src/*.c")
+    list(FILTER _aubio_all_srcs EXCLUDE REGEX ".*/io/.*\\.c$")
+
+    add_library(aubio STATIC ${_aubio_all_srcs})
+    set_target_properties(aubio PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_include_directories(aubio SYSTEM PUBLIC "${aubio_src_SOURCE_DIR}/src")
+    target_compile_definitions(aubio PRIVATE
+        HAVE_STDLIB_H=1
+        HAVE_STDIO_H=1
+        HAVE_MATH_H=1
+        HAVE_STRING_H=1
+        HAVE_ERRNO_H=1
+        HAVE_LIMITS_H=1
+        HAVE_STDARG_H=1
+        HAVE_C99_VARARGS_MACROS=1
+    )
+endif()
+
 if(CMAKE_CROSSCOMPILING)
     # juce_vst3_helper dlopen()s the built DLL to extract class IDs, which fails
     # when the DLL is a Windows PE binary on a Linux host. Register a stub before
@@ -163,6 +194,9 @@ target_link_libraries(JQGunk
         juce::juce_audio_utils
         juce::juce_dsp
         libq
+        aubio
+
+
     PUBLIC
         juce::juce_recommended_config_flags
         $<$<CONFIG:Release>:juce::juce_recommended_lto_flags>

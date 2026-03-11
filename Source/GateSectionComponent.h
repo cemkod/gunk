@@ -20,9 +20,9 @@ private:
 
     GateDisplayComponent displayComponent;
 
-    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider, drySlider, transientSlopeSlider;
-    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel,  dryLabel,  transientSlopeLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach, dryAttach, transientSlopeAttach;
+    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider, drySlider, transientSensSlider;
+    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel,  dryLabel,  transientSensLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach, dryAttach, transientSensAttach;
 
     juce::ComboBox pitchWindowCombo;
     juce::Label    pitchWindowLabel;

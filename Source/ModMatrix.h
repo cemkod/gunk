@@ -45,14 +45,23 @@ public:
     }
 
 
+    // Call once after the APVTS is constructed (e.g. in PluginProcessor constructor).
+    // Caches raw parameter pointers so snapshot() never touches the heap.
+    void init (juce::AudioProcessorValueTreeState& apvts)
+    {
+        for (int i = 0; i < 8; ++i)
+        {
+            juce::String n (i);
+            slotPtrs[(size_t) i].source = apvts.getRawParameterValue ("modSlot" + n + "Source");
+            slotPtrs[(size_t) i].target = apvts.getRawParameterValue ("modSlot" + n + "Target");
+            slotPtrs[(size_t) i].amount = apvts.getRawParameterValue ("modSlot" + n + "Amount");
+        }
+    }
+
     // Called once per block before updateOscillatorParams().
     // envelopeVal: current amplitude follower value (0..1 range typical).
     // pitchHz:     last detected frequency in Hz (0 = no detection).
-    void snapshot (juce::AudioProcessorValueTreeState& apvts,
-                   float envelopeVal,
-                   float modEnvelopeVal,
-                   float pitchHz,
-                   float lfoVal = 0.0f)
+    void snapshot (float envelopeVal, float modEnvelopeVal, float pitchHz, float lfoVal = 0.0f)
     {
         sourceVals[0] = 0.0f;  // None
         sourceVals[1] = envelopeVal;
@@ -64,10 +73,33 @@ public:
 
         for (int i = 0; i < 8; ++i)
         {
-            const juce::String n (i);
-            slots[(size_t) i].source = (int) apvts.getRawParameterValue ("modSlot" + n + "Source")->load();
-            slots[(size_t) i].target = (int) apvts.getRawParameterValue ("modSlot" + n + "Target")->load() + 1;
-            slots[(size_t) i].amount = apvts.getRawParameterValue ("modSlot" + n + "Amount")->load();
+            slots[(size_t) i].source = (int) slotPtrs[(size_t) i].source->load();
+            slots[(size_t) i].target = (int) slotPtrs[(size_t) i].target->load() + 1;
+            slots[(size_t) i].amount = slotPtrs[(size_t) i].amount->load();
+        }
+    }
+
+    // Computes per-sample modulation contribution for `target` into outBuf.
+    // Source buffers: envBuf=Envelope, pitchBuf=Pitch (normalized), modEnvBuf=ModEnv, lfoBuf=LFO.
+    void computeTargetBlock (ModTarget target,
+                             const float* envBuf, const float* modEnvBuf,
+                             const float* pitchBuf, const float* lfoBuf,
+                             float* outBuf, int n) const
+    {
+        juce::FloatVectorOperations::fill (outBuf, 0.0f, n);
+        const int t = (int) target;
+        if (t <= 0 || t >= (int) std::size (kTargetScale)) return;
+        const float scale = kTargetScale[t];
+        for (const auto& slot : slots)
+        {
+            if (slot.target != t || slot.source == 0 || slot.amount == 0.0f)
+                continue;
+            const float* src = (slot.source == 1) ? envBuf
+                             : (slot.source == 2) ? pitchBuf
+                             : (slot.source == 3) ? modEnvBuf
+                             : (slot.source == 4) ? lfoBuf : nullptr;
+            if (src)
+                juce::FloatVectorOperations::addWithMultiply (outBuf, src, slot.amount * scale, n);
         }
     }
 
@@ -115,4 +147,7 @@ private:
     struct Slot { int source = 0; int target = 0; float amount = 0.0f; };
     std::array<Slot, 8> slots {};
     float sourceVals[5] = {};
+
+    struct SlotPtrs { std::atomic<float>* source = nullptr; std::atomic<float>* target = nullptr; std::atomic<float>* amount = nullptr; };
+    std::array<SlotPtrs, 8> slotPtrs {};
 };

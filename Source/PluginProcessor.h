@@ -3,13 +3,14 @@
 #include <JuceHeader.h>
 #include "ParameterIDs.h"
 #include "Oscillator.h"
-#include "PitchDetector.h"
+#include "PitchDetectorThread.h"
 #include "FilterEngine.h"
 #include "GlideEngine.h"
 #include "PresetManager.h"
 #include "TransientPlayer.h"
 #include "ModMatrix.h"
 #include "LFOEngine.h"
+#include "AubioOnsetDetector.h"
 #include <q/fx/envelope.hpp>
 #include <q/fx/noise_gate.hpp>
 #include <q/support/literals.hpp>
@@ -94,7 +95,7 @@ public:
         return juce::jlimit (0.0f, 1.0f, base + offset);
     }
 
-    float getDetectedFrequency() const { return detector.getFrequency(); }
+    float getDetectedFrequency() const { return pitchThread.getDetectedFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
     float getModEnvelope() const noexcept { return modEnvelope; }
@@ -132,11 +133,13 @@ private:
         float osc2PitchMult;   // derived: pow(2, (osc2CoarseTune + osc2FineTune/100) / 12)
         float transientLevel;
         float transientAttack;
+        float transientHold;
         float transientDecay;
         float transientPitch;
+        float transientDry;
         float modAttCoef;
         float modDecCoef;
-        float transientSlopeThresh;
+        float transientThreshold;
     };
 
     BlockParams readBlockParams() const;
@@ -161,18 +164,46 @@ private:
 
     void updateOscParams (const OscUpdateConfig& cfg);
 
-    void  updateModEnvelope        (const BlockParams& p);
-    void  updateTransientDetection (const BlockParams& p);
-    void  setOscillatorFrequencies (float glidedFreq, const BlockParams& p);
-    float applyFilterAndMix        (float sawSample, float subSample, float osc2Sample,
-                                    float glidedFreq, float inputSample,
-                                    int ampEnvSourceIdx, float masterVolume,
-                                    const BlockParams& p);
-    void  restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx);
+    // Per-block scratch buffers for block-based audio processing.
+    struct AudioScratch
+    {
+        juce::HeapBlock<float> glidedFreq;    // per-sample glided osc1 freq (0 = gate closed)
+        juce::HeapBlock<float> osc2Freq;      // per-sample osc2 freq
+        juce::HeapBlock<float> subFreq;       // per-sample sub freq
+        juce::HeapBlock<float> envelopeBuf;   // per-sample cycfi Q envelope output
+        juce::HeapBlock<float> modEnvBuf;     // per-sample slewed mod envelope
+        juce::HeapBlock<float> lfoBuf;        // per-sample LFO output
+        juce::HeapBlock<float> filterCutoff;  // per-sample computed cutoff Hz
+        juce::HeapBlock<float> osc1Out;
+        juce::HeapBlock<float> osc2Out;
+        juce::HeapBlock<float> subOut;
+        juce::HeapBlock<float> transientOut;
+        juce::HeapBlock<float> transientEnv;  // transient player envelope (for dry gating)
+        juce::HeapBlock<float> gatedInput;    // gated copy of input for pitch thread
+        juce::HeapBlock<float> pitchNorm;     // per-sample normalized pitch for mod matrix
+        int capacity = 0;
+
+        void prepare (int maxBlockSize)
+        {
+            if (maxBlockSize <= capacity) return;
+            capacity = maxBlockSize;
+            glidedFreq.realloc (maxBlockSize);   osc2Freq.realloc (maxBlockSize);
+            subFreq.realloc (maxBlockSize);      envelopeBuf.realloc (maxBlockSize);
+            modEnvBuf.realloc (maxBlockSize);    lfoBuf.realloc (maxBlockSize);
+            filterCutoff.realloc (maxBlockSize); osc1Out.realloc (maxBlockSize);
+            osc2Out.realloc (maxBlockSize);      subOut.realloc (maxBlockSize);
+            transientOut.realloc (maxBlockSize); transientEnv.realloc (maxBlockSize);
+            gatedInput.realloc (maxBlockSize);   pitchNorm.realloc (maxBlockSize);
+        }
+    };
+
+    float       updateModEnvelopeSample  (float envSample, const BlockParams& p);
+    void        updateTransientDetection (const BlockParams& p, float inputSample);
+    void        restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx);
 
     PresetManager presetManager { apvts };
 
-    AutocorrelationPitchDetector detector;
+    PitchDetectorThread pitchThread;
     WavetableOscillator oscillator;
     SineOscillator subOscillator;
     juce::String customWavetablePath;
@@ -205,10 +236,7 @@ private:
     float modEnvelope = 0.0f;
 
     // Transient detector
-    static constexpr int kSlopeLookback = 3; 
-    std::array<float, kSlopeLookback> envHistory {};
-    int   envHistoryPos = 0;
-    int   transientCooldown = 0;
+    AubioOnsetDetector onsetDetector;
     std::atomic<bool> transientFlag { false };
 
     // Envelope filter (auto-wah)
@@ -216,10 +244,40 @@ private:
 
     double currentSampleRate = 48000;
 
+    AudioScratch scratch;
+
     LFOEngine lfo;
 
-    // Low-pass filter applied to input before pitch detection (~500 Hz cutoff)
-    juce::dsp::IIR::Filter<float> pitchDetectorLPF;
+
+#ifdef ENABLE_DEBUG_LOG
+    struct PerfStats
+    {
+        juce::int64 maxTicks   = 0;
+        juce::int64 totalTicks = 0;
+        int         count      = 0;
+        juce::int64 startTick  = 0;
+
+        void start() noexcept { startTick = juce::Time::getHighResolutionTicks(); }
+        void stop()  noexcept
+        {
+            const juce::int64 e = juce::Time::getHighResolutionTicks() - startTick;
+            if (e > maxTicks) maxTicks = e;
+            totalTicks += e;
+            ++count;
+        }
+        double maxMs() const noexcept { return juce::Time::highResolutionTicksToSeconds (maxTicks) * 1000.0; }
+        double avgMs() const noexcept
+        {
+            return count > 0 ? (juce::Time::highResolutionTicksToSeconds (totalTicks) * 1000.0 / count) : 0.0;
+        }
+        void reset() noexcept { maxTicks = 0; totalTicks = 0; count = 0; }
+    };
+    PerfStats perfSetup, perfLoop, perfOnset;
+    PerfStats perfOsc1, perfOsc2, perfSub, perfFilter;
+    PerfStats perfTransient, perfModMatrix, perfControl, perfMix;
+    int perfBlockCount = 0;
+    static constexpr int kPerfPrintInterval = 500;
+#endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JQGunkAudioProcessor)
 };
