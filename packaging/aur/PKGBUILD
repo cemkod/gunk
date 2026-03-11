@@ -1,0 +1,43 @@
+# Maintainer: JimQode <contact@jimqode.com>
+pkgname=jq-gunk
+pkgver=0.2.2
+pkgrel=1
+pkgdesc="Bass synthesis and processing VST3 plugin with pitch detection"
+arch=('x86_64')
+url="https://github.com/cemkod/gunk"
+license=('GPL-3.0-or-later')
+depends=('alsa-lib' 'freetype2' 'libx11' 'libxext' 'libxinerama' 'libxrandr' 'libxcursor' 'libxcomposite' 'mesa')
+makedepends=('cmake' 'ninja' 'gcc' 'git' 'pkg-config')
+source=("$pkgname-$pkgver::git+https://github.com/cemkod/gunk.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+
+    # VST3 plugin
+    install -d "$pkgdir/usr/lib/vst3"
+    cp -r "build/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3" "$pkgdir/usr/lib/vst3/"
+
+    # Standalone binary
+    install -Dm755 "build/JQGunk_artefacts/Release/Standalone/JQ Gunk" \
+        "$pkgdir/usr/bin/jq-gunk"
+
+    # Factory presets
+    install -d "$pkgdir/usr/share/JQGunk/Factory Presets"
+    cp -r Presets/Factory/* "$pkgdir/usr/share/JQGunk/Factory Presets/"
+
+    # Wavetables
+    install -d "$pkgdir/usr/share/JQGunk/Wavetables"
+    cp -r Wavetables/* "$pkgdir/usr/share/JQGunk/Wavetables/"
+
+    # License
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

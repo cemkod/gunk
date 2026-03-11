@@ -1,0 +1,72 @@
+Third-Party Notices
+===================
+
+JQ Gunk incorporates or links against the following third-party projects.
+Each is listed with its license and copyright information.
+
+
+JUCE
+----
+Website: https://juce.com
+Repository: https://github.com/juce-framework/JUCE
+Version: 7.0.12
+License: GNU General Public License v3 (GPLv3) or JUCE Commercial License
+
+Copyright (c) 2022 Raw Material Software Limited
+
+JUCE is dual-licensed. When used under the GPLv3, the terms of the GNU
+General Public License v3 apply. See https://www.gnu.org/licenses/gpl-3.0.html
+
+JQ Gunk uses JUCE under the GPLv3.
+
+
+Cycfi Q
+-------
+Repository: https://github.com/cycfi/q
+License: MIT License
+
+Copyright (c) 2014-2024 Joel de Guzman
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Aubio
+-----
+Repository: https://github.com/aubio/aubio
+Version: 0.4.9
+License: GNU General Public License v3 (GPLv3)
+
+Copyright (C) 2003-2023 Paul Brossier <piem@aubio.org>
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+See https://www.gnu.org/licenses/gpl-3.0.html
+
+
+Surge XT Wavetables
+-------------------
+Repository: https://github.com/surge-synthesizer/surge
+License: GNU General Public License v3 (GPLv3)
+
+The wavetable files under Wavetables/Surge/ are taken from the Surge XT
+synthesizer project. See Wavetables/Surge/NOTICE for full attribution and
+contributor list.

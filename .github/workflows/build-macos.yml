@@ -25,6 +25,53 @@ jobs:
       - name: Build
         run: cmake --build build-release
 
+      - name: Import signing certificate
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+
+          security import "$CERTIFICATE_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "" "$KEYCHAIN_PATH"
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Sign VST3 and Standalone
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          VST3="build-release/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3"
+          STANDALONE="build-release/JQGunk_artefacts/Release/Standalone/JQ Gunk.app"
+
+          codesign --force --deep --sign "$SIGNING_IDENTITY" \
+            --options runtime \
+            --timestamp \
+            "$VST3"
+
+          if [ -d "$STANDALONE" ]; then
+            codesign --force --deep --sign "$SIGNING_IDENTITY" \
+              --options runtime \
+              --timestamp \
+              "$STANDALONE"
+          fi
+
       - name: Package DMG
         run: |
           VST3_SRC="build-release/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3"
@@ -40,6 +87,40 @@ jobs:
             -srcfolder "$STAGING" \
             -ov -format UDZO \
             "$DMG_NAME"
+
+      - name: Sign DMG
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          codesign --force --sign "$SIGNING_IDENTITY" \
+            --timestamp \
+            JQGunk-macos.dmg
+
+      - name: Notarize DMG
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit JQGunk-macos.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple JQGunk-macos.dmg
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          if security list-keychains | grep -q "$KEYCHAIN_PATH"; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4

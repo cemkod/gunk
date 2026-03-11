@@ -2,26 +2,29 @@
 
 A JUCE-based audio effect plugin (VST3 + Standalone) for bass synthesis and processing.
 
-JQ Gunk detects the pitch of an incoming bass signal and synthesises oscillator tones at that frequency, shaped by an envelope-controlled resonant filter (auto-wah). The result can be blended with the dry signal.
+JQ Gunk detects the pitch of an incoming bass signal and synthesises oscillator tones at that frequency, shaped by a resonant filter controllable via the modulation matrix, and a transient player. The result can be blended with the dry signal.
 
 ## Signal Flow
 
-**Audio In → Pitch Detector → Oscillators (OSC 1 + OSC 2 + Sub) → Envelope Gate → Resonant Filter → Mix → Audio Out**
+**Audio In → Pitch Detector → Oscillators (OSC 1 + OSC 2 + Sub) → Envelope Gate → Resonant Filter → Transient Player → Mix → Audio Out**
+
+Modulation: **LFO / Envelope / Mod Envelope / Pitch → Mod Matrix (8 slots) → per-block parameter offsets**
 
 ## Features
 
-- **Pitch tracking** — autocorrelation-based McLeod Pitch Method, 40–400 Hz
-- **Two wavetable oscillators** — Sine, Triangle, Square, Sawtooth, or custom WAV/.wt file; independent tuning (octave, coarse, fine), unison, and morph per oscillator
+- **Pitch tracking** — autocorrelation-based McLeod Pitch Method, 40–400 Hz, selectable window size (4096 or 2048 samples)
+- **Two wavetable oscillators** — Triangle, Square, Sawtooth, or custom WAV/.wt file; independent tuning (octave, coarse, fine), unison, and morph per oscillator
 - **Unison** — up to 8 voices per oscillator with detune spread and blend control
-- **Sub oscillator** — configurable octave shift (-2 to 0), optional filter bypass
+- **Sub oscillator** — configurable octave shift (-2 to +1), optional filter bypass
 - **Pitch glide** — configurable portamento time
-- **Resonant filter** — SVF-based with LP / HP / BP modes, envelope-controlled auto-wah sweep
+- **Resonant filter** — SVF-based with LP / HP / BP modes; frequency and resonance controllable via mod matrix from any source (envelope, LFO, pitch, mod envelope)
 - **Frequency tracking** — filter cutoff follows detected pitch (0–100%)
 - **LFO** — Sine, Triangle, Square, Sawtooth shapes; 0.01–20 Hz; routable via mod matrix
 - **Modulation matrix** — 8 slots, 5 sources (Envelope, Pitch, Mod Envelope, LFO, None) × 18 targets
 - **Modulation envelope** — dedicated attack/decay envelope for mod matrix sources
-- **Transient player** — load a WAV/AIFF sample triggered on each gate open, with pitch tracking and offset
+- **Transient player** — load a WAV/AIFF sample triggered on onset detection, with pitch tracking, attack/hold/decay envelope, and dry signal gating
 - **Gate** — threshold + hysteresis to suppress noise when no bass is playing
+- **Amp envelope source** — choose between input signal or mod envelope module for amplitude shaping
 - **Dry level** — blend the processed signal with the original
 - **192 factory wavetables** — from the Surge XT library (Basic, Generated, Oneshot, Rhythmic, Sampled, Waldorf categories)
 
@@ -37,7 +40,7 @@ Pre-built binaries are produced by CI for:
 
 ## Building
 
-Requires CMake 3.22+, Ninja, and a C++17 compiler.
+Requires CMake 3.22+, Ninja, and a C++20 compiler.
 
 ```bash
 # Debug build (RelWithDebInfo + ENABLE_DEBUG_LOG)
@@ -63,7 +66,7 @@ Build artefacts land in `build/JQGunk_artefacts/`, `build-release/JQGunk_artefac
 cmake --build build --target install-presets
 ```
 
-Copies the 8 factory presets to `~/.config/JQGunk/Factory Presets/`. User presets are saved to `~/.config/JQGunk/User Presets/`.
+Copies the factory presets to `~/.config/JQGunk/Factory Presets/`. User presets are saved to `~/.config/JQGunk/User Presets/`.
 
 ## Installing Factory Wavetables
 
@@ -73,29 +76,13 @@ cmake --build build --target install-wavetables
 
 Copies the factory wavetable library to `~/.config/JQGunk/Wavetables/`. 192 files across 6 categories (Basic, Generated, Oneshot, Rhythmic, Sampled, Waldorf) in `.wt` and `.wav` formats.
 
-### Third-party content
-
-The wavetables under `Wavetables/Surge/` are taken from the [Surge XT](https://github.com/surge-synthesizer/surge) synthesizer project and redistributed under the GNU General Public License v3, the same license as this project. See `Wavetables/Surge/NOTICE` for full attribution.
-
-### Factory Presets
-
-| Preset | Description |
-|--------|-------------|
-| Default | Neutral starting point |
-| Envelope Down | Downward filter sweep |
-| Funky Wah | Classic auto-wah tone |
-| Glide Machine | Smooth pitch portamento |
-| Pitch Track | Filter follows pitch closely |
-| Sub Rumble | Heavy sub-octave presence |
-| Thick Saw | Sawtooth with unison spread |
-| Wide Chorus | Wide unison detune blend |
-
 ## Parameters
 
 ### Gate
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
+| Pitch Window | 4096 (B0) / 2048 (fast) | 4096 | FFT window size for pitch detection |
 | Gate Threshold | 0.001–0.04 | 0.003 | Input level required to open the gate |
 | Gate Hysteresis | 0–6 dB | 3.5 | Extra headroom to keep the gate open |
 | Glide | 0–1 s | 0 | Pitch portamento time |
@@ -151,17 +138,20 @@ The wavetables under `Wavetables/Surge/` are taken from the [Surge XT](https://g
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
+| Transient Sens | 0–1 | 0.5 | Onset detection sensitivity |
 | Transient Level | 0–1 | 0.5 | Transient sample output level |
-| Transient Slope | 0–5 | 3.1 | Gate sensitivity for transient triggering |
 | Transient Pitch | -48–+48 st | 0 | Pitch offset for frequency-tracked playback |
 | Transient Attack | 0.0001–0.01 s | 0.005 | Sample envelope attack |
-| Transient Decay | 0.0001–0.05 s | 0.015 | Sample envelope decay |
+| Transient Hold | 0–0.5 s | 0 | Sample envelope hold time |
+| Transient Decay | 0.0001–0.2 s | 0.1 | Sample envelope decay |
+| Transient Dry | 0–1 | 0 | Dry signal gate amount during transient |
 
 ### Output
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
 | Master Volume | 0–2 | 1.0 | Output gain |
+| Amp Env Source | Source / Env Module | Source | Amplitude envelope source selection |
 
 ## Modulation Matrix
 
@@ -169,7 +159,7 @@ The wavetables under `Wavetables/Surge/` are taken from the [Surge XT](https://g
 
 **Sources:** None, Envelope, Pitch, Mod Envelope, LFO
 
-**Targets include:** Oscillator morph, filter frequency, oscillator levels, sub level, unison detune, LFO rate, and more.
+**Targets:** OSC 1 Morph, OSC 2 Morph, Filter Freq, Filter Res, OSC 1 Level, OSC 2 Level, OSC 1 Unison Detune, OSC 2 Unison Detune, OSC 1 Fine Tune, OSC 2 Fine Tune, OSC 1 Unison Blend, OSC 2 Unison Blend, Sub Level, Glide, LFO Rate, LFO Amount, Master Volume
 
 ## Preset File Format
 
@@ -185,3 +175,18 @@ Presets are XML files with a `.jqgpreset` extension:
 ```
 
 Factory presets ship in `Presets/Factory/` and are installed by the `install-presets` CMake target.
+
+## License
+
+JQ Gunk is licensed under the [GNU General Public License v3](LICENSE) (GPL-3.0-or-later).
+
+### Third-party Libraries
+
+| Library | Version | License | Description |
+|---------|---------|---------|-------------|
+| [JUCE](https://github.com/juce-framework/JUCE) | 7.0.12 | GPLv3 / Commercial | Audio plugin framework |
+| [Cycfi Q](https://github.com/cycfi/q) | master | MIT | Envelope follower and noise gate DSP |
+| [Aubio](https://github.com/aubio/aubio) | 0.4.9 | GPLv3 | Onset/transient detection |
+| [Surge XT Wavetables](https://github.com/surge-synthesizer/surge) | — | GPLv3 | Factory wavetable library (192 files) |
+
+See [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) for full license texts and attribution.
