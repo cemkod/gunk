@@ -56,6 +56,7 @@ private:
   int maxLag = 1102;
 
   int activeWindowSize = kWindowSize; // runtime: 2048 or 4096
+  float rmsThreshold = 0.005f; // skip autocorrelation below this RMS
 
   // aubio FFT
   aubio_fft_t* fft = nullptr;

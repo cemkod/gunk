@@ -36,7 +36,11 @@ public:
         if (n1 > 0) juce::FloatVectorOperations::copy (fifoBuffer + s1, data,      n1);
         if (n2 > 0) juce::FloatVectorOperations::copy (fifoBuffer + s2, data + n1, n2);
         fifo.finishedWrite (n1 + n2);
-        wakeUp.signal();
+        if (++blockCount >= 2)
+        {
+            blockCount = 0;
+            wakeUp.signal();
+        }
     }
 
     void setPendingWindowSize (int w)
@@ -126,6 +130,7 @@ private:
     // Result: pitch thread → audio thread
     std::atomic<float>  detectedFrequency { 0.0f };
 
+    int blockCount = 0; // audio-thread only: wake pitch thread every 2 blocks
     juce::WaitableEvent wakeUp; // auto-reset (default = false)
 
 #ifdef ENABLE_DEBUG_LOG

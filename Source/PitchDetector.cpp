@@ -81,6 +81,17 @@ void AutocorrelationPitchDetector::runAutocorrelation() {
   for (int i = 0; i < W; ++i)
     squaredSum[i + 1] = squaredSum[i] + inData[i] * inData[i];
 
+  // 1c. Early-out if signal is too quiet (RMS below threshold)
+  {
+    float rms = std::sqrt (squaredSum[W] / (float) W);
+    if (rms < rmsThreshold)
+    {
+      detectedFrequency = 0.0f;
+      isTracking = false;
+      return;
+    }
+  }
+
   // 2. Forward FFT (aubio packed complex format)
   //    Output layout: [R0, R1..R(N/2), I(N-1)..I(N/2+1)]
   aubio_fft_do_complex (fft, fftIn, fftCompspec);
