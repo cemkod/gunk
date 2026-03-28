@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "UIConstants.h"
+#include "DebugLog.h"
 #include <BinaryData.h>
 
 //==============================================================================
@@ -14,6 +15,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
           OscParamIds { ParamIDs::waveform,    ParamIDs::oscLevel,  ParamIDs::unisonVoices,    ParamIDs::unisonDetune,    ParamIDs::unisonBlend,    ParamIDs::octaveShift,    ParamIDs::morph,    ParamIDs::coarseTune,   ParamIDs::fineTune    },
           OscParamIds { ParamIDs::osc2Waveform, ParamIDs::osc2Level, ParamIDs::osc2UnisonVoices, ParamIDs::osc2UnisonDetune, ParamIDs::osc2UnisonBlend, ParamIDs::osc2OctaveShift, ParamIDs::osc2Morph, ParamIDs::osc2CoarseTune, ParamIDs::osc2FineTune }),
       transientSection (p.apvts),
+      irSection (p.apvts, JQGunkAudioProcessor::getIRPresetsDir()),
       outputSection (p.apvts),
       lfoSection (p.apvts),
       modMatrixView (p.apvts)
@@ -24,7 +26,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     combinedOscSection.reactivateCustomWavetable[0] = [&p] { p.reactivateCustomWavetable(); };
     combinedOscSection.loadWavetableFromFile[0]     = [&p] (const juce::File& f) { return p.loadWavetableFromFile (f); };
     combinedOscSection.getNumFrames[0]              = [&p] { return p.getOscNumFrames(); };
-    combinedOscSection.getDisplayFrame[0]           = [&p] { return p.getOscFrameForDisplay (0); };
+    combinedOscSection.getDisplayFrame[0]           = [&p] (std::vector<float>& buf) { p.getOscFrameForDisplay (0, buf); };
     combinedOscSection.getWavetableName[0]          = [&p] { return p.getOscWavetableName (0); };
 
     // Wire OSC 2 callbacks
@@ -33,7 +35,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     combinedOscSection.reactivateCustomWavetable[1] = [&p] { p.reactivateCustomWavetable2(); };
     combinedOscSection.loadWavetableFromFile[1]     = [&p] (const juce::File& f) { return p.loadWavetable2FromFile (f); };
     combinedOscSection.getNumFrames[1]              = [&p] { return p.getOsc2NumFrames(); };
-    combinedOscSection.getDisplayFrame[1]           = [&p] { return p.getOscFrameForDisplay (1); };
+    combinedOscSection.getDisplayFrame[1]           = [&p] (std::vector<float>& buf) { p.getOscFrameForDisplay (1, buf); };
     combinedOscSection.getWavetableName[1]          = [&p] { return p.getOscWavetableName (1); };
 
     combinedOscSection.getModDetune = [&p] (int idx) { return p.getModulatedDetune (idx); };
@@ -47,6 +49,9 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
     transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
     addAndMakeVisible (transientSection);
+    irSection.loadIRFromFile = [&p] (const juce::File& f) { return p.loadIRFromFile (f); };
+    irSection.getLoadedPath  = [&p] { return p.getIRSamplePath(); };
+    addAndMakeVisible (irSection);
     addAndMakeVisible (outputSection);
     addAndMakeVisible (lfoSection);
 
@@ -64,6 +69,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         subOscSection    .setVisible (!modViewVisible);
         combinedOscSection.setVisible (!modViewVisible);
         transientSection .setVisible (!modViewVisible);
+        irSection        .setVisible (!modViewVisible);
         outputSection    .setVisible (!modViewVisible);
         lfoSection       .setVisible (!modViewVisible);
     };
@@ -85,7 +91,16 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         if (idx >= 0)
         {
             processor.getPresetManager().loadPreset (idx);
-            processor.syncOscillatorAfterPresetLoad();
+            auto missing = processor.syncOscillatorAfterPresetLoad();
+            if (missing.size() > 0)
+            {
+                juce::String msg = "The following files referenced by this preset could not be found "
+                                   "and have been replaced with default waveforms:\n\n";
+                for (auto& m : missing)
+                    msg += juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa2 ")) + m + "\n";
+                juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                        "Missing Files", msg.trimEnd());
+            }
             const auto& presets = processor.getPresetManager().getPresets();
             presetDeleteBtn.setEnabled (idx < (int) presets.size() && ! presets[(size_t) idx].isFactory);
         }
@@ -122,10 +137,32 @@ JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
 //==============================================================================
 void JQGunkAudioProcessorEditor::timerCallback()
 {
+#ifdef ENABLE_DEBUG_LOG
+    const double tCallbackStart = juce::Time::getMillisecondCounterHiRes();
+    auto time = [](double t0) { return juce::Time::getMillisecondCounterHiRes() - t0; };
+#endif
+
     combinedOscSection.updateButtonStates();
+
+#ifdef ENABLE_DEBUG_LOG
+    { const double t0 = juce::Time::getMillisecondCounterHiRes();
+#endif
+    combinedOscSection.repaintDisplays();
+#ifdef ENABLE_DEBUG_LOG
+      stWaveform.record (time (t0)); }
+#endif
+
     subOscSection.updateButtonStates();
     transientSection.updateButtonStates();
+    irSection.updateButtonStates();
+
+#ifdef ENABLE_DEBUG_LOG
+    { const double t0 = juce::Time::getMillisecondCounterHiRes();
+#endif
     filterSection.repaintDisplay();
+#ifdef ENABLE_DEBUG_LOG
+      stFilter.record (time (t0)); }
+#endif
 
     const float freq = processor.getDetectedFrequency();
     if (freq > 0.0f)
@@ -147,13 +184,51 @@ void JQGunkAudioProcessorEditor::timerCallback()
         repaint (transientLedBounds);
     }
 
+#ifdef ENABLE_DEBUG_LOG
+    { const double t0 = juce::Time::getMillisecondCounterHiRes();
+#endif
     gateSection.setMeterValues (processor.getEnvelope(), nowOpen, newTransient);
+#ifdef ENABLE_DEBUG_LOG
+      stGate.record (time (t0)); }
+
+    { const double t0 = juce::Time::getMillisecondCounterHiRes();
+#endif
     envelopeSection.pushSample (processor.getModEnvelope());
+#ifdef ENABLE_DEBUG_LOG
+      stEnvelope.record (time (t0)); }
+
+    { const double t0 = juce::Time::getMillisecondCounterHiRes();
+#endif
     lfoSection.pushSample (processor.getLFOValue());
+#ifdef ENABLE_DEBUG_LOG
+      stLFO.record (time (t0)); }
+#endif
 
     const int cur = processor.getPresetManager().getCurrentIndex();
     if (presetCombo.getSelectedItemIndex() != cur)
         presetCombo.setSelectedItemIndex (cur, juce::dontSendNotification);
+
+#ifdef ENABLE_DEBUG_LOG
+    stTotal.record (time (tCallbackStart));
+
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (timerLastLogMs < 0.0)
+        timerLastLogMs = now;
+
+    if (now - timerLastLogMs >= kTimerLogIntervalMs)
+    {
+        dbgLog ("=== UI timer stats (last 30 s) ===");
+        dbgLog ("  " + stTotal.report());
+        dbgLog ("  " + stWaveform.report());
+        dbgLog ("  " + stFilter.report());
+        dbgLog ("  " + stGate.report());
+        dbgLog ("  " + stEnvelope.report());
+        dbgLog ("  " + stLFO.report());
+        stTotal.reset(); stWaveform.reset(); stFilter.reset();
+        stGate.reset(); stEnvelope.reset(); stLFO.reset();
+        timerLastLogMs = now;
+    }
+#endif
 }
 
 //==============================================================================
@@ -255,7 +330,7 @@ void JQGunkAudioProcessorEditor::resized()
     // MOD matrix occupies the same content area as the main sections
     modMatrixView.setBounds (area);
 
-    // Top row: gate | envelope | filter | output
+    // Top row: gate | envelope | filter | ir | output
     auto topRow = area.removeFromTop (UIConst::topRowH);
     constexpr int gateW     = 190;
     constexpr int envelopeW = 185;
@@ -265,6 +340,8 @@ void JQGunkAudioProcessorEditor::resized()
     envelopeSection.setBounds (topRow.removeFromLeft (envelopeW));
     topRow.removeFromLeft (g);
     outputSection  .setBounds (topRow.removeFromRight (UIConst::oscColW));
+    topRow.removeFromRight (g);
+    irSection      .setBounds (topRow.removeFromRight (UIConst::oscColW));
     topRow.removeFromRight (g);
     filterSection  .setBounds (topRow);
 
@@ -323,7 +400,7 @@ void JQGunkAudioProcessorEditor::onSavePreset()
                 const juce::String name = aw->getTextEditorContents ("presetName").trim();
                 if (name.isEmpty()) return;
                 auto& m = processor.getPresetManager();
-                m.saveUserPreset (name);
+                processor.saveUserPreset (name);
                 m.rescanPresets();
                 const auto& presets = m.getPresets();
                 for (int i = 0; i < (int) presets.size(); ++i)

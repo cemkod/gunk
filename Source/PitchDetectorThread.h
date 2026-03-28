@@ -84,6 +84,10 @@ private:
         const int numReady = fifo.getNumReady();
         if (numReady == 0) return;
 
+        // Prevent denormal values from making the IIR LPF ~100x slower.
+        // ScopedNoDenormals is thread-local and not set on this thread by default.
+        juce::ScopedNoDenormals noDenormals;
+
 #ifdef ENABLE_DEBUG_LOG
         const juce::int64 t0 = juce::Time::getHighResolutionTicks();
 #endif

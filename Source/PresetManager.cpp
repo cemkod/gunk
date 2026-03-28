@@ -56,7 +56,11 @@ bool PresetManager::loadPreset (int index)
     return true;
 }
 
-bool PresetManager::saveUserPreset (const juce::String& name)
+bool PresetManager::saveUserPreset (const juce::String& name,
+                                     const juce::String& wt1Path,
+                                     const juce::String& wt2Path,
+                                     const juce::String& transientPath,
+                                     const juce::String& irPath)
 {
     auto dir = getUserPresetsDir();
     dir.createDirectory();
@@ -64,7 +68,14 @@ bool PresetManager::saveUserPreset (const juce::String& name)
     auto state = apvts.copyState();
     auto xml = state.createXml();
     if (! xml) return false;
-    xml->removeAttribute ("customWavetablePath");
+    if (wt1Path.isNotEmpty())       xml->setAttribute ("customWavetablePath",  wt1Path);
+    else                            xml->removeAttribute ("customWavetablePath");
+    if (wt2Path.isNotEmpty())       xml->setAttribute ("customWavetablePath2", wt2Path);
+    else                            xml->removeAttribute ("customWavetablePath2");
+    if (transientPath.isNotEmpty()) xml->setAttribute ("transientSamplePath",  transientPath);
+    else                            xml->removeAttribute ("transientSamplePath");
+    if (irPath.isNotEmpty())        xml->setAttribute ("irSamplePath",          irPath);
+    else                            xml->removeAttribute ("irSamplePath");
     return xml->writeTo (file);
 }
 

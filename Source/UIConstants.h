@@ -2,7 +2,7 @@
 
 namespace UIConst {
     // Editor dimensions
-    constexpr int editorWidth    = 833;
+    constexpr int editorWidth    = 994;
     constexpr int editorHeight   = 613;
     constexpr int editorPad      = 8;
     constexpr int headerHeight   = 52;

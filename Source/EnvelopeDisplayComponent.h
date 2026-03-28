@@ -10,9 +10,11 @@ public:
 
     void pushSample (float v)
     {
+        const float evicted = history[(size_t) writePos];
         history[(size_t) writePos] = v;
         writePos = (writePos + 1) % (int) history.size();
-        repaint();
+        if (std::abs (v - evicted) > 0.001f)
+            repaint();
     }
 
     void paint (juce::Graphics& g) override
@@ -39,7 +41,8 @@ public:
 
         const juce::Colour lineColour = BassLookAndFeel::accent;
 
-        juce::Path wavePath, fillPath;
+        wavePath.clear();
+        fillPath.clear();
         bool pathStarted = false;
 
         for (int i = 0; i < N; ++i)
@@ -78,6 +81,7 @@ public:
 private:
     std::vector<float> history;
     int writePos = 0;
+    juce::Path wavePath, fillPath;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EnvelopeDisplayComponent)
 };

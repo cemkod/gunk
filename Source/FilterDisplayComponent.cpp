@@ -63,7 +63,7 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     // |H(f)|^2 = 1 / ((1 - (f/fc)^2)^2 + (f/(Q*fc))^2)
     const float fc       = juce::jlimit (fMin, fMax, cutoffHz);
     const int   numSteps = juce::jmax (1, (int) w);
-    juce::Path curve;
+    curve.clear();
 
     for (int i = 0; i <= numSteps; ++i)
     {
@@ -86,7 +86,7 @@ void FilterDisplayComponent::paint (juce::Graphics& g)
     }
 
     // Filled area under curve
-    juce::Path filled = curve;
+    filled = curve;
     filled.lineTo (w, h);
     filled.lineTo (0.0f, h);
     filled.closeSubPath();

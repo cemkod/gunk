@@ -16,6 +16,7 @@ namespace ParamIDs {
     inline constexpr const char* dryLevel = "dryLevel";
 
     // OSC 1
+    inline constexpr const char* osc1Enabled  = "osc1Enabled";
     inline constexpr const char* waveform     = "waveform";
     inline constexpr const char* oscLevel     = "oscLevel";
     inline constexpr const char* unisonVoices = "unisonVoices";
@@ -27,11 +28,13 @@ namespace ParamIDs {
     inline constexpr const char* morph        = "morph";
 
     // Sub oscillator
+    inline constexpr const char* subEnabled      = "subEnabled";
     inline constexpr const char* subLevel        = "subLevel";
     inline constexpr const char* subOctave       = "subOctave";
     inline constexpr const char* subBypassFilter = "subBypassFilter";
 
     // OSC 2
+    inline constexpr const char* osc2Enabled      = "osc2Enabled";
     inline constexpr const char* osc2Waveform     = "osc2Waveform";
     inline constexpr const char* osc2Level        = "osc2Level";
     inline constexpr const char* osc2UnisonVoices = "osc2UnisonVoices";
@@ -43,6 +46,7 @@ namespace ParamIDs {
     inline constexpr const char* osc2Morph        = "osc2Morph";
 
     // Filter
+    inline constexpr const char* filterEnabled = "filterEnabled";
     inline constexpr const char* envResonance = "envResonance";
     inline constexpr const char* filterType   = "filterType";
     inline constexpr const char* freqTracking = "freqTracking";
@@ -58,6 +62,7 @@ namespace ParamIDs {
     inline constexpr const char* lfoAmount = "lfoAmount";
 
     // Transient
+    inline constexpr const char* transientEnabled = "transientEnabled";
     inline constexpr const char* transientSens   = "transientSens";
     inline constexpr const char* transientPitch  = "transientPitch";
     inline constexpr const char* transientLevel  = "transientLevel";
@@ -69,5 +74,10 @@ namespace ParamIDs {
     // Mod envelope
     inline constexpr const char* modEnvAttack = "modEnvAttack";
     inline constexpr const char* modEnvDecay  = "modEnvDecay";
+
+    // Impulse response
+    inline constexpr const char* irEnabled = "irEnabled";
+    inline constexpr const char* irMix     = "irMix";
+    inline constexpr const char* irMakeup  = "irMakeup";
 
 } // namespace ParamIDs

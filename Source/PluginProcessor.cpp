@@ -14,6 +14,7 @@ JQGunkAudioProcessor::JQGunkAudioProcessor()
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
     modMatrix.init (apvts);
+    params.init (apvts);
 }
 
 JQGunkAudioProcessor::~JQGunkAudioProcessor() {}
@@ -142,6 +143,12 @@ JQGunkAudioProcessor::createParameterLayout()
 
     addOscillatorParams (layout, 1);
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        ParamIDs::osc1Enabled, "OSC 1 Enabled", true));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        ParamIDs::subEnabled, "Sub Enabled", true));
+
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "subLevel", "Sub Level",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
@@ -156,6 +163,12 @@ JQGunkAudioProcessor::createParameterLayout()
         "subBypassFilter", "Sub Bypass Filter", true));
 
     addOscillatorParams (layout, 2);
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        ParamIDs::osc2Enabled, "OSC 2 Enabled", true));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        "filterEnabled", "Filter Enabled", true));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "envResonance", "Env Resonance",
@@ -212,6 +225,9 @@ JQGunkAudioProcessor::createParameterLayout()
 
     ModMatrix::addParameters (layout);
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        ParamIDs::transientEnabled, "Transient Enabled", true));
+
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "transientPitch", "Transient Pitch",
         juce::NormalisableRange<float> (-48.0f, 48.0f, 0.1f), 0.0f,
@@ -260,6 +276,31 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         timeFmt(), timeParse (0.001f, 2.0f)));
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        ParamIDs::irEnabled, "IR Enabled", false));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamIDs::irMix, "IR Mix",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamIDs::irMakeup, "IR Makeup",
+        juce::NormalisableRange<float> (0.0f, 4.0f, 0.0f, 0.5f), 1.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) -> juce::String
+        {
+            if (v <= 0.0f) return "-inf dB";
+            return juce::String (juce::Decibels::gainToDecibels (v), 1) + " dB";
+        },
+        [] (const juce::String& t) -> float
+        {
+            if (t.containsIgnoreCase ("inf")) return 0.0f;
+            const float db = t.retainCharacters ("-0123456789.").getFloatValue();
+            return juce::jlimit (0.0f, 4.0f, juce::Decibels::decibelsToGain (db));
+        }));
+
     return layout;
 }
 
@@ -294,6 +335,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     envelopeFilter.prepare (sampleRate);
     transientPlayer.prepare (sampleRate);
     onsetDetector.prepare (sampleRate);
+    irConvolution.prepare (sampleRate, samplesPerBlock);
 
     dbgLog ("prepareToPlay finished | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
@@ -319,7 +361,7 @@ bool JQGunkAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
 void JQGunkAudioProcessor::updateOscParams (const OscUpdateConfig& cfg)
 {
     // --- Waveform ---
-    const int waveIdx = (int) apvts.getRawParameterValue (cfg.waveformId)->load();
+    const int waveIdx = (int) cfg.waveformPtr->load();
     const auto requested = static_cast<WaveformType> (waveIdx + 1);
     const bool customActive = (cfg.osc.getCurrentWaveform() == WaveformType::Custom);
     if (!customActive || waveIdx != cfg.paramWhenCustomLoaded)
@@ -329,20 +371,20 @@ void JQGunkAudioProcessor::updateOscParams (const OscUpdateConfig& cfg)
     }
 
     // --- Unison ---
-    const int   numVoices    = juce::roundToInt (apvts.getRawParameterValue (cfg.voicesId)->load());
+    const int   numVoices    = juce::roundToInt (cfg.voicesPtr->load());
     const float detuneOffset = modMatrix.getOffset (cfg.detuneTarget);
     const float blendOffset  = modMatrix.getOffset (cfg.blendTarget);
     cfg.lastDetuneOffset.store (detuneOffset, std::memory_order_relaxed);
     cfg.lastBlendOffset .store (blendOffset,  std::memory_order_relaxed);
     const float detuneCents = juce::jlimit (0.0f, 100.0f,
-        apvts.getRawParameterValue (cfg.detuneId)->load() + detuneOffset);
+        cfg.detunePtr->load() + detuneOffset);
     const float uniBlend = juce::jlimit (0.0f, 1.0f,
-        apvts.getRawParameterValue (cfg.blendId)->load() + blendOffset);
+        cfg.blendPtr->load() + blendOffset);
     cfg.osc.setUnisonParams (numVoices, detuneCents, uniBlend);
 
     // --- Morph ---
     {
-        const float morphBase = apvts.getRawParameterValue (cfg.morphId)->load();
+        const float morphBase = cfg.morphPtr->load();
         const float modulated = juce::jlimit (0.0f, 1.0f,
             morphBase + modMatrix.getOffset (cfg.morphTarget));
         cfg.lastMorphModulated.store (modulated, std::memory_order_relaxed);
@@ -355,62 +397,67 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
 {
     BlockParams p;
 
-    p.oscLevel = apvts.getRawParameterValue (ParamIDs::oscLevel)->load();
-    p.dryLevel = apvts.getRawParameterValue (ParamIDs::dryLevel)->load();
+    p.osc1Enabled = params.osc1Enabled->load() > 0.5f;
+    p.osc2Enabled = params.osc2Enabled->load() > 0.5f;
+    p.oscLevel = params.oscLevel->load();
+    p.dryLevel = params.dryLevel->load();
 
-    p.gateThresh = apvts.getRawParameterValue (ParamIDs::gateThreshold)->load();
-    const float gateHyst = apvts.getRawParameterValue (ParamIDs::gateHysteresis)->load();
+    p.gateThresh = params.gateThreshold->load();
+    const float gateHyst = params.gateHysteresis->load();
     p.openThresh = p.gateThresh * std::pow (10.0f, gateHyst / 20.0f);
 
-    p.subLevel        = apvts.getRawParameterValue (ParamIDs::subLevel)->load();
-    p.subOctaveIdx    = (int) apvts.getRawParameterValue (ParamIDs::subOctave)->load();
-    p.subBypassFilter = apvts.getRawParameterValue (ParamIDs::subBypassFilter)->load() > 0.5f;
+    p.subEnabled      = params.subEnabled->load() > 0.5f;
+    p.subLevel        = params.subLevel->load();
+    p.subOctaveIdx    = (int) params.subOctave->load();
+    p.subBypassFilter = params.subBypassFilter->load() > 0.5f;
     p.subOctaveMult   = (p.subOctaveIdx == 0) ? 0.25f
                       : (p.subOctaveIdx == 1) ? 0.5f
                       : (p.subOctaveIdx == 2) ? 1.0f
                       :                         2.0f;
 
-    p.resonance    = apvts.getRawParameterValue (ParamIDs::envResonance)->load();
-    p.filterType   = (int) apvts.getRawParameterValue (ParamIDs::filterType)->load();
-    p.freqTracking = apvts.getRawParameterValue (ParamIDs::freqTracking)->load();
-    p.filterFreq   = apvts.getRawParameterValue (ParamIDs::filterFreq)->load();
+    p.filterEnabled = params.filterEnabled->load() > 0.5f;
+    p.resonance    = params.envResonance->load();
+    p.filterType   = (int) params.filterType->load();
+    p.freqTracking = params.freqTracking->load();
+    p.filterFreq   = params.filterFreq->load();
 
-    p.glideTime    = apvts.getRawParameterValue (ParamIDs::glide)->load();
+    p.glideTime    = params.glide->load();
     p.glideSamples = (p.glideTime > 0.0f) ? (int) (currentSampleRate * p.glideTime) : 0;
 
-    p.octaveShift = (int) apvts.getRawParameterValue (ParamIDs::octaveShift)->load();
+    p.octaveShift = (int) params.octaveShift->load();
 
-    p.osc2Level       = apvts.getRawParameterValue (ParamIDs::osc2Level)->load();
-    p.osc2OctaveShift = (int) apvts.getRawParameterValue (ParamIDs::osc2OctaveShift)->load();
+    p.osc2Level       = params.osc2Level->load();
+    p.osc2OctaveShift = (int) params.osc2OctaveShift->load();
 
-    p.transientLevel  = apvts.getRawParameterValue (ParamIDs::transientLevel)->load();
-    p.transientAttack = apvts.getRawParameterValue (ParamIDs::transientAttack)->load();
-    p.transientHold   = apvts.getRawParameterValue (ParamIDs::transientHold)->load();
-    p.transientDecay  = apvts.getRawParameterValue (ParamIDs::transientDecay)->load();
-    p.transientPitch  = apvts.getRawParameterValue (ParamIDs::transientPitch)->load();
-    p.transientDry    = apvts.getRawParameterValue (ParamIDs::transientDry)->load();
+    p.transientEnabled = params.transientEnabled->load() > 0.5f;
+    p.transientLevel  = params.transientLevel->load();
+    p.transientAttack = params.transientAttack->load();
+    p.transientHold   = params.transientHold->load();
+    p.transientDecay  = params.transientDecay->load();
+    p.transientPitch  = params.transientPitch->load();
+    p.transientDry    = params.transientDry->load();
 
     {
-        const float c = (float) juce::roundToInt (apvts.getRawParameterValue (ParamIDs::coarseTune)->load());
-        const float f = apvts.getRawParameterValue (ParamIDs::fineTune)->load();
+        const float c = (float) juce::roundToInt (params.coarseTune->load());
+        const float f = params.fineTune->load();
         p.osc1PitchMult = std::pow (2.0f, (c + f / 100.0f) / 12.0f);
     }
     {
-        const float c = (float) juce::roundToInt (apvts.getRawParameterValue (ParamIDs::osc2CoarseTune)->load());
-        const float f = apvts.getRawParameterValue (ParamIDs::osc2FineTune)->load();
+        const float c = (float) juce::roundToInt (params.osc2CoarseTune->load());
+        const float f = params.osc2FineTune->load();
         p.osc2PitchMult = std::pow (2.0f, (c + f / 100.0f) / 12.0f);
     }
 
     {
-        const float modAttack = apvts.getRawParameterValue (ParamIDs::modEnvAttack)->load();
-        const float modDecay  = apvts.getRawParameterValue (ParamIDs::modEnvDecay)->load();
+        const float modAttack = params.modEnvAttack->load();
+        const float modDecay  = params.modEnvDecay->load();
         p.modAttCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modAttack));
         p.modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
     }
 
     // 0 = least sensitive (threshold 0.6), 1 = most sensitive (threshold 0.1)
     // "energy" method default is 0.3; knob at ~60% gives default sensitivity.
-    p.transientThreshold = 0.6f - apvts.getRawParameterValue (ParamIDs::transientSens)->load() * 0.5f;
+    p.transientThreshold = 0.6f - params.transientSens->load() * 0.5f;
 
     return p;
 }
@@ -432,9 +479,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // 1. Snapshot all block-rate parameters and their derived values
     BlockParams p = readBlockParams();
 
-    const float lfoShape        = apvts.getRawParameterValue (ParamIDs::lfoShape)->load();
-    const int   ampEnvSourceIdx = (int) apvts.getRawParameterValue (ParamIDs::ampEnvSource)->load();
-    float       masterVolume    = apvts.getRawParameterValue (ParamIDs::masterVolume)->load();
+    const float lfoShape        = params.lfoShape->load();
+    const int   ampEnvSourceIdx = (int) params.ampEnvSource->load();
+    float       masterVolume    = params.masterVolume->load();
 
     // 2. LFO: render per-sample block (uses rate/amount from previous block)
     lfo.renderBlock (scratch.lfoBuf, N, lfoShape, currentSampleRate);
@@ -458,22 +505,22 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     p.osc2PitchMult *= std::pow (2.0f, modMatrix.getOffset (ModTarget::Osc2FineTune) / 1200.0f);
 
     // Update LFO rate/amount for the next block
-    lfo.updateModulated (apvts.getRawParameterValue (ParamIDs::lfoRate)->load(),   modMatrix.getOffset (ModTarget::LfoRate),
-                         apvts.getRawParameterValue (ParamIDs::lfoAmount)->load(), modMatrix.getOffset (ModTarget::LfoAmount));
+    lfo.updateModulated (params.lfoRate->load(),   modMatrix.getOffset (ModTarget::LfoRate),
+                         params.lfoAmount->load(), modMatrix.getOffset (ModTarget::LfoAmount));
 
     // 5. Update oscillator structural params (waveform, morph, unison)
     updateOscParams ({ oscillator, paramWhenCustomLoaded,
-        ParamIDs::waveform, ParamIDs::unisonVoices, ParamIDs::unisonDetune, ParamIDs::unisonBlend, ParamIDs::morph,
+        params.waveform, params.unisonVoices, params.unisonDetune, params.unisonBlend, params.morph,
         ModTarget::Unison1Detune, ModTarget::Unison1Blend, ModTarget::Morph1,
         lastModDetuneOffset, lastModBlendOffset, lastModulatedMorph });
 
     updateOscParams ({ osc2, param2WhenCustomLoaded,
-        ParamIDs::osc2Waveform, ParamIDs::osc2UnisonVoices, ParamIDs::osc2UnisonDetune, ParamIDs::osc2UnisonBlend, ParamIDs::osc2Morph,
+        params.osc2Waveform, params.osc2UnisonVoices, params.osc2UnisonDetune, params.osc2UnisonBlend, params.osc2Morph,
         ModTarget::Unison2Detune, ModTarget::Unison2Blend, ModTarget::Morph2,
         lastModDetune2Offset, lastModBlend2Offset, lastModulatedMorph2 });
 
     {
-        const int windowIdx = (int) apvts.getRawParameterValue (ParamIDs::pitchWindow)->load();
+        const int windowIdx = (int) params.pitchWindow->load();
         pitchThread.setPendingWindowSize (windowIdx == 0 ? 4096 : 2048);
     }
 
@@ -502,6 +549,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float rawFreq = pitchThread.getDetectedFrequency();
 
     // --- CONTROL PASS: envelope, gate, mod envelope, pitch, glide ---
+#ifdef ENABLE_DEBUG_LOG
+    perfOnset.start();
+#endif
     for (int i = 0; i < N; ++i)
     {
         const float inputSample = inputData[i];
@@ -510,13 +560,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         gateIsOpen             = qGate        ? (*qGate)(scratch.envelopeBuf[i])        : false;
         scratch.modEnvBuf[i]   = updateModEnvelopeSample (scratch.envelopeBuf[i], p);
 
-#ifdef ENABLE_DEBUG_LOG
-        perfOnset.start();
-#endif
         updateTransientDetection (p, inputSample);
-#ifdef ENABLE_DEBUG_LOG
-        perfOnset.stop();
-#endif
 
         scratch.gatedInput[i] = gateIsOpen ? inputSample : 0.0f;
 
@@ -525,6 +569,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
 #ifdef ENABLE_DEBUG_LOG
+    perfOnset.stop();
     perfControl.stop();
 #endif
 
@@ -564,21 +609,21 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     perfOsc1.start();
 #endif
     oscillator.processBlock   (scratch.glidedFreq, scratch.osc1Out, N);
-    juce::FloatVectorOperations::multiply (scratch.osc1Out, p.oscLevel, N);
+    juce::FloatVectorOperations::multiply (scratch.osc1Out, p.osc1Enabled ? p.oscLevel : 0.0f, N);
 #ifdef ENABLE_DEBUG_LOG
     perfOsc1.stop();
     perfOsc2.start();
 #endif
 
     osc2.processBlock         (scratch.osc2Freq, scratch.osc2Out, N);
-    juce::FloatVectorOperations::multiply (scratch.osc2Out, p.osc2Level, N);
+    juce::FloatVectorOperations::multiply (scratch.osc2Out, p.osc2Enabled ? p.osc2Level : 0.0f, N);
 #ifdef ENABLE_DEBUG_LOG
     perfOsc2.stop();
     perfSub.start();
 #endif
 
     subOscillator.processBlock (scratch.subFreq, scratch.subOut, N);
-    juce::FloatVectorOperations::multiply (scratch.subOut, p.subLevel, N);
+    juce::FloatVectorOperations::multiply (scratch.subOut, p.subEnabled ? p.subLevel : 0.0f, N);
 #ifdef ENABLE_DEBUG_LOG
     perfSub.stop();
     perfTransient.start();
@@ -604,8 +649,9 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef ENABLE_DEBUG_LOG
     perfFilter.start();
 #endif
-    envelopeFilter.processBlock (scratch.osc1Out, scratch.filterCutoff, N,
-                                  p.resonance, static_cast<FilterType> (p.filterType));
+    if (p.filterEnabled)
+        envelopeFilter.processBlock (scratch.osc1Out, scratch.filterCutoff, N,
+                                      p.resonance, static_cast<FilterType> (p.filterType));
 #ifdef ENABLE_DEBUG_LOG
     perfFilter.stop();
 #endif
@@ -614,15 +660,38 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef ENABLE_DEBUG_LOG
     perfMix.start();
 #endif
+    // Compute pre-IR, pre-masterVolume mix into irMixBuf
     for (int i = 0; i < N; ++i)
     {
         const float ampEnv   = (ampEnvSourceIdx == 0) ? scratch.envelopeBuf[i] : scratch.modEnvBuf[i];
         const float postFx   = p.subBypassFilter ? scratch.subOut[i] : 0.0f;
         const float oscWet   = (scratch.osc1Out[i] + postFx) * ampEnv;
         const float transDry = inputData[i] * scratch.transientEnv[i] * p.transientDry;
-        const float out      = (inputData[i] * p.dryLevel + oscWet
-                                + scratch.transientOut[i] * p.transientLevel + transDry)
-                               * masterVolume;
+        scratch.irMixBuf[i]  = inputData[i] * p.dryLevel + oscWet
+                               + scratch.transientOut[i] * (p.transientEnabled ? p.transientLevel : 0.0f) + (p.transientEnabled ? transDry : 0.0f);
+    }
+
+    // Apply masterVolume into irMixBuf, then run IR post-fader
+    for (int i = 0; i < N; ++i)
+        scratch.irMixBuf[i] *= masterVolume;
+
+    // --- IR CONVOLUTION (post-fader) ---
+    if (params.irEnabled->load() > 0.5f)
+        irConvolution.processBlock (scratch.irMixBuf, N,
+                                    params.irMix->load(),
+                                    params.irMakeup->load());
+
+    // Write final output
+    for (int i = 0; i < N; ++i)
+    {
+        const float rawOut = scratch.irMixBuf[i];
+#ifdef ENABLE_DEBUG_LOG
+        if (! std::isfinite (rawOut))
+            ++outNaNCount;
+        else if (const float a = std::abs (rawOut); a > outMaxAbsEver)
+            outMaxAbsEver = a;
+#endif
+        const float out = std::isfinite (rawOut) ? rawOut : 0.0f;
         for (int ch = 0; ch < numChannels; ++ch)
             buffer.getWritePointer (ch)[i] = out;
     }
@@ -660,7 +729,11 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 " | mod avg="   + juce::String (perfModMatrix.avgMs(), 3) + "ms"
                 "  max="        + juce::String (perfModMatrix.maxMs(), 3) + "ms"
                 " | mix avg="   + juce::String (perfMix.avgMs(), 3) + "ms"
-                "  max="        + juce::String (perfMix.maxMs(), 3) + "ms");
+                "  max="        + juce::String (perfMix.maxMs(), 3) + "ms"
+                " | outMax="    + juce::String (outMaxAbsEver, 4)
+                + " | outNaN="  + juce::String (outNaNCount));
+        outMaxAbsEver = 0.0f;
+        outNaNCount   = 0;
         perfSetup.reset();
         perfLoop.reset();
         perfOnset.reset();
@@ -738,6 +811,24 @@ juce::String JQGunkAudioProcessor::getTransientSamplePath() const
     return transientSamplePath;
 }
 
+bool JQGunkAudioProcessor::loadIRFromFile (const juce::File& file)
+{
+    irConvolution.loadIR (file);
+    irSamplePath = file.getFullPathName();
+    return true;
+}
+
+juce::String JQGunkAudioProcessor::getIRSamplePath() const
+{
+    return irSamplePath;
+}
+
+juce::File JQGunkAudioProcessor::getIRPresetsDir()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("JQGunk/Impulse Responses");
+}
+
 //==============================================================================
 bool JQGunkAudioProcessor::loadWavetable2FromFile (const juce::File& file)
 {
@@ -783,17 +874,73 @@ const juce::String JQGunkAudioProcessor::getProgramName (int index)
     return (index >= 0 && (size_t) index < p.size()) ? p[(size_t) index].name : juce::String{};
 }
 
-void JQGunkAudioProcessor::syncOscillatorAfterPresetLoad()
+juce::StringArray JQGunkAudioProcessor::syncOscillatorAfterPresetLoad()
 {
-    customWavetablePath = {};
-    paramWhenCustomLoaded = -1;
-    const int waveIdx = (int) apvts.getRawParameterValue (ParamIDs::waveform)->load();
-    oscillator.setWaveform (static_cast<WaveformType> (waveIdx + 1));
+    juce::StringArray missing;
+    auto xml = apvts.copyState().createXml();
+    if (! xml) return missing;
+    restoreOscWavetable (xml.get(), 1, missing);
+    restoreOscWavetable (xml.get(), 2, missing);
+    transientSamplePath = xml->getStringAttribute ("transientSamplePath", {});
+    if (transientSamplePath.isNotEmpty())
+    {
+        juce::File f (transientSamplePath);
+        if (f.existsAsFile())  transientPlayer.loadFromFile (f);
+        else
+        {
+            missing.add ("Transient sample: " + transientSamplePath);
+            transientSamplePath = {};
+        }
+    }
+    irSamplePath = xml->getStringAttribute ("irSamplePath", {});
+    if (irSamplePath.isNotEmpty())
+    {
+        juce::File f (irSamplePath);
+        if (f.existsAsFile()) irConvolution.loadIR (f);
+        else
+        {
+            missing.add ("Impulse response: " + irSamplePath);
+            irSamplePath = {};
+        }
+    }
+    return missing;
+}
 
-    customWavetable2Path = {};
-    param2WhenCustomLoaded = -1;
-    const int wave2Idx = (int) apvts.getRawParameterValue (ParamIDs::osc2Waveform)->load();
-    osc2.setWaveform (static_cast<WaveformType> (wave2Idx + 1));
+//==============================================================================
+juce::File JQGunkAudioProcessor::getWavetablesDir()
+{
+    auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                 .getChildFile ("JQGunk/Wavetables");
+    if (d.isDirectory()) return d;
+  #if ! JUCE_WINDOWS
+    juce::File sys ("/usr/share/JQGunk/Wavetables");
+    if (sys.isDirectory()) return sys;
+  #endif
+    return d;
+}
+
+juce::String JQGunkAudioProcessor::toPresetPath (const juce::String& absPath)
+{
+    if (absPath.isEmpty()) return {};
+    juce::File f (absPath);
+    juce::String rel = f.getRelativePathFrom (getWavetablesDir());
+    return rel.startsWith ("..") ? absPath : rel;
+}
+
+juce::String JQGunkAudioProcessor::fromPresetPath (const juce::String& savedPath)
+{
+    if (savedPath.isEmpty() || juce::File::isAbsolutePath (savedPath))
+        return savedPath;
+    return getWavetablesDir().getChildFile (savedPath).getFullPathName();
+}
+
+bool JQGunkAudioProcessor::saveUserPreset (const juce::String& name)
+{
+    return presetManager.saveUserPreset (name,
+                                         toPresetPath (customWavetablePath),
+                                         toPresetPath (customWavetable2Path),
+                                         transientSamplePath,
+                                         irSamplePath);
 }
 
 //==============================================================================
@@ -818,6 +965,10 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml->setAttribute ("transientSamplePath", transientSamplePath);
     else
         xml->removeAttribute ("transientSamplePath");
+    if (irConvolution.isLoaded())
+        xml->setAttribute ("irSamplePath", irSamplePath);
+    else
+        xml->removeAttribute ("irSamplePath");
     xml->setAttribute ("currentPresetIndex", presetManager.getCurrentIndex());
     copyXmlToBinary (*xml, dest);
 
@@ -828,7 +979,8 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
             + " | xml=" + xml->toString());
 }
 
-void JQGunkAudioProcessor::restoreOscWavetable (const juce::XmlElement* xml, int oscIdx)
+void JQGunkAudioProcessor::restoreOscWavetable (const juce::XmlElement* xml, int oscIdx,
+                                                  juce::StringArray& missingFiles)
 {
     WavetableOscillator& oscRef  = (oscIdx == 1) ? oscillator : osc2;
     juce::String&        pathRef = (oscIdx == 1) ? customWavetablePath : customWavetable2Path;
@@ -836,7 +988,7 @@ void JQGunkAudioProcessor::restoreOscWavetable (const juce::XmlElement* xml, int
     const juce::String   attrName = (oscIdx == 1) ? "customWavetablePath" : "customWavetablePath2";
     const juce::String   waveId   = (oscIdx == 1) ? ParamIDs::waveform : ParamIDs::osc2Waveform;
 
-    pathRef = xml->getStringAttribute (attrName, {});
+    pathRef = fromPresetPath (xml->getStringAttribute (attrName, {}));
     const int waveIdx = (int) apvts.getRawParameterValue (waveId)->load();
 
     if (pathRef.isNotEmpty())
@@ -850,7 +1002,9 @@ void JQGunkAudioProcessor::restoreOscWavetable (const juce::XmlElement* xml, int
         }
         else
         {
-            // File gone — restore standard waveform
+            // File gone — report and restore standard waveform
+            const juce::String label = (oscIdx == 1) ? "OSC1 wavetable" : "OSC2 wavetable";
+            missingFiles.add (label + ": " + pathRef);
             pathRef = {};
             oscRef.setWaveform (static_cast<WaveformType> (waveIdx + 1));
             paramRef = -1;
@@ -884,8 +1038,11 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
     const int waveIdx = (int) apvts.getRawParameterValue (ParamIDs::waveform)->load();
     dbgLog ("setStateInformation: after replaceState | waveParam=" + juce::String (waveIdx));
 
-    restoreOscWavetable (xml.get(), 1);
-    restoreOscWavetable (xml.get(), 2);
+    {
+        juce::StringArray ignored;
+        restoreOscWavetable (xml.get(), 1, ignored);
+        restoreOscWavetable (xml.get(), 2, ignored);
+    }
 
     // Transient sample
     transientSamplePath = xml->getStringAttribute ("transientSamplePath", {});
@@ -896,6 +1053,15 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
             transientPlayer.loadFromFile (f);
         else
             transientSamplePath = {};
+    }
+
+    // Impulse response
+    irSamplePath = xml->getStringAttribute ("irSamplePath", {});
+    if (irSamplePath.isNotEmpty())
+    {
+        juce::File f (irSamplePath);
+        if (f.existsAsFile()) irConvolution.loadIR (f);
+        else                  irSamplePath = {};
     }
 
     dbgLog ("setStateInformation: restored waveforms | waveIdx=" + juce::String (waveIdx)

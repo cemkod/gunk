@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(JQGunk VERSION 0.2.2)
+project(JQGunk VERSION 0.3.0)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -31,9 +31,10 @@ endif()
 # bundled ooura FFT, avoiding every platform-specific optional dependency.
 FetchContent_Declare(
     aubio_src
-    GIT_REPOSITORY https://github.com/aubio/aubio.git
-    GIT_TAG        0.4.9
-    GIT_SHALLOW    TRUE
+    # Fork with skip-phas-norm-only-odfs optimisation (PR pending upstream).
+    # Pin to a specific commit so builds are reproducible; update when upstream merges.
+    GIT_REPOSITORY https://github.com/cemkod/aubio.git
+    GIT_TAG        ebdc61089568f3167cbeeabc11e48dbc104afbfc
 )
 FetchContent_GetProperties(aubio_src)
 if(NOT aubio_src_POPULATED)
@@ -174,6 +175,15 @@ add_custom_target(install-wavetables
         "${CMAKE_SOURCE_DIR}/Wavetables"
         "$ENV{HOME}/.config/JQGunk/Wavetables"
     COMMENT "Installing factory wavetables to ~/.config/JQGunk/Wavetables"
+)
+
+add_custom_target(install-irs
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$ENV{HOME}/.config/JQGunk/Impulse Responses"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/ImpulseResponses/Factory"
+        "$ENV{HOME}/.config/JQGunk/Impulse Responses"
+    COMMENT "Installing factory impulse responses to ~/.config/JQGunk/Impulse Responses"
 )
 
 target_compile_definitions(JQGunk PUBLIC

@@ -1,5 +1,6 @@
 #include "CombinedOscSectionComponent.h"
 #include "LookAndFeel.h"
+#include "ParameterIDs.h"
 
 static juce::File getWavetablesDir()
 {
@@ -22,7 +23,10 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
       osc1    ("", ids1, avts, true),
       osc2Comp("", ids2, avts, true),
       octAttach1 (avts, ids1.octaveShift, octCombo1),
-      octAttach2 (avts, ids2.octaveShift, octCombo2)
+      octAttach2 (avts, ids2.octaveShift, octCombo2),
+      pwrAttach1 (avts, ParamIDs::osc1Enabled, pwrBtn1),
+      pwrAttach2 (avts, ParamIDs::osc2Enabled, pwrBtn2)
+
 {
     paramIds[0] = ids1;
     paramIds[1] = ids2;
@@ -61,6 +65,12 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     tabBtn1.onClick = [this] { selectOsc (0); };
     tabBtn2.onClick = [this] { selectOsc (1); };
     tabBtn1.setToggleState (true, juce::dontSendNotification);
+
+    for (auto* b : { &pwrBtn1, &pwrBtn2 })
+    {
+        b->setClickingTogglesState (true);
+        addAndMakeVisible (b);
+    }
 
     // Waveform display + unison display
     addAndMakeVisible (waveformDisplay);
@@ -294,16 +304,28 @@ void CombinedOscSectionComponent::resized()
     auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
     inner.removeFromTop (UIConst::sectionHeaderH); // section label row
 
-    // Tab buttons sit in the header bar (not consuming inner space)
+    // Tab buttons + power buttons sit in the header bar (not consuming inner space)
     {
-        const int btnW = 18;
+        const int tabW = 18;
+        const int pwrW = 14;
         const int btnH = 13;
+        const int gap  = 2;
         const int pad  = UIConst::sectionInnerPad;
+        // Each group: [pwr][tab], two groups side by side with a small gap between groups
+        const int groupW = pwrW + gap + tabW;
+        const int totalW = groupW * 2 + gap * 2;
         auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
-        auto btnArea = header.removeFromRight (pad + btnW * 2)
-                             .withSizeKeepingCentre (btnW * 2, btnH);
-        tabBtn1.setBounds (btnArea.removeFromLeft (btnW));
-        tabBtn2.setBounds (btnArea);
+        auto btnArea = header.removeFromRight (pad + totalW)
+                             .withSizeKeepingCentre (totalW, btnH);
+        // Group 1: osc1
+        pwrBtn1.setBounds (btnArea.removeFromLeft (pwrW));
+        btnArea.removeFromLeft (gap);
+        tabBtn1.setBounds (btnArea.removeFromLeft (tabW));
+        btnArea.removeFromLeft (gap * 2);
+        // Group 2: osc2
+        pwrBtn2.setBounds (btnArea.removeFromLeft (pwrW));
+        btnArea.removeFromLeft (gap);
+        tabBtn2.setBounds (btnArea.removeFromLeft (tabW));
     }
 
     // Waveform display (left half) + placeholder (right half)

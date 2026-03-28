@@ -2,11 +2,11 @@
 
 A JUCE-based audio effect plugin (VST3 + Standalone) for bass synthesis and processing.
 
-JQ Gunk detects the pitch of an incoming bass signal and synthesises oscillator tones at that frequency, shaped by a resonant filter controllable via the modulation matrix, and a transient player. The result can be blended with the dry signal.
+JQ Gunk detects the pitch of an incoming bass signal and synthesises oscillator tones at that frequency, shaped by a resonant filter controllable via the modulation matrix, a transient player, and an impulse response convolution engine. The result can be blended with the dry signal.
 
 ## Signal Flow
 
-**Audio In → Pitch Detector → Oscillators (OSC 1 + OSC 2 + Sub) → Envelope Gate → Resonant Filter → Transient Player → Mix → Audio Out**
+**Audio In → Pitch Detector → Oscillators (OSC 1 + OSC 2 + Sub) → Envelope Gate → Resonant Filter → Transient Player → IR Convolution → Mix → Audio Out**
 
 Modulation: **LFO / Envelope / Mod Envelope / Pitch → Mod Matrix (8 slots) → per-block parameter offsets**
 
@@ -23,6 +23,8 @@ Modulation: **LFO / Envelope / Mod Envelope / Pitch → Mod Matrix (8 slots) →
 - **Modulation matrix** — 8 slots, 5 sources (Envelope, Pitch, Mod Envelope, LFO, None) × 18 targets
 - **Modulation envelope** — dedicated attack/decay envelope for mod matrix sources
 - **Transient player** — load a WAV/AIFF sample triggered on onset detection, with pitch tracking, attack/hold/decay envelope, and dry signal gating
+- **Impulse response convolution** — load a WAV IR file for cabinet/room simulation; wet/dry mix and makeup gain controls; factory IRs included
+- **Per-section power toggles** — independently bypass OSC 1, OSC 2, Sub, Filter, Transient, and IR sections
 - **Gate** — threshold + hysteresis to suppress noise when no bass is playing
 - **Amp envelope source** — choose between input signal or mod envelope module for amplitude shaping
 - **Dry level** — blend the processed signal with the original
@@ -75,6 +77,14 @@ cmake --build build --target install-wavetables
 ```
 
 Copies the factory wavetable library to `~/.config/JQGunk/Wavetables/`. 192 files across 6 categories (Basic, Generated, Oneshot, Rhythmic, Sampled, Waldorf) in `.wt` and `.wav` formats.
+
+## Installing Factory Impulse Responses
+
+```bash
+cmake --build build --target install-irs
+```
+
+Copies the factory impulse responses to `~/.config/JQGunk/Impulse Responses/`.
 
 ## Parameters
 
@@ -146,6 +156,13 @@ Copies the factory wavetable library to `~/.config/JQGunk/Wavetables/`. 192 file
 | Transient Decay | 0.0001–0.2 s | 0.1 | Sample envelope decay |
 | Transient Dry | 0–1 | 0 | Dry signal gate amount during transient |
 
+### Impulse Response
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| IR Mix | 0–1 | 0.5 | Dry/wet blend (0 = dry only, 1 = wet only) |
+| IR Makeup | 0–4 (gain) | 1.0 | Post-convolution makeup gain |
+
 ### Output
 
 | Parameter | Range | Default | Description |
@@ -186,7 +203,7 @@ JQ Gunk is licensed under the [GNU General Public License v3](LICENSE) (GPL-3.0-
 |---------|---------|---------|-------------|
 | [JUCE](https://github.com/juce-framework/JUCE) | 7.0.12 | GPLv3 / Commercial | Audio plugin framework |
 | [Cycfi Q](https://github.com/cycfi/q) | master | MIT | Envelope follower and noise gate DSP |
-| [Aubio](https://github.com/aubio/aubio) | 0.4.9 | GPLv3 | Onset/transient detection |
+| [Aubio](https://github.com/cemkod/aubio) (fork) | pinned commit | GPLv3 | Onset/transient detection (skip-phas-norm-only-odfs optimisation, PR pending upstream) |
 | [Surge XT Wavetables](https://github.com/surge-synthesizer/surge) | — | GPLv3 | Factory wavetable library (192 files) |
 
 See [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) for full license texts and attribution.

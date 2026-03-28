@@ -64,28 +64,24 @@ public:
         const float toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
         // Full-range track arc
-        {
-            juce::Path track;
-            track.addArc (cx - radius, cy - radius,
-                          radius * 2.0f, radius * 2.0f,
-                          rotaryStartAngle, rotaryEndAngle, true);
-            g.setColour (border);
-            g.strokePath (track, juce::PathStrokeType (UIConst::knobArcStrokeWidth,
-                juce::PathStrokeType::curved,
-                juce::PathStrokeType::rounded));
-        }
+        rotaryTrack.clear();
+        rotaryTrack.addArc (cx - radius, cy - radius,
+                      radius * 2.0f, radius * 2.0f,
+                      rotaryStartAngle, rotaryEndAngle, true);
+        g.setColour (border);
+        g.strokePath (rotaryTrack, juce::PathStrokeType (UIConst::knobArcStrokeWidth,
+            juce::PathStrokeType::curved,
+            juce::PathStrokeType::rounded));
 
         // Value arc
-        {
-            juce::Path value;
-            value.addArc (cx - radius, cy - radius,
-                          radius * 2.0f, radius * 2.0f,
-                          rotaryStartAngle, toAngle, true);
-            g.setColour (accent);
-            g.strokePath (value, juce::PathStrokeType (UIConst::knobArcStrokeWidth,
-                juce::PathStrokeType::curved,
-                juce::PathStrokeType::rounded));
-        }
+        rotaryValue.clear();
+        rotaryValue.addArc (cx - radius, cy - radius,
+                      radius * 2.0f, radius * 2.0f,
+                      rotaryStartAngle, toAngle, true);
+        g.setColour (accent);
+        g.strokePath (rotaryValue, juce::PathStrokeType (UIConst::knobArcStrokeWidth,
+            juce::PathStrokeType::curved,
+            juce::PathStrokeType::rounded));
 
         // Knob body
         const float bodyRadius = radius * UIConst::knobBodyRadiusRatio;
@@ -201,12 +197,12 @@ public:
         // Draw arrow
         const float arrowX = (float) w - 14.0f;
         const float arrowY = (float) h * 0.5f;
-        juce::Path arrow;
-        arrow.addTriangle (arrowX, arrowY - 3.0f,
+        comboArrow.clear();
+        comboArrow.addTriangle (arrowX, arrowY - 3.0f,
                            arrowX + 8.0f, arrowY - 3.0f,
                            arrowX + 4.0f, arrowY + 3.0f);
         g.setColour (textDim);
-        g.fillPath (arrow);
+        g.fillPath (comboArrow);
     }
 
     juce::Font getComboBoxFont (juce::ComboBox&) override
@@ -220,4 +216,7 @@ public:
         label.setFont (getComboBoxFont (box));
         label.setColour (juce::Label::textColourId, text);
     }
+
+private:
+    juce::Path rotaryTrack, rotaryValue, comboArrow;
 };

@@ -14,6 +14,11 @@ FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
 {
     addAndMakeVisible (displayComponent);
 
+    enableBtn.setClickingTogglesState (true);
+    addAndMakeVisible (enableBtn);
+    enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        avts, ParamIDs::filterEnabled, enableBtn);
+
     filterTypeCombo.addItem ("LP", 1);
     filterTypeCombo.addItem ("HP", 2);
     filterTypeCombo.addItem ("BP", 3);
@@ -31,6 +36,14 @@ FilterSectionComponent::~FilterSectionComponent()
 
 void FilterSectionComponent::resized()
 {
+    {
+        const int btnW = 18, btnH = 13;
+        auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
+        auto btnArea = header.removeFromRight (UIConst::sectionInnerPad + btnW)
+                             .withSizeKeepingCentre (btnW, btnH);
+        enableBtn.setBounds (btnArea);
+    }
+
     auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
     inner.removeFromTop (UIConst::sectionHeaderH); // skip section label row
 

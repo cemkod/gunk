@@ -8,9 +8,11 @@
 #include "GlideEngine.h"
 #include "PresetManager.h"
 #include "TransientPlayer.h"
+#include "IRConvolutionEngine.h"
 #include "ModMatrix.h"
 #include "LFOEngine.h"
 #include "AubioOnsetDetector.h"
+#include "ParamCache.h"
 #include <q/fx/envelope.hpp>
 #include <q/fx/noise_gate.hpp>
 #include <q/support/literals.hpp>
@@ -63,15 +65,19 @@ public:
     bool isTransientSampleLoaded() const;
     juce::String getTransientSamplePath() const;
 
+    bool loadIRFromFile (const juce::File& file);
+    juce::String getIRSamplePath() const;
+    static juce::File getIRPresetsDir();
+
     int getOscNumFrames()  const { return oscillator.getNumFrames(); }
     int getOsc2NumFrames() const { return osc2.getNumFrames(); }
 
-    std::vector<float> getOscFrameForDisplay (int oscIdx) const
+    void getOscFrameForDisplay (int oscIdx, std::vector<float>& out) const
     {
         float morph = (oscIdx == 0)
             ? lastModulatedMorph .load (std::memory_order_relaxed)
             : lastModulatedMorph2.load (std::memory_order_relaxed);
-        return (oscIdx == 0 ? oscillator : osc2).getFrameForDisplay (morph);
+        (oscIdx == 0 ? oscillator : osc2).getFrameForDisplay (morph, out);
     }
 
     juce::String getOscWavetableName (int oscIdx) const
@@ -104,7 +110,10 @@ public:
     float getLFOValue() const          { return lfo.getValue(); }
 
     PresetManager& getPresetManager() { return presetManager; }
-    void syncOscillatorAfterPresetLoad();
+    juce::StringArray syncOscillatorAfterPresetLoad();
+
+    static juce::File getWavetablesDir();
+    bool saveUserPreset (const juce::String& name);
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -112,14 +121,18 @@ private:
     // All block-rate parameter snapshots and their derived values.
     struct BlockParams
     {
+        bool  osc1Enabled;
+        bool  osc2Enabled;
         float oscLevel;
         float dryLevel;
         float gateThresh;
         float openThresh;      // derived: gateThresh * 10^(gateHyst/20)
+        bool  subEnabled;
         float subLevel;
         int   subOctaveIdx;
         float subOctaveMult;   // derived from subOctaveIdx
         bool  subBypassFilter;
+        bool  filterEnabled;
         float resonance;
         int   filterType;
         float freqTracking;
@@ -131,6 +144,7 @@ private:
         int   osc2OctaveShift;
         float osc1PitchMult;   // derived: pow(2, (coarseTune + fineTune/100) / 12)
         float osc2PitchMult;   // derived: pow(2, (osc2CoarseTune + osc2FineTune/100) / 12)
+        bool  transientEnabled;
         float transientLevel;
         float transientAttack;
         float transientHold;
@@ -149,11 +163,11 @@ private:
     {
         WavetableOscillator&  osc;
         int&                  paramWhenCustomLoaded;
-        const char*           waveformId;
-        const char*           voicesId;
-        const char*           detuneId;
-        const char*           blendId;
-        const char*           morphId;
+        std::atomic<float>*   waveformPtr;
+        std::atomic<float>*   voicesPtr;
+        std::atomic<float>*   detunePtr;
+        std::atomic<float>*   blendPtr;
+        std::atomic<float>*   morphPtr;
         ModTarget             detuneTarget;
         ModTarget             blendTarget;
         ModTarget             morphTarget;
@@ -181,6 +195,7 @@ private:
         juce::HeapBlock<float> transientEnv;  // transient player envelope (for dry gating)
         juce::HeapBlock<float> gatedInput;    // gated copy of input for pitch thread
         juce::HeapBlock<float> pitchNorm;     // per-sample normalized pitch for mod matrix
+        juce::HeapBlock<float> irMixBuf;      // pre-IR full mix (dry+wet+transient)
         int capacity = 0;
 
         void prepare (int maxBlockSize)
@@ -194,12 +209,17 @@ private:
             osc2Out.realloc (maxBlockSize);      subOut.realloc (maxBlockSize);
             transientOut.realloc (maxBlockSize); transientEnv.realloc (maxBlockSize);
             gatedInput.realloc (maxBlockSize);   pitchNorm.realloc (maxBlockSize);
+            irMixBuf.realloc (maxBlockSize);
         }
     };
 
     float       updateModEnvelopeSample  (float envSample, const BlockParams& p);
     void        updateTransientDetection (const BlockParams& p, float inputSample);
-    void        restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx);
+    void        restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx,
+                                           juce::StringArray& missingFiles);
+
+    juce::String toPresetPath   (const juce::String& absPath);
+    juce::String fromPresetPath (const juce::String& savedPath);
 
     PresetManager presetManager { apvts };
 
@@ -215,6 +235,9 @@ private:
 
     TransientPlayer transientPlayer;
     juce::String    transientSamplePath;
+
+    IRConvolutionEngine irConvolution;
+    juce::String        irSamplePath;
 
     GlideEngine glide;
     ModMatrix   modMatrix;
@@ -275,9 +298,13 @@ private:
     PerfStats perfSetup, perfLoop, perfOnset;
     PerfStats perfOsc1, perfOsc2, perfSub, perfFilter;
     PerfStats perfTransient, perfModMatrix, perfControl, perfMix;
-    int perfBlockCount = 0;
+    int   perfBlockCount  = 0;
+    float outMaxAbsEver   = 0.0f;  // peak |output| per PERF interval
+    int   outNaNCount     = 0;     // non-finite output samples per interval
     static constexpr int kPerfPrintInterval = 500;
 #endif
+
+    ParamCache params;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JQGunkAudioProcessor)
 };
