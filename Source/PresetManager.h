@@ -16,7 +16,11 @@ public:
     const std::vector<PresetEntry>& getPresets() const { return presets; }
 
     bool loadPreset (int index);
-    bool saveUserPreset (const juce::String& name);
+    bool saveUserPreset (const juce::String& name,
+                         const juce::String& wt1Path = {},
+                         const juce::String& wt2Path = {},
+                         const juce::String& transientPath = {},
+                         const juce::String& irPath = {});
     bool deleteUserPreset (int index);
 
     int getCurrentIndex() const { return currentIndex; }

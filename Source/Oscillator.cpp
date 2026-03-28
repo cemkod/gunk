@@ -431,20 +431,19 @@ void WavetableOscillator::reset()
     currentBaseFreq = 0.0;
 }
 
-std::vector<float> WavetableOscillator::getFrameForDisplay (float morphPos) const
+void WavetableOscillator::getFrameForDisplay (float morphPos, std::vector<float>& out) const
 {
     juce::SpinLock::ScopedTryLockType sl (tableLock);
-    if (! sl.isLocked() || frames.empty()) return {};
+    if (! sl.isLocked() || frames.empty()) return;
 
     const float mp   = juce::jlimit (0.0f, 1.0f, morphPos) * (float) (numFrames - 1);
     const int   fa   = (int) mp;
     const int   fb   = juce::jmin (fa + 1, numFrames - 1);
     const float frac = mp - (float) fa;
 
-    std::vector<float> result ((size_t) kTableSize);
+    out.resize ((size_t) kTableSize);
     for (int i = 0; i < kTableSize; ++i)
-        result[(size_t) i] = frames[(size_t) fa][(size_t) i]
-                           + frac * (frames[(size_t) fb][(size_t) i]
-                                   - frames[(size_t) fa][(size_t) i]);
-    return result;
+        out[(size_t) i] = frames[(size_t) fa][(size_t) i]
+                        + frac * (frames[(size_t) fb][(size_t) i]
+                                - frames[(size_t) fa][(size_t) i]);
 }

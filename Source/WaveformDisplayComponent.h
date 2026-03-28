@@ -6,20 +6,18 @@
 #include <functional>
 #include <vector>
 
-class WaveformDisplayComponent : public juce::Component,
-                                 private juce::Timer
+class WaveformDisplayComponent : public juce::Component
 {
 public:
-    std::function<std::vector<float>()> getDisplayFrame;
+    std::function<void(std::vector<float>&)> getDisplayFrame;
 
-    WaveformDisplayComponent()
-    {
-        startTimerHz (15);
-    }
+    WaveformDisplayComponent() : cachedFrame (2048, 0.0f) {}
 
-    ~WaveformDisplayComponent() override
+    // Call this before repaint() to refresh the cached frame without allocating in paint().
+    void updateFrame()
     {
-        stopTimer();
+        if (getDisplayFrame)
+            getDisplayFrame (cachedFrame);
     }
 
     void paint (juce::Graphics& g) override
@@ -35,9 +33,8 @@ public:
         auto drawArea = bounds.reduced (1);
 
         // Waveform path
-        if (getDisplayFrame)
         {
-            const auto frame = getDisplayFrame();
+            const auto& frame = cachedFrame;
             if (! frame.empty())
             {
                 const float x0 = (float) drawArea.getX();
@@ -47,30 +44,35 @@ public:
                 const float cy = y0 + h * 0.5f;
                 const float amp = h * 0.45f;
 
-                const int n = (int) frame.size();
-                juce::Path path, fill;
-                path.startNewSubPath (x0, cy - frame[0] * amp);
-                fill.startNewSubPath (x0, y0 + h);
-                fill.lineTo (x0, cy - frame[0] * amp);
-                for (int i = 1; i < n; ++i)
+                const int n    = (int) frame.size();
+                const int numPx = juce::jmax (2, (int) w);
+
+                wavePath.clear();
+                fillPath.clear();
+                wavePath.startNewSubPath (x0, cy - frame[0] * amp);
+                fillPath.startNewSubPath (x0, y0 + h);
+                fillPath.lineTo (x0, cy - frame[0] * amp);
+                for (int px = 1; px < numPx; ++px)
                 {
-                    const float x = x0 + (float) i / (float) (n - 1) * w;
-                    const float py = cy - frame[(size_t) i] * amp;
-                    path.lineTo (x, py);
-                    fill.lineTo (x, py);
+                    const int idx  = (int) ((float) px / (float) (numPx - 1) * (float) (n - 1) + 0.5f);
+                    const float x  = x0 + (float) px / (float) (numPx - 1) * w;
+                    const float py = cy - frame[(size_t) juce::jlimit (0, n - 1, idx)] * amp;
+                    wavePath.lineTo (x, py);
+                    fillPath.lineTo (x, py);
                 }
-                fill.lineTo (x0 + w, y0 + h);
-                fill.closeSubPath();
+                fillPath.lineTo (x0 + w, y0 + h);
+                fillPath.closeSubPath();
                 g.setColour (BassLookAndFeel::accent.withAlpha (UIConst::displayFillAlpha));
-                g.fillPath (fill);
+                g.fillPath (fillPath);
                 g.setColour (BassLookAndFeel::accent);
-                g.strokePath (path, juce::PathStrokeType (UIConst::displayStrokeWidth));
+                g.strokePath (wavePath, juce::PathStrokeType (UIConst::displayStrokeWidth));
             }
         }
     }
 
 private:
-    void timerCallback() override { repaint(); }
+    std::vector<float> cachedFrame;
+    juce::Path wavePath, fillPath;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaveformDisplayComponent)
 };

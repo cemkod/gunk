@@ -13,11 +13,16 @@ public:
 
     void pushSample (float envelope, bool gateOpen, bool transientFired = false)
     {
+        const float evicted = history[(size_t) writePos];
         history[(size_t) writePos] = envelope;
         transientHistory[(size_t) writePos] = transientFired;
         writePos = (writePos + 1) % (int) history.size();
         lastGateOpen = gateOpen;
-        repaint();
+        if (transientFired || gateOpen != lastPaintedGateOpen || std::abs (envelope - evicted) > 0.001f)
+        {
+            lastPaintedGateOpen = gateOpen;
+            repaint();
+        }
     }
 
     void paint (juce::Graphics& g) override
@@ -63,7 +68,8 @@ public:
             ? BassLookAndFeel::accent
             : BassLookAndFeel::accent.withAlpha (0.35f);
 
-        juce::Path wavePath, fillPath;
+        wavePath.clear();
+        fillPath.clear();
         bool pathStarted = false;
 
         for (int i = 0; i < N; ++i)
@@ -115,8 +121,10 @@ private:
     juce::AudioProcessorValueTreeState& apvts;
     std::vector<float> history;
     std::vector<bool> transientHistory;
-    int writePos = 0;
-    bool lastGateOpen = false;
+    int   writePos           = 0;
+    bool  lastGateOpen       = false;
+    bool lastPaintedGateOpen = false;
+    juce::Path wavePath, fillPath;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GateDisplayComponent)
 };

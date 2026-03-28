@@ -18,7 +18,7 @@ public:
 
     void  setMorph (float pos);                 // 0..1
     int   getNumFrames() const { return numFrames; }
-    std::vector<float> getFrameForDisplay (float morphPos) const;
+    void getFrameForDisplay (float morphPos, std::vector<float>& out) const;
 
     void  setFrequency (double freq, double sampleRate);
     void  setUnisonParams (int voices, float detuneCents, float blend);

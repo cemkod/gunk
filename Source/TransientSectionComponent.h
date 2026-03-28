@@ -4,6 +4,8 @@
 #include "LabelledSectionComponent.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
+#include "PowerToggleButton.h"
+#include "ParameterIDs.h"
 
 class TransientSectionComponent : public LabelledSectionComponent
 {
@@ -19,8 +21,11 @@ public:
           dryAttach    (avts, "transientDry",    drySlider),
           attackAttach (avts, "transientAttack", attackSlider),
           holdAttach   (avts, "transientHold",   holdSlider),
-          decayAttach  (avts, "transientDecay",  decaySlider)
+          decayAttach  (avts, "transientDecay",  decaySlider),
+          pwrAttach    (avts, ParamIDs::transientEnabled, pwrBtn)
     {
+        pwrBtn.setClickingTogglesState (true);
+        addAndMakeVisible (pwrBtn);
         BassLookAndFeel::setupRotarySlider (pitchSlider,  pitchLabel,  "PITCH",  *this);
         BassLookAndFeel::setupRotarySlider (levelSlider,  levelLabel,  "LEVEL",  *this);
         BassLookAndFeel::setupRotarySlider (drySlider,    dryLabel,    "DRY",    *this);
@@ -59,6 +64,15 @@ public:
 
     void resized() override
     {
+        // Power button in header bar (top-right)
+        {
+            const int btnH = UIConst::sectionHeaderH - 4;
+            const int btnW = btnH;
+            auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
+            pwrBtn.setBounds (header.removeFromRight (btnW + UIConst::sectionInnerPad)
+                                    .withSizeKeepingCentre (btnW, btnH));
+        }
+
         auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
         inner.removeFromTop (UIConst::sectionHeaderH); // section label row
 
@@ -122,6 +136,9 @@ private:
     juce::TextButton loadBtn { "DROP SAMPLE" };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+
+    PowerToggleButton pwrBtn;
+    juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TransientSectionComponent)
 };

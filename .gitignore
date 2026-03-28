@@ -23,3 +23,11 @@ install_manifest.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Wavetables — ignore source/working files, keep only .wt
+Wavetables/Gunk/*.wav
+Wavetables/Gunk/**/*.wav
+Wavetables/Gunk/peaks/
+Wavetables/Gunk/Media/
+Wavetables/Gunk/*.RPP
+*.reapeaks

@@ -5,6 +5,7 @@
 #include "ParameterIDs.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
+#include "PowerToggleButton.h"
 
 class SubOscSectionComponent : public LabelledSectionComponent
 {
@@ -12,9 +13,13 @@ public:
     SubOscSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("SUB"),
           apvts (avts),
-          subLevelAttach (avts, ParamIDs::subLevel,  subLevelSlider),
-          subOctAttach   (avts, ParamIDs::subOctave, subOctCombo)
+          subLevelAttach (avts, ParamIDs::subLevel,   subLevelSlider),
+          subOctAttach   (avts, ParamIDs::subOctave,  subOctCombo),
+          pwrAttach      (avts, ParamIDs::subEnabled, pwrBtn)
     {
+        pwrBtn.setClickingTogglesState (true);
+        addAndMakeVisible (pwrBtn);
+
         BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "LEVEL", *this);
 
         octLabel.setText ("OCTAVE", juce::dontSendNotification);
@@ -57,6 +62,15 @@ public:
 
     void resized() override
     {
+        // Power button in header bar (top-right)
+        {
+            const int btnH = UIConst::sectionHeaderH - 4;
+            const int btnW = btnH;
+            auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
+            pwrBtn.setBounds (header.removeFromRight (btnW + UIConst::sectionInnerPad)
+                                    .withSizeKeepingCentre (btnW, btnH));
+        }
+
         auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
         inner.removeFromTop (UIConst::sectionHeaderH); // skip section label row
 
@@ -88,6 +102,9 @@ private:
     juce::AudioProcessorValueTreeState::ComboBoxAttachment subOctAttach;
 
     juce::TextButton bypassFilterBtn { "BYPASS FILT" };
+
+    PowerToggleButton pwrBtn;
+    juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SubOscSectionComponent)
 };

@@ -52,7 +52,10 @@ float AutocorrelationPitchDetector::processBlock(const float* data, int numSampl
     windowBuf[writePos] = lpf.processSample (data[i]);
     writePos = (writePos + 1) % kWindowSize;
   }
-  totalWritten += numSamples;
+  // Cap totalWritten to avoid signed integer overflow (~12h at 48 kHz).
+  // Once we have enough data we only need the flag to remain true.
+  if (totalWritten < activeWindowSize)
+    totalWritten += numSamples;
 
   // Run detection if we have accumulated enough data
   if (totalWritten >= activeWindowSize)

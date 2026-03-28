@@ -1,0 +1,115 @@
+#pragma once
+#include <JuceHeader.h>
+#include "ParameterIDs.h"
+
+struct ParamCache
+{
+    std::atomic<float>* osc1Enabled      = nullptr;
+    std::atomic<float>* osc2Enabled      = nullptr;
+    std::atomic<float>* oscLevel         = nullptr;
+    std::atomic<float>* dryLevel         = nullptr;
+    std::atomic<float>* gateThreshold    = nullptr;
+    std::atomic<float>* gateHysteresis   = nullptr;
+    std::atomic<float>* subEnabled       = nullptr;
+    std::atomic<float>* subLevel         = nullptr;
+    std::atomic<float>* subOctave        = nullptr;
+    std::atomic<float>* subBypassFilter  = nullptr;
+    std::atomic<float>* filterEnabled     = nullptr;
+    std::atomic<float>* envResonance     = nullptr;
+    std::atomic<float>* filterType       = nullptr;
+    std::atomic<float>* freqTracking     = nullptr;
+    std::atomic<float>* filterFreq       = nullptr;
+    std::atomic<float>* glide            = nullptr;
+    std::atomic<float>* octaveShift      = nullptr;
+    std::atomic<float>* osc2Level        = nullptr;
+    std::atomic<float>* osc2OctaveShift  = nullptr;
+    std::atomic<float>* transientEnabled = nullptr;
+    std::atomic<float>* transientLevel   = nullptr;
+    std::atomic<float>* transientAttack  = nullptr;
+    std::atomic<float>* transientHold    = nullptr;
+    std::atomic<float>* transientDecay   = nullptr;
+    std::atomic<float>* transientPitch   = nullptr;
+    std::atomic<float>* transientDry     = nullptr;
+    std::atomic<float>* coarseTune       = nullptr;
+    std::atomic<float>* fineTune         = nullptr;
+    std::atomic<float>* osc2CoarseTune   = nullptr;
+    std::atomic<float>* osc2FineTune     = nullptr;
+    std::atomic<float>* modEnvAttack     = nullptr;
+    std::atomic<float>* modEnvDecay      = nullptr;
+    std::atomic<float>* transientSens    = nullptr;
+    std::atomic<float>* lfoShape         = nullptr;
+    std::atomic<float>* ampEnvSource     = nullptr;
+    std::atomic<float>* masterVolume     = nullptr;
+    std::atomic<float>* lfoRate          = nullptr;
+    std::atomic<float>* lfoAmount        = nullptr;
+    std::atomic<float>* pitchWindow      = nullptr;
+    std::atomic<float>* waveform         = nullptr;
+    std::atomic<float>* unisonVoices     = nullptr;
+    std::atomic<float>* unisonDetune     = nullptr;
+    std::atomic<float>* unisonBlend      = nullptr;
+    std::atomic<float>* morph            = nullptr;
+    std::atomic<float>* osc2Waveform     = nullptr;
+    std::atomic<float>* osc2UnisonVoices = nullptr;
+    std::atomic<float>* osc2UnisonDetune = nullptr;
+    std::atomic<float>* osc2UnisonBlend  = nullptr;
+    std::atomic<float>* osc2Morph        = nullptr;
+    std::atomic<float>* irEnabled        = nullptr;
+    std::atomic<float>* irMix            = nullptr;
+    std::atomic<float>* irMakeup         = nullptr;
+
+    void init (juce::AudioProcessorValueTreeState& apvts)
+    {
+        osc1Enabled      = apvts.getRawParameterValue (ParamIDs::osc1Enabled);
+        osc2Enabled      = apvts.getRawParameterValue (ParamIDs::osc2Enabled);
+        oscLevel         = apvts.getRawParameterValue (ParamIDs::oscLevel);
+        dryLevel         = apvts.getRawParameterValue (ParamIDs::dryLevel);
+        gateThreshold    = apvts.getRawParameterValue (ParamIDs::gateThreshold);
+        gateHysteresis   = apvts.getRawParameterValue (ParamIDs::gateHysteresis);
+        subEnabled       = apvts.getRawParameterValue (ParamIDs::subEnabled);
+        subLevel         = apvts.getRawParameterValue (ParamIDs::subLevel);
+        subOctave        = apvts.getRawParameterValue (ParamIDs::subOctave);
+        subBypassFilter  = apvts.getRawParameterValue (ParamIDs::subBypassFilter);
+        filterEnabled    = apvts.getRawParameterValue (ParamIDs::filterEnabled);
+        envResonance     = apvts.getRawParameterValue (ParamIDs::envResonance);
+        filterType       = apvts.getRawParameterValue (ParamIDs::filterType);
+        freqTracking     = apvts.getRawParameterValue (ParamIDs::freqTracking);
+        filterFreq       = apvts.getRawParameterValue (ParamIDs::filterFreq);
+        glide            = apvts.getRawParameterValue (ParamIDs::glide);
+        octaveShift      = apvts.getRawParameterValue (ParamIDs::octaveShift);
+        osc2Level        = apvts.getRawParameterValue (ParamIDs::osc2Level);
+        osc2OctaveShift  = apvts.getRawParameterValue (ParamIDs::osc2OctaveShift);
+        transientEnabled = apvts.getRawParameterValue (ParamIDs::transientEnabled);
+        transientLevel   = apvts.getRawParameterValue (ParamIDs::transientLevel);
+        transientAttack  = apvts.getRawParameterValue (ParamIDs::transientAttack);
+        transientHold    = apvts.getRawParameterValue (ParamIDs::transientHold);
+        transientDecay   = apvts.getRawParameterValue (ParamIDs::transientDecay);
+        transientPitch   = apvts.getRawParameterValue (ParamIDs::transientPitch);
+        transientDry     = apvts.getRawParameterValue (ParamIDs::transientDry);
+        coarseTune       = apvts.getRawParameterValue (ParamIDs::coarseTune);
+        fineTune         = apvts.getRawParameterValue (ParamIDs::fineTune);
+        osc2CoarseTune   = apvts.getRawParameterValue (ParamIDs::osc2CoarseTune);
+        osc2FineTune     = apvts.getRawParameterValue (ParamIDs::osc2FineTune);
+        modEnvAttack     = apvts.getRawParameterValue (ParamIDs::modEnvAttack);
+        modEnvDecay      = apvts.getRawParameterValue (ParamIDs::modEnvDecay);
+        transientSens    = apvts.getRawParameterValue (ParamIDs::transientSens);
+        lfoShape         = apvts.getRawParameterValue (ParamIDs::lfoShape);
+        ampEnvSource     = apvts.getRawParameterValue (ParamIDs::ampEnvSource);
+        masterVolume     = apvts.getRawParameterValue (ParamIDs::masterVolume);
+        lfoRate          = apvts.getRawParameterValue (ParamIDs::lfoRate);
+        lfoAmount        = apvts.getRawParameterValue (ParamIDs::lfoAmount);
+        pitchWindow      = apvts.getRawParameterValue (ParamIDs::pitchWindow);
+        waveform         = apvts.getRawParameterValue (ParamIDs::waveform);
+        unisonVoices     = apvts.getRawParameterValue (ParamIDs::unisonVoices);
+        unisonDetune     = apvts.getRawParameterValue (ParamIDs::unisonDetune);
+        unisonBlend      = apvts.getRawParameterValue (ParamIDs::unisonBlend);
+        morph            = apvts.getRawParameterValue (ParamIDs::morph);
+        osc2Waveform     = apvts.getRawParameterValue (ParamIDs::osc2Waveform);
+        osc2UnisonVoices = apvts.getRawParameterValue (ParamIDs::osc2UnisonVoices);
+        osc2UnisonDetune = apvts.getRawParameterValue (ParamIDs::osc2UnisonDetune);
+        osc2UnisonBlend  = apvts.getRawParameterValue (ParamIDs::osc2UnisonBlend);
+        osc2Morph        = apvts.getRawParameterValue (ParamIDs::osc2Morph);
+        irEnabled        = apvts.getRawParameterValue (ParamIDs::irEnabled);
+        irMix            = apvts.getRawParameterValue (ParamIDs::irMix);
+        irMakeup         = apvts.getRawParameterValue (ParamIDs::irMakeup);
+    }
+};

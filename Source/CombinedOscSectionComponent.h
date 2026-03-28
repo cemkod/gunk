@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "LabelledSectionComponent.h"
 #include "OscSectionComponent.h"
+#include "PowerToggleButton.h"
 #include "WaveformDisplayComponent.h"
 #include <functional>
 #include <array>
@@ -21,7 +22,7 @@ public:
     std::array<std::function<void()>, 2>                  reactivateCustomWavetable;
     std::array<std::function<bool(const juce::File&)>, 2> loadWavetableFromFile;
     std::array<std::function<int()>, 2>                   getNumFrames;
-    std::array<std::function<std::vector<float>()>, 2>    getDisplayFrame;
+    std::array<std::function<void(std::vector<float>&)>, 2> getDisplayFrame;
     std::array<std::function<juce::String()>, 2>          getWavetableName;
 
     CombinedOscSectionComponent (juce::AudioProcessorValueTreeState& apvts,
@@ -31,6 +32,7 @@ public:
 
     void resized() override;
     void updateButtonStates();
+    void repaintDisplays() { waveformDisplay.updateFrame(); waveformDisplay.repaint(); unisonDisplay.repaint(); }
 
 private:
     juce::AudioProcessorValueTreeState& apvts;
@@ -40,16 +42,11 @@ private:
     WaveformDisplayComponent waveformDisplay;
 
     // Unison spread display — right side of waveform row
-    struct UnisonDisplayComponent : public juce::Component, private juce::Timer
+    struct UnisonDisplayComponent : public juce::Component
     {
         std::function<float()> getVoices;
         std::function<float()> getDetune;
         std::function<float()> getBlend;
-
-        UnisonDisplayComponent()  { startTimerHz (15); }
-        ~UnisonDisplayComponent() { stopTimer(); }
-
-        void timerCallback() override { repaint(); }
 
         void paint (juce::Graphics& g) override
         {
@@ -100,6 +97,9 @@ private:
     juce::ComboBox octCombo1, octCombo2;
     juce::Label    octLabel;
     juce::AudioProcessorValueTreeState::ComboBoxAttachment octAttach1, octAttach2;
+
+    PowerToggleButton pwrBtn1, pwrBtn2;
+    juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach1, pwrAttach2;
 
     int selectedOsc = 0;
 

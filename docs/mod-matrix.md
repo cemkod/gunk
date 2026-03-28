@@ -87,7 +87,7 @@ So APVTS choice index 0 ("None") maps to `ModTarget::None` (= 1), choice index 1
 
 ## Integration in `PluginProcessor` (`Source/PluginProcessor.cpp`)
 
-### Applying offsets — `processBlock()` lines 468–499
+### Applying offsets — `processBlock()`
 
 After `snapshot()`, offsets are applied to block-local parameters before DSP:
 
@@ -114,7 +114,7 @@ updateOscParams({ oscillator, ..., ModTarget::Unison1Detune, ModTarget::Unison1B
 updateOscParams({ osc2,       ..., ModTarget::Unison2Detune, ModTarget::Unison2Blend, ModTarget::Morph2, ... });
 ```
 
-### `updateOscParams()` — lines 358–390
+### `updateOscParams()`
 
 Reads Unison Detune, Blend, and Morph offsets from the mod matrix and applies them to the oscillator. Stores the final modulated values in atomics for UI readback:
 
@@ -124,23 +124,21 @@ cfg.lastBlendOffset .store(blendOffset);   // → lastModBlendOffset  / lastModB
 cfg.lastMorphModulated.store(modulated);   // → lastModulatedMorph  / lastModulatedMorph2
 ```
 
-### `OscUpdateConfig` struct — lines 140–155
+### `OscUpdateConfig` struct
 
-Bundles all per-oscillator parameter IDs and mod targets so `updateOscParams()` is shared between OSC 1 and OSC 2:
+Bundles all per-oscillator parameter pointers and mod targets so `updateOscParams()` is shared between OSC 1 and OSC 2. Fields use raw `std::atomic<float>*` pointers (from `ParamCache`) rather than APVTS string IDs, avoiding repeated map lookups on the audio thread:
 
 ```cpp
 struct OscUpdateConfig {
     WavetableOscillator& osc;
     int&                 paramWhenCustomLoaded;
-    const char*          waveformId, *voicesId, *detuneId, *blendId, *morphId;
+    std::atomic<float>*  waveformPtr, *voicesPtr, *detunePtr, *blendPtr, *morphPtr;
     ModTarget            detuneTarget, blendTarget, morphTarget;
     std::atomic<float>&  lastDetuneOffset, lastBlendOffset, lastMorphModulated;
 };
 ```
 
 ### Atomics for UI readback
-
-Declared in `PluginProcessor.h` lines 177–182:
 
 | Atomic | Written by | Used by |
 |--------|-----------|---------|
@@ -155,7 +153,7 @@ Declared in `PluginProcessor.h` lines 177–182:
 
 ## APVTS Parameters
 
-Declared in `PluginProcessor.cpp` lines 256–273. For each slot `n` (0–7):
+For each slot `n` (0–7):
 
 | Parameter ID | Type | Range | Default | Description |
 |---|---|---|---|---|
