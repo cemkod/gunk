@@ -1105,7 +1105,7 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
         return;
     }
 
-    apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    PresetManager::replaceStateFilling (apvts, *xml);
     presetManager.setCurrentIndex (xml->getIntAttribute ("currentPresetIndex", -1));
 
     const int waveIdx = (int) apvts.getRawParameterValue (ParamIDs::waveform)->load();

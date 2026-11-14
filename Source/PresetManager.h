@@ -26,6 +26,12 @@ public:
     int getCurrentIndex() const { return currentIndex; }
     void setCurrentIndex (int i) { currentIndex = i; }
 
+    // Replaces the APVTS state from xml. APVTS leaves a parameter that has no
+    // <PARAM> child at its previous value, so this adds an empty child for each
+    // missing parameter first, which APVTS resets to the default.
+    static void replaceStateFilling (juce::AudioProcessorValueTreeState& apvts,
+                                     const juce::XmlElement& xml);
+
     static juce::File getFactoryPresetsDir();
     static juce::File getUserPresetsDir();
 

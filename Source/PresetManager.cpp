@@ -51,9 +51,23 @@ bool PresetManager::loadPreset (int index)
     if (index < 0 || index >= (int) presets.size()) return false;
     auto xml = juce::XmlDocument::parse (presets[(size_t) index].file);
     if (! xml || ! xml->hasTagName (apvts.state.getType())) return false;
-    apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    replaceStateFilling (apvts, *xml);
     currentIndex = index;
     return true;
+}
+
+void PresetManager::replaceStateFilling (juce::AudioProcessorValueTreeState& apvts,
+                                         const juce::XmlElement& xml)
+{
+    auto tree = juce::ValueTree::fromXml (xml);
+    for (auto* p : apvts.processor.getParameters())
+    {
+        auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (p);
+        if (withId == nullptr) continue;
+        if (! tree.getChildWithProperty ("id", withId->paramID).isValid())
+            tree.appendChild (juce::ValueTree ("PARAM", { { "id", withId->paramID } }), nullptr);
+    }
+    apvts.replaceState (tree);
 }
 
 bool PresetManager::saveUserPreset (const juce::String& name,
