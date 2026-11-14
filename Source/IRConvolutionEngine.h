@@ -24,13 +24,13 @@ public:
         juce::dsp::ProcessSpec spec;
         spec.sampleRate       = newSampleRate;
         spec.maximumBlockSize = (juce::uint32) maxBlockSize;
-        spec.numChannels      = 1;
+        spec.numChannels      = 2;
         convolution.prepare (spec);
         prepared         = true;
         sampleRate       = newSampleRate;
         tailSeconds.store (convolution.getCurrentIRSize() / sampleRate, std::memory_order_relaxed);
 
-        wetBuffer.setSize (1, maxBlockSize);
+        wetBuffer.setSize (2, maxBlockSize);
         wetBuffer.clear();
     }
 
@@ -59,7 +59,9 @@ public:
         // its own reference, so nothing is allocated or freed here.
         convolution.loadImpulseResponse (
             pendingFile,
-            juce::dsp::Convolution::Stereo::no,
+            // Stereo::yes keeps both channels of a stereo IR file; a mono file is
+            // used for both channels (juce_Convolution.cpp, MultichannelEngine).
+            juce::dsp::Convolution::Stereo::yes,
             juce::dsp::Convolution::Trim::yes,
             0,
             juce::dsp::Convolution::Normalise::no);
@@ -69,16 +71,21 @@ public:
 
     // In-place dry/wet blend. mix=0 → dry only, mix=1 → wet only.
     // No-op if no IR has been loaded, prepare() not called, or mix is 0.
-    void processBlock (float* data, int numSamples, float mix, float makeup = 1.0f)
+    // right may be null for mono.
+    void processBlock (float* left, float* right, int numSamples, float mix, float makeup = 1.0f)
     {
         if (! audioHasIR || ! prepared || mix <= 0.0f)
             return;
 
+        float* const data[] = { left, right };
+        const int numCh = (right != nullptr) ? 2 : 1;
+
         // Copy dry signal into wetBuffer, then convolve in-place
-        wetBuffer.copyFrom (0, 0, data, numSamples);
+        for (int ch = 0; ch < numCh; ++ch)
+            wetBuffer.copyFrom (ch, 0, data[ch], numSamples);
 
         juce::dsp::AudioBlock<float> block (
-            wetBuffer.getArrayOfWritePointers(), 1, (size_t) numSamples);
+            wetBuffer.getArrayOfWritePointers(), (size_t) numCh, (size_t) numSamples);
         convolution.process (juce::dsp::ProcessContextReplacing<float> (block));
 
         // getCurrentIRSize() reads the engine that process() swaps, so it may only be
@@ -87,9 +94,13 @@ public:
 
         const float  dryGain = 1.0f - mix;
         const float  wetGain = mix * makeup;
-        const float* wet     = wetBuffer.getReadPointer (0);
-        for (int i = 0; i < numSamples; ++i)
-            data[i] = data[i] * dryGain + wet[i] * wetGain;
+        for (int ch = 0; ch < numCh; ++ch)
+        {
+            float*       d   = data[ch];
+            const float* wet = wetBuffer.getReadPointer (ch);
+            for (int i = 0; i < numSamples; ++i)
+                d[i] = d[i] * dryGain + wet[i] * wetGain;
+        }
     }
 
     // Any thread. Length of the active IR, as last seen by the audio thread.

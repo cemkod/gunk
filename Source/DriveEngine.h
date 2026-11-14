@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 #include <cmath>
 
-// Mono waveshaper between the oscillator mix and the filter.
+// Waveshaper between the oscillator mix and the filter, mono or stereo.
 // Runs at 2x through juce::dsp::Oversampling (polyphase IIR, low latency) so the
 // shaper's harmonics above Nyquist are filtered before decimation.
 class DriveEngine
@@ -18,46 +18,54 @@ public:
         gain.reset (sampleRate * (double) oversampler.getOversamplingFactor(), 0.02);
         gain.setCurrentAndTargetValue (1.0f);
         dcCoef = 1.0f - (juce::MathConstants<float>::twoPi * 10.0f / (float) sampleRate);
-        dcX1 = dcY1 = 0.0f;
+        for (auto& d : dc) d = {};
         wasActive = false;
     }
 
-    // In place. driveDb is the input gain into the shaper (0..36 dB).
-    void processBlock (float* data, int n, float driveDb, Curve curve)
+    // In place. right may be null for mono. driveDb is the input gain into the
+    // shaper (0..36 dB). Both channels share one smoothed gain.
+    void processBlock (float* left, float* right, int n, float driveDb, Curve curve)
     {
         if (! wasActive)
         {
             // Coming out of bypass: drop stale filter state and jump to the target gain.
             oversampler.reset();
             gain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveDb));
-            dcX1 = dcY1 = 0.0f;
+            for (auto& d : dc) d = {};
             wasActive = true;
         }
         gain.setTargetValue (juce::Decibels::decibelsToGain (driveDb));
 
-        float* channels[] = { data };
-        juce::dsp::AudioBlock<float> block (channels, 1, (size_t) n);
+        float* channels[] = { left, right };
+        const size_t numCh = (right != nullptr) ? 2 : 1;
+        juce::dsp::AudioBlock<float> block (channels, numCh, (size_t) n);
         auto up = oversampler.processSamplesUp (block);
-        float* u = up.getChannelPointer (0);
+        float* uL = up.getChannelPointer (0);
+        float* uR = (numCh == 2) ? up.getChannelPointer (1) : nullptr;
         const int upN = (int) up.getNumSamples();
 
         switch (curve)
         {
-            case Curve::Soft: shape (u, upN, softClip); break;
-            case Curve::Hard: shape (u, upN, hardClip); break;
-            case Curve::Tube: shape (u, upN, tube);     break;
+            case Curve::Soft: shape (uL, uR, upN, softClip); break;
+            case Curve::Hard: shape (uL, uR, upN, hardClip); break;
+            case Curve::Tube: shape (uL, uR, upN, tube);     break;
         }
 
         oversampler.processSamplesDown (block);
 
         // DC blocker: the tube curve is asymmetric and leaves an offset.
-        for (int i = 0; i < n; ++i)
+        for (size_t ch = 0; ch < numCh; ++ch)
         {
-            const float x = data[i];
-            const float y = x - dcX1 + dcCoef * dcY1;
-            dcX1 = x;
-            dcY1 = y;
-            data[i] = y;
+            float* data = channels[ch];
+            auto&  d    = dc[ch];
+            for (int i = 0; i < n; ++i)
+            {
+                const float x = data[i];
+                const float y = x - d.x1 + dcCoef * d.y1;
+                d.x1 = x;
+                d.y1 = y;
+                data[i] = y;
+            }
         }
     }
 
@@ -78,20 +86,24 @@ private:
     // the output is scaled by kRef over the mean of the shaper's two half-peaks.
     // For the symmetric curves that is kRef / shaper(g * kRef).
     template <typename Fn>
-    void shape (float* u, int n, Fn fn) noexcept
+    void shape (float* uL, float* uR, int n, Fn fn) noexcept
     {
         static constexpr float kRef = 0.5f;
         for (int i = 0; i < n; ++i)
         {
             const float g    = gain.getNextValue();
             const float comp = 2.0f * kRef / (fn (g * kRef) - fn (-g * kRef));
-            u[i] = fn (g * u[i]) * comp;
+            uL[i] = fn (g * uL[i]) * comp;
+            if (uR != nullptr)
+                uR[i] = fn (g * uR[i]) * comp;
         }
     }
 
     juce::dsp::Oversampling<float> oversampler {
-        1, 1, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, false, false };
+        2, 1, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, false, false };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> gain { 1.0f };
-    float dcCoef = 0.999f, dcX1 = 0.0f, dcY1 = 0.0f;
+    struct DcState { float x1 = 0.0f, y1 = 0.0f; };
+    float   dcCoef = 0.999f;
+    DcState dc[2];
     bool  wasActive = false;
 };

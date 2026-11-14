@@ -1,10 +1,10 @@
 # Handoff: plugin-review follow-up (branch `ADSR`)
 
-Started on 2026-11-14 and updated on 2026-11-14, after the fourth session.
+Started on 2026-11-14 and updated on 2026-11-14, after the fifth session.
 
 ## Goal
 
-Work through the recommendations in `plugin-review.md` at the repo root, in the order given there. The bug table is done. Review item 2 is half done: drive is built, and stereo unison is next.
+Work through the recommendations in `plugin-review.md` at the repo root, in the order given there. The bug table is done. Review item 2 (drive and stereo unison) is built. Items 3–4 are next.
 
 ## State
 
@@ -18,6 +18,8 @@ All of this is committed on `ADSR`, one commit per fix, and none of it is pushed
 | `96b73b8` | `setWaveform` no longer allocates or frees on the audio thread. | `Source/Oscillator.cpp:23` (`basicTable`), `:52`, `:203` and `:285` (custom loaders) |
 | `226afba` | The `transientDecay` parse limit is now 0.2 and the `transientDry` limit is 1.0. | `createParameterLayout` in `PluginProcessor.cpp` |
 | `ae094a8` | `getTailLengthSeconds` returns a real value. | `PluginProcessor.cpp:377`, `IRConvolutionEngine.h:86` |
+| (this session) | Stereo unison: per-osc WIDTH, MONO < crossover, stereo drive/filter/IR. Review item 2, second half. | `Oscillator.cpp` `processBlock`, `Source/SideHighpass.h`, `processBlock` from `// --- AUDIO GENERATORS ---` to the output loop |
+| `fb2a919` | Dry path selectable: Clean or Through FX. | `dryRouting`, `processBlock` before `// --- DRIVE` |
 | `8e80608` | Drive stage before the filter: Soft/Hard/Tube, 2x oversampling, auto-gain, Drive mod target. Review item 2, first half. | `Source/DriveEngine.h`, `Source/DriveSectionComponent.h`, `processBlock` before `// --- FILTER ---` |
 | `38f609c` | Parameters missing from a loaded preset or session reset to their defaults instead of keeping the previous value. | `PresetManager::replaceStateFilling` |
 | `209baf0` | Presets store IR and transient paths relative to their library folder, as wavetables already did. | `toPresetPath`/`fromPresetPath`/`restoreSamplePaths` in `PluginProcessor.cpp`, file choosers in `IRSectionComponent.h` and `TransientSectionComponent.h` |
@@ -51,6 +53,12 @@ The review's bug table is done. The review's open question about `<PARAM id="mor
   - **Auto-gain:** the output is scaled by `2·kRef / (f(g·kRef) − f(−g·kRef))` with kRef = 0.5. A 0.5-peak sine then stays within 3 dB of dry for every curve from 0 to 36 dB. Quiet inputs come out up to ~17 dB louder at full drive, which is the saturation compressing them, as intended. The osc mix is normally near full scale anyway, because the amp envelope is applied after the filter. These numbers come from a Python model of the curves, not from measuring the plugin.
   - **UI:** a 100 px Drive section in the osc row, between the combined-osc section and the transient section. The transient section had the most spare width. The editor size is unchanged.
 - **Dry path (`dryRouting`): Clean / Through FX.** The user asked for the dry signal's routing to be selectable. In Clean (the default) the maths is unchanged: `(osc + sub)·env + dry`. In Through FX it becomes `filter(drive(osc·env + dry)) + sub·env`, where the sub term is present only when the sub bypasses the filter. The amp envelope moves ahead of drive in this mode, because the synth can't be separated from the dry signal after the nonlinearity. The dry signal is not enveloped. The control is a DRY PATH combo in the Output section.
+- **Stereo scope:** the user picked a per-osc WIDTH with mod targets (`Width1`/`Width2` = 20/21) and a global MONO < crossover (default 150 Hz).
+  - **Mid/side design:** `WavetableOscillator::processBlock` returns the old mono sum plus an optional side buffer. Each voice's pan is its detune position in [−1, 1] × width, with a linear law, so (L+R)/2 is exactly the old signal. With width at 0, or with one voice, the side is 0 and the output is L = R = the old mono output. Width ramps across each block, so modulation doesn't step.
+  - The summed side is high-passed (12 dB/oct) before L/R are formed. That makes the low end identical in both channels, so it stays mono through the drive and filter too.
+  - **Mono output bus:** no side buffer is passed, and the path is the old mono one, so there's no extra CPU. A stereo output runs drive, the filter (`envelopeFilterR`) and the IR twice, even at width 0. This was kept simple rather than optimised.
+  - **IR:** now `Stereo::yes` with a two-channel spec. Mono IR files are used on both channels (confirmed in `juce_Convolution.cpp`), and all factory IRs are mono. A user's stereo IR file now plays true stereo; before, only its first channel was used.
+  - **UI:** the osc slider rows shrank from 20/3 px to 18/2 px so a WIDTH row fits. MONO < sits next to VOL in Output.
 - **Gate-open and onset are OR-ed** to trigger the ADSR. Gate-open catches the notes aubio misses, and the onset re-latches at the real pick peak.
 
 ## Next steps
@@ -61,12 +69,12 @@ The review's bug table is done. The review's open question about `<PARAM id="mor
    - Load an IR while the IR section is off, then turn it on.
    - Play legato notes and hammer-ons in Env Module mode, and listen for bumps at note start and for whether 5 ms of velocity smoothing feels right.
    - Switch waveforms while playing. Load a multi-frame `.wt` file, then switch to a basic shape.
+   - **Stereo:** set VOICES ≥ 2 and turn WIDTH up on each osc. Check that the spread sounds right and that MONO < keeps the lows centred. Check mono compatibility (sum to mono in the DAW) and that WIDTH 0 sounds exactly like before. Check the denser osc slider rows. Check that a mono track or mono output still works.
    - **Dry path:** switch DRY PATH to FX with DRY up, and check that the bass is driven and filtered. Then check that Clean sounds exactly as before. In FX mode with the ADSR as the amp source, the synth is enveloped before the drive, so the distortion fades with the release.
    - **Drive:** check the three curves at low and high drive, the level jump when toggling, zipper noise when modulating Drive from the LFO, and aliasing on high notes (Hard aliases most). Check that the section layout looks right.
    - **Old factory presets** (13 parameters): confirm that they now load the same way regardless of which preset came before. They will sound different from before, because unmentioned parameters are now at their defaults.
    - Save a user preset that uses an IR from `Impulse Responses/` and check that the `.jqgpreset` has a relative `irSamplePath`. Load an old preset that has absolute paths and check that it still works.
-2. **Stereo unison** (the rest of review item 2). Agree on scope with the user first. Everything after the oscillators is mono: `osc1Out`, the drive, `envelopeFilter`, `irMixBuf`, `irConvolution`, and the final loop that copies one value to every channel. Stereo needs per-voice pan in `WavetableOscillator`, two filter and drive instances or channels, and a stereo IR. The dry, transient and sub paths can stay centred.
-3. **Review items 3–4:** onset-reset of the pitch window, and the preset rebuild. The rebuild should set Drive explicitly now that it exists.
+2. **Review items 3–4:** onset-reset of the pitch window, and the preset rebuild. The rebuild should set Drive explicitly now that it exists.
 
 ## Traps
 

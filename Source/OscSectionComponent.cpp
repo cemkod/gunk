@@ -13,6 +13,7 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
       unisonVoicesAttach (avts, ids.unisonVoices, unisonVoicesSlider),
       unisonDetuneAttach (avts, ids.unisonDetune, unisonDetuneSlider),
       unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider),
+      unisonWidthAttach  (avts, ids.unisonWidth,  unisonWidthSlider),
       morphAttach        (avts, ids.morph,         morphSlider),
       coarseTuneAttach   (avts, ids.coarseTune,   coarseTuneSlider),
       fineTuneAttach     (avts, ids.fineTune,     fineTuneSlider)
@@ -26,6 +27,7 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
     BassLookAndFeel::setupLinearSlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
     BassLookAndFeel::setupLinearSlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
+    BassLookAndFeel::setupLinearSlider (unisonWidthSlider,  unisonWidthLabel,  "WIDTH",  *this);
 
     BassLookAndFeel::setupLinearSlider (coarseTuneSlider,   coarseTuneLabel,   "COARSE", *this);
     coarseTuneSlider.setNumDecimalPlacesToDisplay (0);
@@ -56,8 +58,9 @@ void OscSectionComponent::resized()
     if (! embedded_)
         inner.removeFromTop (UIConst::sectionHeaderH);
 
-    const int rowH   = 20;
-    const int gap    = 3;
+    // 8 slider rows + the UNISON divider must fit the osc section's 187 px.
+    const int rowH   = 18;
+    const int gap    = 2;
     const int labelW = 46;
 
     auto sliderRow = [&] (juce::Label& lbl, juce::Slider& sl)
@@ -81,4 +84,5 @@ void OscSectionComponent::resized()
     sliderRow (unisonVoicesLabel, unisonVoicesSlider);
     sliderRow (unisonDetuneLabel, unisonDetuneSlider);
     sliderRow (unisonBlendLabel,  unisonBlendSlider);
+    sliderRow (unisonWidthLabel,  unisonWidthSlider);
 }

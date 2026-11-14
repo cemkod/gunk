@@ -345,12 +345,24 @@ static inline float readMorphedSample (const std::vector<float>& fA,
     return sA + frameFrac * (sB - sA);
 }
 
-void WavetableOscillator::processBlock (const float* freqBuf, float* out, int n)
+void WavetableOscillator::processBlock (const float* freqBuf, float* out, int n,
+                                        float* side, float width)
 {
+    // Each voice's pan position is its detune position in [-1, 1]; the side
+    // signal is -(sum of pos * sample) / voices, scaled by width.
+    float panPos[kMaxVoices] = {};
+    for (int v = 0; v < unisonVoices; ++v)
+        panPos[v] = (unisonVoices > 1) ? (2.0f * (float) v / (float) (unisonVoices - 1) - 1.0f) : 0.0f;
+
+    const float widthStart = lastWidth;
+    const float widthStep  = (width - widthStart) / (float) juce::jmax (1, n);
+    lastWidth = width;
+
     juce::SpinLock::ScopedTryLockType sl (tableLock);
     if (! sl.isLocked())
     {
         juce::FloatVectorOperations::fill (out, 0.0f, n);
+        if (side != nullptr) juce::FloatVectorOperations::fill (side, 0.0f, n);
         return;
     }
 
@@ -374,6 +386,7 @@ void WavetableOscillator::processBlock (const float* freqBuf, float* out, int n)
                 currentBaseFreq = 0.0;
             }
             out[i] = 0.0f;
+            if (side != nullptr) side[i] = 0.0f;
             continue;
         }
 
@@ -383,14 +396,18 @@ void WavetableOscillator::processBlock (const float* freqBuf, float* out, int n)
             recomputeVoiceIncrements();
         }
 
-        float sum = 0.0f;
+        float sum = 0.0f, panSum = 0.0f;
         for (int v = 0; v < unisonVoices; ++v)
         {
-            sum += readMorphedSample (fA, fB, frameFrac, phaseIndex[v]);
+            const float s = readMorphedSample (fA, fB, frameFrac, phaseIndex[v]);
+            sum    += s;
+            panSum += panPos[v] * s;
             phaseIndex[v] += phaseIncrement[v];
             if (phaseIndex[v] >= kTableSize) phaseIndex[v] -= kTableSize;
         }
         out[i] = sum / (float) unisonVoices;
+        if (side != nullptr)
+            side[i] = -(widthStart + widthStep * (float) (i + 1)) * panSum / (float) unisonVoices;
     }
 }
 

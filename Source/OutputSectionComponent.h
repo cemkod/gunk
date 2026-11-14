@@ -12,9 +12,12 @@ public:
     explicit OutputSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("OUTPUT"),
           apvts (avts),
-          volAttach    (avts, "masterVolume", volSlider)
+          volAttach    (avts, "masterVolume", volSlider),
+          monoAttach   (avts, ParamIDs::stereoMonoBelow, monoSlider)
     {
         BassLookAndFeel::setupRotarySlider (volSlider, volLabel, "VOL", *this);
+        BassLookAndFeel::setupRotarySlider (monoSlider, monoLabel, "MONO <", *this);
+        monoSlider.setTooltip ("Unison WIDTH is kept mono below this frequency");
 
         ampEnvLabel.setText ("AMP ENV", juce::dontSendNotification);
         ampEnvLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
@@ -54,8 +57,13 @@ public:
         inner.removeFromTop (UIConst::sectionHeaderH); // skip section label
 
         inner.removeFromTop (UIConst::knobGap);
-        volSlider.setBounds (inner.removeFromTop (UIConst::knobRowH));
-        volLabel .setBounds (inner.removeFromTop (UIConst::knobLabelH));
+        auto knobRow  = inner.removeFromTop (UIConst::knobRowH);
+        auto labelRow = inner.removeFromTop (UIConst::knobLabelH);
+        const int half = knobRow.getWidth() / 2;
+        volSlider .setBounds (knobRow .removeFromLeft (half));
+        volLabel  .setBounds (labelRow.removeFromLeft (half));
+        monoSlider.setBounds (knobRow);
+        monoLabel .setBounds (labelRow);
 
         inner.removeFromTop (UIConst::sectionInnerPad);
         ampEnvLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
@@ -74,6 +82,10 @@ private:
     juce::Slider volSlider;
     juce::Label  volLabel { "", "VOL" };
     juce::AudioProcessorValueTreeState::SliderAttachment volAttach;
+
+    juce::Slider monoSlider;
+    juce::Label  monoLabel { "", "MONO <" };
+    juce::AudioProcessorValueTreeState::SliderAttachment monoAttach;
 
     juce::Label    ampEnvLabel;
     juce::ComboBox ampEnvCombo;

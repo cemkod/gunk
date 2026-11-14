@@ -68,6 +68,13 @@ static void addOscillatorParams (juce::AudioProcessorValueTreeState::ParameterLa
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         pctFmt(), pctParse (0.0f, 1.0f)));
 
+    // Stereo spread of the unison voices. 0 = mono (the pre-stereo behaviour).
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        pid (ParamIDs::unisonWidth), pname ("Unison Width"),
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         pid (ParamIDs::octaveShift), pname ("Octave Shift"),
         juce::StringArray { "-2", "-1", "0", "+1", "+2" }, 2));
@@ -208,6 +215,16 @@ JQGunkAudioProcessor::createParameterLayout()
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         ParamIDs::dryRouting, "Dry Path",
         juce::StringArray { "Clean", "Through FX" }, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamIDs::stereoMonoBelow, "Mono Below",
+        juce::NormalisableRange<float> (20.0f, 500.0f, 1.0f, 0.5f), 150.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) { return juce::String (juce::roundToInt (v)) + " Hz"; },
+        [] (const juce::String& t)
+        {
+            return juce::jlimit (20.0f, 500.0f, t.retainCharacters ("0123456789.").getFloatValue());
+        }));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "lfoRate", "LFO Rate",
@@ -369,6 +386,9 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     gateIsOpen = false;
     envelopeFilter.reset();
     envelopeFilter.prepare (sampleRate);
+    envelopeFilterR.reset();
+    envelopeFilterR.prepare (sampleRate);
+    sideHighpass.prepare (sampleRate);
     transientPlayer.prepare (sampleRate);
     onsetDetector.prepare (sampleRate);
     irConvolution.prepare (sampleRate, samplesPerBlock);
@@ -688,15 +708,30 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef ENABLE_DEBUG_LOG
     perfOsc1.start();
 #endif
-    oscillator.processBlock   (scratch.glidedFreq, scratch.osc1Out, N);
-    juce::FloatVectorOperations::multiply (scratch.osc1Out, p.osc1Enabled ? p.oscLevel : 0.0f, N);
+    // Stereo when the output has two channels. The oscillators then also produce a
+    // side signal (unison voices panned by WIDTH); L = mid + side, R = mid - side.
+    // A mono output takes the original mono path with no side signal.
+    const bool  stereo = numChannels >= 2;
+    const float width1 = juce::jlimit (0.0f, 1.0f, params.unisonWidth->load()     + modMatrix.getOffset (ModTarget::Width1));
+    const float width2 = juce::jlimit (0.0f, 1.0f, params.osc2UnisonWidth->load() + modMatrix.getOffset (ModTarget::Width2));
+
+    const float osc1Gain = p.osc1Enabled ? p.oscLevel : 0.0f;
+    oscillator.processBlock   (scratch.glidedFreq, scratch.osc1Out, N,
+                               stereo ? scratch.osc1Side.get() : nullptr, width1);
+    juce::FloatVectorOperations::multiply (scratch.osc1Out, osc1Gain, N);
+    if (stereo)
+        juce::FloatVectorOperations::multiply (scratch.osc1Side, osc1Gain, N);
 #ifdef ENABLE_DEBUG_LOG
     perfOsc1.stop();
     perfOsc2.start();
 #endif
 
-    osc2.processBlock         (scratch.osc2Freq, scratch.osc2Out, N);
-    juce::FloatVectorOperations::multiply (scratch.osc2Out, p.osc2Enabled ? p.osc2Level : 0.0f, N);
+    const float osc2Gain = p.osc2Enabled ? p.osc2Level : 0.0f;
+    osc2.processBlock         (scratch.osc2Freq, scratch.osc2Out, N,
+                               stereo ? scratch.osc2Side.get() : nullptr, width2);
+    juce::FloatVectorOperations::multiply (scratch.osc2Out, osc2Gain, N);
+    if (stereo)
+        juce::FloatVectorOperations::multiply (scratch.osc2Side, osc2Gain, N);
 #ifdef ENABLE_DEBUG_LOG
     perfOsc2.stop();
     perfSub.start();
@@ -720,10 +755,16 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     perfTransient.stop();
 #endif
 
-    // --- PRE-FILTER MIX: reuse osc1Out as preFxMix ---
+    // --- PRE-FILTER MIX: reuse osc1Out as preFxMix (mid), osc1Side as the side ---
     juce::FloatVectorOperations::add (scratch.osc1Out, scratch.osc2Out, N);
     if (! p.subBypassFilter)
         juce::FloatVectorOperations::add (scratch.osc1Out, scratch.subOut, N);
+    if (stereo)
+    {
+        juce::FloatVectorOperations::add (scratch.osc1Side, scratch.osc2Side, N);
+        // MONO BELOW: high-pass the side so the low end stays centred.
+        sideHighpass.processBlock (scratch.osc1Side, N, params.stereoMonoBelow->load());
+    }
 
     // Amp envelope source: 0 = input envelope follower, 1 = ADSR module.
     const float* ampEnvBuf = (ampEnvSourceIdx == 0) ? scratch.envelopeBuf : scratch.modEnvBuf;
@@ -734,15 +775,29 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // already carries the playing dynamics. "Clean" keeps the original order.
     const bool dryThroughFx = params.dryRouting->load() > 0.5f;
     if (dryThroughFx)
+    {
         for (int i = 0; i < N; ++i)
             scratch.osc1Out[i] = scratch.osc1Out[i] * ampEnvBuf[i] + inputData[i] * p.dryLevel;
+        if (stereo)
+            juce::FloatVectorOperations::multiply (scratch.osc1Side, ampEnvBuf, N);
+    }
+
+    // Mid/side to left/right: osc1Out becomes the left channel, fxRight the right.
+    float* fxLeft  = scratch.osc1Out;
+    float* fxRight = stereo ? scratch.fxRight.get() : nullptr;
+    if (stereo)
+        for (int i = 0; i < N; ++i)
+        {
+            fxRight[i] = fxLeft[i] - scratch.osc1Side[i];
+            fxLeft[i] += scratch.osc1Side[i];
+        }
 
     // --- DRIVE (pre-filter; the sub joins after it when it bypasses the filter) ---
     if (params.driveEnabled->load() > 0.5f)
     {
         const float driveDb = juce::jlimit (0.0f, 36.0f,
             params.driveAmount->load() + modMatrix.getOffset (ModTarget::Drive));
-        drive.processBlock (scratch.osc1Out, N, driveDb,
+        drive.processBlock (fxLeft, fxRight, N, driveDb,
                             static_cast<DriveEngine::Curve> ((int) params.driveCurve->load()));
     }
     else
@@ -755,8 +810,13 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     perfFilter.start();
 #endif
     if (p.filterEnabled)
-        envelopeFilter.processBlock (scratch.osc1Out, scratch.filterCutoff, N,
+    {
+        envelopeFilter.processBlock (fxLeft, scratch.filterCutoff, N,
                                       p.resonance, static_cast<FilterType> (p.filterType));
+        if (stereo)
+            envelopeFilterR.processBlock (fxRight, scratch.filterCutoff, N,
+                                           p.resonance, static_cast<FilterType> (p.filterType));
+    }
 #ifdef ENABLE_DEBUG_LOG
     perfFilter.stop();
 #endif
@@ -765,43 +825,49 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #ifdef ENABLE_DEBUG_LOG
     perfMix.start();
 #endif
-    // Compute pre-IR, pre-masterVolume mix into irMixBuf
+    // Compute pre-IR, pre-masterVolume mix into irMixBuf (left) and irMixBufR (right).
+    // Dry, sub (when it bypasses the filter) and transient are centred.
+    float* mixLeft  = scratch.irMixBuf;
+    float* mixRight = stereo ? scratch.irMixBufR.get() : nullptr;
     for (int i = 0; i < N; ++i)
     {
         const float ampEnv   = ampEnvBuf[i];
         const float postFx   = p.subBypassFilter ? scratch.subOut[i] * ampEnv : 0.0f;
-        // Through FX: osc1Out already holds enveloped synth + dry.
-        const float fxOut    = dryThroughFx ? scratch.osc1Out[i]
-                                            : scratch.osc1Out[i] * ampEnv + inputData[i] * p.dryLevel;
         const float transDry = inputData[i] * scratch.transientEnv[i] * p.transientDry;
-        scratch.irMixBuf[i]  = fxOut + postFx
-                               + scratch.transientOut[i] * (p.transientEnabled ? p.transientLevel : 0.0f) + (p.transientEnabled ? transDry : 0.0f);
+        const float centre   = postFx
+                               + scratch.transientOut[i] * (p.transientEnabled ? p.transientLevel : 0.0f)
+                               + (p.transientEnabled ? transDry : 0.0f);
+        // Through FX: fxLeft/fxRight already hold enveloped synth + dry.
+        const float dry      = dryThroughFx ? 0.0f : inputData[i] * p.dryLevel;
+        const float env      = dryThroughFx ? 1.0f : ampEnv;
+        mixLeft[i] = (fxLeft[i] * env + dry + centre) * masterVolume;
+        if (stereo)
+            mixRight[i] = (fxRight[i] * env + dry + centre) * masterVolume;
     }
-
-    // Apply masterVolume into irMixBuf, then run IR post-fader
-    for (int i = 0; i < N; ++i)
-        scratch.irMixBuf[i] *= masterVolume;
 
     // --- IR CONVOLUTION (post-fader) ---
     irConvolution.applyPendingLoad();   // always, so loads made while bypassed still land
     if (params.irEnabled->load() > 0.5f)
-        irConvolution.processBlock (scratch.irMixBuf, N,
+        irConvolution.processBlock (mixLeft, mixRight, N,
                                     params.irMix->load(),
                                     params.irMakeup->load());
 
     // Write final output
-    for (int i = 0; i < N; ++i)
+    for (int ch = 0; ch < numChannels; ++ch)
     {
-        const float rawOut = scratch.irMixBuf[i];
+        const float* src = (stereo && ch == 1) ? mixRight : mixLeft;
+        float*       dst = buffer.getWritePointer (ch);
+        for (int i = 0; i < N; ++i)
+        {
+            const float rawOut = src[i];
 #ifdef ENABLE_DEBUG_LOG
-        if (! std::isfinite (rawOut))
-            ++outNaNCount;
-        else if (const float a = std::abs (rawOut); a > outMaxAbsEver)
-            outMaxAbsEver = a;
+            if (! std::isfinite (rawOut))
+                ++outNaNCount;
+            else if (const float a = std::abs (rawOut); a > outMaxAbsEver)
+                outMaxAbsEver = a;
 #endif
-        const float out = std::isfinite (rawOut) ? rawOut : 0.0f;
-        for (int ch = 0; ch < numChannels; ++ch)
-            buffer.getWritePointer (ch)[i] = out;
+            dst[i] = std::isfinite (rawOut) ? rawOut : 0.0f;
+        }
     }
 
     // --- POST: push gated input to pitch detector ---

@@ -24,8 +24,13 @@ public:
     void  setUnisonParams (int voices, float detuneCents, float blend);
     float getNextSample();
     // freqBuf: per-sample frequency in Hz (0 = silent/reset this sample)
-    // out: filled with summed unison output, NOT scaled by level
-    void  processBlock (const float* freqBuf, float* out, int n);
+    // out: filled with summed unison output (the mid signal), NOT scaled by level
+    // side: if non-null, filled with the side signal for the given stereo width
+    //       (0..1), so that L = out + side and R = out - side. Voices are panned by
+    //       their detune position with a linear law, so (L + R) / 2 == out at any
+    //       width. Width ramps from the previous block's value across this block.
+    void  processBlock (const float* freqBuf, float* out, int n,
+                        float* side = nullptr, float width = 0.0f);
     void  reset();
 
     WaveformType getCurrentWaveform() const { return currentWaveform; }
@@ -51,6 +56,7 @@ private:
     int    unisonVoices      = 1;
     float  unisonDetuneCents = 0.0f;
     float  unisonBlend       = 0.5f;
+    float  lastWidth         = 0.0f;
     WaveformType currentWaveform = WaveformType::Sine;
     juce::SpinLock tableLock;    // guards frames during load
 

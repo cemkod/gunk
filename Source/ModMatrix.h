@@ -11,7 +11,8 @@ enum class ModTarget : int
     Osc1Level = 6, Osc2Level = 7, Unison1Detune = 8, SubLevel = 9,
     Glide = 10, Unison2Detune = 11, LfoRate = 12, MasterVolume = 13,
     Osc1FineTune = 14, Osc2FineTune = 15, LfoAmount = 16,
-    Unison1Blend = 17, Unison2Blend = 18, Drive = 19   // append only: presets store the index
+    Unison1Blend = 17, Unison2Blend = 18, Drive = 19,
+    Width1 = 20, Width2 = 21   // append only: presets store the index
 };
 
 class ModMatrix
@@ -26,7 +27,8 @@ public:
         "OSC 1 Unison Detune", "Sub Level",
         "Glide", "OSC2 Unison Detune", "LFO Rate", "Master Volume",
         "OSC 1 Fine Tune", "OSC 2 Fine Tune", "LFO Amount",
-        "OSC 1 Unison Blend", "OSC 2 Unison Blend", "Drive"
+        "OSC 1 Unison Blend", "OSC 2 Unison Blend", "Drive",
+        "OSC 1 Unison Width", "OSC 2 Unison Width"
     };
 
     static void addParameters (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
@@ -143,6 +145,8 @@ private:
         1.f,     // Unison1Blend  (range 0..1)
         1.f,     // Unison2Blend  (range 0..1)
         36.f,    // Drive         (dB, range 0..36)
+        1.f,     // Width1        (range 0..1)
+        1.f,     // Width2        (range 0..1)
     };
 
     struct Slot { int source = 0; int target = 0; float amount = 0.0f; };

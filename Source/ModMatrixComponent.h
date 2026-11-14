@@ -19,6 +19,7 @@ public:
         osc1.addItem ((int) ModTarget::Osc1FineTune,  "Fine Tune");
         osc1.addItem ((int) ModTarget::Unison1Detune, "Unison Detune");
         osc1.addItem ((int) ModTarget::Unison1Blend,  "Unison Blend");
+        osc1.addItem ((int) ModTarget::Width1,        "Unison Width");
         menu.addSubMenu ("OSC 1", osc1);
 
         juce::PopupMenu osc2;
@@ -27,6 +28,7 @@ public:
         osc2.addItem ((int) ModTarget::Osc2FineTune,  "Fine Tune");
         osc2.addItem ((int) ModTarget::Unison2Detune, "Unison Detune");
         osc2.addItem ((int) ModTarget::Unison2Blend,  "Unison Blend");
+        osc2.addItem ((int) ModTarget::Width2,        "Unison Width");
         menu.addSubMenu ("OSC 2", osc2);
 
         juce::PopupMenu filter;

@@ -22,6 +22,7 @@ namespace ParamIDs {
     inline constexpr const char* unisonVoices = "unisonVoices";
     inline constexpr const char* unisonDetune = "unisonDetune";
     inline constexpr const char* unisonBlend  = "unisonBlend";
+    inline constexpr const char* unisonWidth  = "unisonWidth";
     inline constexpr const char* octaveShift  = "octaveShift";
     inline constexpr const char* coarseTune   = "coarseTune";
     inline constexpr const char* fineTune     = "fineTune";
@@ -40,6 +41,7 @@ namespace ParamIDs {
     inline constexpr const char* osc2UnisonVoices = "osc2UnisonVoices";
     inline constexpr const char* osc2UnisonDetune = "osc2UnisonDetune";
     inline constexpr const char* osc2UnisonBlend  = "osc2UnisonBlend";
+    inline constexpr const char* osc2UnisonWidth  = "osc2UnisonWidth";
     inline constexpr const char* osc2OctaveShift  = "osc2OctaveShift";
     inline constexpr const char* osc2CoarseTune   = "osc2CoarseTune";
     inline constexpr const char* osc2FineTune     = "osc2FineTune";
@@ -59,7 +61,8 @@ namespace ParamIDs {
 
     // Output
     inline constexpr const char* masterVolume  = "masterVolume";
-    inline constexpr const char* dryRouting    = "dryRouting";   // 0 = Clean, 1 = Through FX
+    inline constexpr const char* dryRouting    = "dryRouting";
+    inline constexpr const char* stereoMonoBelow = "stereoMonoBelow"; // Hz; side is high-passed here   // 0 = Clean, 1 = Through FX
     inline constexpr const char* ampEnvSource  = "ampEnvSource";
 
     // LFO

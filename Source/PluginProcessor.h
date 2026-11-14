@@ -10,6 +10,7 @@
 #include "TransientPlayer.h"
 #include "IRConvolutionEngine.h"
 #include "DriveEngine.h"
+#include "SideHighpass.h"
 #include "ModMatrix.h"
 #include "LFOEngine.h"
 #include "AubioOnsetDetector.h"
@@ -201,7 +202,11 @@ private:
         juce::HeapBlock<float> transientEnv;  // transient player envelope (for dry gating)
         juce::HeapBlock<float> gatedInput;    // gated copy of input for pitch thread
         juce::HeapBlock<float> pitchNorm;     // per-sample normalized pitch for mod matrix
-        juce::HeapBlock<float> irMixBuf;      // pre-IR full mix (dry+wet+transient)
+        juce::HeapBlock<float> irMixBuf;      // pre-IR full mix (dry+wet+transient), left/mono
+        juce::HeapBlock<float> irMixBufR;     // pre-IR full mix, right
+        juce::HeapBlock<float> osc1Side;      // osc1 side signal; reused as the summed side
+        juce::HeapBlock<float> osc2Side;
+        juce::HeapBlock<float> fxRight;       // right channel through drive and filter
         int capacity = 0;
 
         void prepare (int maxBlockSize)
@@ -215,7 +220,9 @@ private:
             osc2Out.realloc (maxBlockSize);      subOut.realloc (maxBlockSize);
             transientOut.realloc (maxBlockSize); transientEnv.realloc (maxBlockSize);
             gatedInput.realloc (maxBlockSize);   pitchNorm.realloc (maxBlockSize);
-            irMixBuf.realloc (maxBlockSize);
+            irMixBuf.realloc (maxBlockSize);    irMixBufR.realloc (maxBlockSize);
+            osc1Side.realloc (maxBlockSize);    osc2Side.realloc (maxBlockSize);
+            fxRight.realloc (maxBlockSize);
         }
     };
 
@@ -278,7 +285,9 @@ private:
     std::atomic<bool> transientFlag { false };
 
     // Envelope filter (auto-wah)
-    EnvelopeFilter envelopeFilter;
+    EnvelopeFilter envelopeFilter;   // left / mono; drives the UI cutoff readout
+    EnvelopeFilter envelopeFilterR;  // right, stereo output only
+    SideHighpass   sideHighpass;
 
     double currentSampleRate = 48000;
 

@@ -48,7 +48,9 @@ Signal flow: **Audio Input → Pitch Detector → Oscillators (OSC1 + OSC2 + Sub
 
 The dry input normally skips drive and filter and joins at the mix. With `dryRouting` = Through FX, it is added to the synth before Drive, and the synth's amp envelope moves ahead of Drive so the dry signal isn't enveloped.
 
-Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 19 targets) → per-block parameter offsets**
+Stereo: with a stereo output bus, each oscillator also produces a side signal (unison voices panned by their detune position × `unisonWidth`, linear pan law so (L+R)/2 equals the mono signal). The summed side is high-passed at `stereoMonoBelow` (`SideHighpass`), then L = mid + side and R = mid − side go through Drive, two filter instances, the mix and a two-channel IR. Dry, sub and transient are centred. A mono output bus takes the original mono path.
+
+Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 21 targets) → per-block parameter offsets**
 
 ### Key Source Files
 
@@ -59,9 +61,10 @@ Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 19 
 - `Source/Oscillator.h/.cpp` — `WavetableOscillator`: 2048-point wavetable, 4 built-in waveforms (Sine/Triangle/Square/Sawtooth), custom WAV/WT loading, SpinLock for thread-safe wavetable swapping. Supports unison via `setUnisonParams()`.
 - `Source/Filter.h` / `Source/FilterEngine.h` — `EnvelopeFilter`: SVF-based resonant filter with envelope-controlled sweep.
 - `Source/DriveEngine.h` — `DriveEngine`: pre-filter waveshaper (Soft/Hard/Tube) at 2x via `juce::dsp::Oversampling` (polyphase IIR), with auto-gain and a DC blocker. Bypassed when `driveEnabled` is off.
+- `Source/SideHighpass.h` — 12 dB/oct TPT high-pass on the side signal (the MONO < control).
 - `Source/GlideEngine.h` — Pitch portamento/glide.
 - `Source/LFOEngine.h` — Low-frequency oscillator (mod source).
-- `Source/ModMatrix.h` — Modulation routing: 8 slots × 5 sources (None/Envelope/Pitch/ModEnvelope/LFO) × 19 targets. Presets store the target index, so new `ModTarget` values must be appended. Per-target scaling in `kTargetScale[]`. Call `snapshot()` then `computeTargetBlock()` per audio block.
+- `Source/ModMatrix.h` — Modulation routing: 8 slots × 5 sources (None/Envelope/Pitch/ModEnvelope/LFO) × 21 targets. Presets store the target index, so new `ModTarget` values must be appended. Per-target scaling in `kTargetScale[]`. Call `snapshot()` then `computeTargetBlock()` per audio block.
 - `Source/AubioOnsetDetector.h` — Onset/transient detection wrapping aubio.
 - `Source/TransientPlayer.h` — Sample playback triggered by onsets, with pitch tracking.
 - `Source/IRConvolutionEngine.h` — `IRConvolutionEngine`: wraps `juce::dsp::Convolution` for dry/wet impulse response processing. Factory IRs in `~/.config/JQGunk/Impulse Responses/`, shipped in `ImpulseResponses/Factory/`.
