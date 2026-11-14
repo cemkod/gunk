@@ -10,39 +10,50 @@ class EnvelopeSectionComponent : public LabelledSectionComponent
 public:
     explicit EnvelopeSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("ENVELOPE"),
-          attackAtt (avts, "modEnvAttack", attackSlider),
-          decayAtt  (avts, "modEnvDecay",  decaySlider)
+          attackAtt  (avts, "modEnvAttack",  attackSlider),
+          decayAtt   (avts, "modEnvDecay",   decaySlider),
+          sustainAtt (avts, "modEnvSustain", sustainSlider),
+          releaseAtt (avts, "modEnvRelease", releaseSlider)
     {
-        BassLookAndFeel::setupRotarySlider (attackSlider, attackLabel, "ATK", *this);
-        BassLookAndFeel::setupRotarySlider (decaySlider,  decayLabel,  "DCY", *this);
+        BassLookAndFeel::setupRotarySlider (attackSlider,  attackLabel,  "ATK", *this);
+        BassLookAndFeel::setupRotarySlider (decaySlider,   decayLabel,   "DCY", *this);
+        BassLookAndFeel::setupRotarySlider (sustainSlider, sustainLabel, "SUS", *this);
+        BassLookAndFeel::setupRotarySlider (releaseSlider, releaseLabel, "REL", *this);
+
         addAndMakeVisible (displayComponent);
     }
 
     void resized() override
     {
         auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
-        inner.removeFromTop (UIConst::sectionHeaderH); // skip section label
+        inner.removeFromTop (UIConst::sectionHeaderH);
 
         displayComponent.setBounds (inner.removeFromTop (UIConst::displayH_small));
         inner.removeFromTop (UIConst::knobGap);
 
-        const int knobW = inner.getWidth() / 2;
+        const int knobW = inner.getWidth() / 4;
         auto knobRow = inner.removeFromTop (UIConst::knobRowH);
-        attackSlider.setBounds (knobRow.removeFromLeft (knobW));
-        decaySlider .setBounds (knobRow);
+        attackSlider .setBounds (knobRow.removeFromLeft (knobW));
+        decaySlider  .setBounds (knobRow.removeFromLeft (knobW));
+        sustainSlider.setBounds (knobRow.removeFromLeft (knobW));
+        releaseSlider.setBounds (knobRow);
 
         auto lblRow = inner.removeFromTop (UIConst::knobLabelH);
-        attackLabel.setBounds (lblRow.removeFromLeft (knobW));
-        decayLabel .setBounds (lblRow);
+        attackLabel .setBounds (lblRow.removeFromLeft (knobW));
+        decayLabel  .setBounds (lblRow.removeFromLeft (knobW));
+        sustainLabel.setBounds (lblRow.removeFromLeft (knobW));
+        releaseLabel.setBounds (lblRow);
     }
 
-    void pushSample (float v) { displayComponent.pushSample (v); }
+    void pushSample (float v, float velocity = -1.0f) { displayComponent.pushSample (v, velocity); }
 
 private:
     EnvelopeDisplayComponent displayComponent;
-    juce::Slider attackSlider, decaySlider;
-    juce::Label  attackLabel { "", "ATK" }, decayLabel { "", "DCY" };
-    juce::AudioProcessorValueTreeState::SliderAttachment attackAtt, decayAtt;
+    juce::Slider attackSlider, decaySlider, sustainSlider, releaseSlider;
+    juce::Label  attackLabel  { "", "ATK" }, decayLabel  { "", "DCY" },
+                 sustainLabel { "", "SUS" }, releaseLabel { "", "REL" };
+
+    juce::AudioProcessorValueTreeState::SliderAttachment attackAtt, decayAtt, sustainAtt, releaseAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EnvelopeSectionComponent)
 };

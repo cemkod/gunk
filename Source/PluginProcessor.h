@@ -13,6 +13,7 @@
 #include "LFOEngine.h"
 #include "AubioOnsetDetector.h"
 #include "ParamCache.h"
+#include "ADSREnvelope.h"
 #include <q/fx/envelope.hpp>
 #include <q/fx/noise_gate.hpp>
 #include <q/support/literals.hpp>
@@ -104,7 +105,8 @@ public:
     float getDetectedFrequency() const { return pitchThread.getDetectedFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
-    float getModEnvelope() const noexcept { return modEnvelope; }
+    float getModEnvelope()  const noexcept { return modEnvelope; }
+    float getADSRVelocity() const noexcept { return adsrEnvelope.getVelocity(); }
     float getCurrentCutoffHz() const   { return envelopeFilter.getCurrentCutoffHz(); }
     bool  consumeTransient()           { return transientFlag.exchange (false, std::memory_order_relaxed); }
     float getLFOValue() const          { return lfo.getValue(); }
@@ -153,6 +155,8 @@ private:
         float transientDry;
         float modAttCoef;
         float modDecCoef;
+        float modEnvSusLevel;
+        float modEnvRelCoef;
         float transientThreshold;
     };
 
@@ -213,7 +217,6 @@ private:
         }
     };
 
-    float       updateModEnvelopeSample  (float envSample, const BlockParams& p);
     void        updateTransientDetection (const BlockParams& p, float inputSample);
     void        restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx,
                                            juce::StringArray& missingFiles);
@@ -257,6 +260,11 @@ private:
 
     // Slew-limited modulation envelope (driven by modEnvAttack/modEnvDecay params)
     float modEnvelope = 0.0f;
+
+    // ADSR envelope state
+    ADSREnvelope adsrEnvelope;
+    bool      prevGateWasOpen    = false;
+    bool      lastTransientNoteOn = false;
 
     // Transient detector
     AubioOnsetDetector onsetDetector;

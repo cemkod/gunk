@@ -31,3 +31,13 @@ Wavetables/Gunk/peaks/
 Wavetables/Gunk/Media/
 Wavetables/Gunk/*.RPP
 *.reapeaks
+
+# AUR packaging build output
+packaging/aur/src/
+packaging/aur/pkg/
+packaging/aur/jq-gunk-*/
+packaging/aur/*.pkg.tar.zst
+
+# Profiling output
+perf.data*
+cpu-log.csv

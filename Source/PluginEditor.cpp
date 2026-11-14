@@ -193,7 +193,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
 
     { const double t0 = juce::Time::getMillisecondCounterHiRes();
 #endif
-    envelopeSection.pushSample (processor.getModEnvelope());
+    envelopeSection.pushSample (processor.getModEnvelope(), processor.getADSRVelocity());
 #ifdef ENABLE_DEBUG_LOG
       stEnvelope.record (time (t0)); }
 

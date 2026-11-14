@@ -13,16 +13,11 @@ public:
 
     void pushSample (float envelope, bool gateOpen, bool transientFired = false)
     {
-        const float evicted = history[(size_t) writePos];
         history[(size_t) writePos] = envelope;
         transientHistory[(size_t) writePos] = transientFired;
         writePos = (writePos + 1) % (int) history.size();
         lastGateOpen = gateOpen;
-        if (transientFired || gateOpen != lastPaintedGateOpen || std::abs (envelope - evicted) > 0.001f)
-        {
-            lastPaintedGateOpen = gateOpen;
-            repaint();
-        }
+        repaint();
     }
 
     void paint (juce::Graphics& g) override
@@ -123,7 +118,6 @@ private:
     std::vector<bool> transientHistory;
     int   writePos           = 0;
     bool  lastGateOpen       = false;
-    bool lastPaintedGateOpen = false;
     juce::Path wavePath, fillPath;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GateDisplayComponent)

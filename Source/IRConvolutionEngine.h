@@ -7,25 +7,28 @@ class IRConvolutionEngine
 public:
     IRConvolutionEngine() = default;
 
+    // The Convolution object lives for the engine's lifetime. Per the JUCE docs,
+    // prepare() fully initialises the IR from the most recent loadImpulseResponse()
+    // call, so an IR loaded before prepare() (e.g. during state restore) or before a
+    // re-prepare (sample-rate / block-size change) survives.
     void prepare (double sampleRate, int maxBlockSize)
     {
-        convolution = std::make_unique<juce::dsp::Convolution>();
-
         juce::dsp::ProcessSpec spec;
         spec.sampleRate       = sampleRate;
         spec.maximumBlockSize = (juce::uint32) maxBlockSize;
         spec.numChannels      = 1;
-        convolution->prepare (spec);
+        convolution.prepare (spec);
+        prepared = true;
 
         wetBuffer.setSize (1, maxBlockSize);
         wetBuffer.clear();
     }
 
-    // Thread-safe: called from message thread, loading happens in background.
+    // Safe to call before prepare(); the IR becomes active once prepared.
+    // Loading itself happens on JUCE's background thread.
     void loadIR (const juce::File& file)
     {
-        if (convolution == nullptr) return;
-        convolution->loadImpulseResponse (
+        convolution.loadImpulseResponse (
             file,
             juce::dsp::Convolution::Stereo::no,
             juce::dsp::Convolution::Trim::yes,
@@ -39,7 +42,7 @@ public:
     // No-op if no IR has been loaded, prepare() not called, or mix is 0.
     void processBlock (float* data, int numSamples, float mix, float makeup = 1.0f)
     {
-        if (! irLoaded || mix <= 0.0f || convolution == nullptr)
+        if (! irLoaded || ! prepared || mix <= 0.0f)
             return;
 
         // Copy dry signal into wetBuffer, then convolve in-place
@@ -47,7 +50,7 @@ public:
 
         juce::dsp::AudioBlock<float> block (
             wetBuffer.getArrayOfWritePointers(), 1, (size_t) numSamples);
-        convolution->process (juce::dsp::ProcessContextReplacing<float> (block));
+        convolution.process (juce::dsp::ProcessContextReplacing<float> (block));
 
         const float  dryGain = 1.0f - mix;
         const float  wetGain = mix * makeup;
@@ -60,10 +63,11 @@ public:
     juce::String  getLoadedPath() const { return loadedPath; }
 
 private:
-    std::unique_ptr<juce::dsp::Convolution> convolution;
-    juce::AudioBuffer<float>                wetBuffer;
-    juce::String                            loadedPath;
-    bool                                    irLoaded = false;
+    juce::dsp::Convolution   convolution;
+    juce::AudioBuffer<float> wetBuffer;
+    juce::String             loadedPath;
+    bool                     irLoaded = false;
+    bool                     prepared = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IRConvolutionEngine)
 };

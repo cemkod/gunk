@@ -19,7 +19,7 @@ public:
         // it produced near-zero ODF values until warm-up finished, causing the
         // barely-detects-anything symptom that threshold tuning cannot fix.
         onset = new_aubio_onset ("energy", kBufSize, kHopSize, sr);
-        aubio_onset_set_minioi_ms (onset, 150.0f); // 20ms min inter-onset
+        aubio_onset_set_minioi_ms (onset, 20.0f); // 20ms min inter-onset
         hopPos = 0;
 
     }

@@ -53,6 +53,13 @@ public:
         return detectedFrequency.load (std::memory_order_relaxed);
     }
 
+    // Median of the last kLastDetectedWindowSize non-zero raw detections.
+    // Returns 0 if no valid detections yet. Stable pitch for use when raw is zero.
+    float getLastDetectedFrequency() const
+    {
+        return lastDetectedFrequency.load (std::memory_order_relaxed);
+    }
+
 private:
     void run() override
     {
@@ -102,6 +109,20 @@ private:
         const float freq = detector.getFrequency();
         detectedFrequency.store (freq, std::memory_order_relaxed);
 
+        if (freq > 0.0f)
+        {
+            freqWindow[freqWindowHead] = freq;
+            freqWindowHead = (freqWindowHead + 1) % kLastDetectedWindowSize;
+            if (freqWindowCount < kLastDetectedWindowSize)
+                ++freqWindowCount;
+
+            // Median of the filled portion of the window
+            float sorted[kLastDetectedWindowSize];
+            std::copy (freqWindow, freqWindow + freqWindowCount, sorted);
+            std::sort (sorted, sorted + freqWindowCount);
+            lastDetectedFrequency.store (sorted[freqWindowCount / 2], std::memory_order_relaxed);
+        }
+
 #ifdef ENABLE_DEBUG_LOG
         const juce::int64 t1 = juce::Time::getHighResolutionTicks();
         const double totalMs = juce::Time::highResolutionTicksToSeconds (t1 - t0) * 1000.0;
@@ -132,7 +153,14 @@ private:
     std::atomic<int>    pendingWindowSize { 0 };
 
     // Result: pitch thread → audio thread
-    std::atomic<float>  detectedFrequency { 0.0f };
+    std::atomic<float>  detectedFrequency     { 0.0f };
+    std::atomic<float>  lastDetectedFrequency { 0.0f };
+
+    // Median window (pitch thread only)
+    static constexpr int kLastDetectedWindowSize = 5;
+    float  freqWindow[kLastDetectedWindowSize] = {};
+    int    freqWindowHead = 0;
+    int    freqWindowCount = 0;
 
     int blockCount = 0; // audio-thread only: wake pitch thread every 2 blocks
     juce::WaitableEvent wakeUp; // auto-reset (default = false)

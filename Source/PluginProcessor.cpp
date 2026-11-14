@@ -276,6 +276,18 @@ JQGunkAudioProcessor::createParameterLayout()
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
         timeFmt(), timeParse (0.001f, 2.0f)));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamIDs::modEnvSustain, "Env Sustain",
+        juce::NormalisableRange<float> (0.0f, 1.0f), 0.7f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        pctFmt(), pctParse (0.0f, 1.0f)));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamIDs::modEnvRelease, "Env Release",
+        juce::NormalisableRange<float> (0.001f, 4.0f, 0.0f, 0.3f), 0.3f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        timeFmt(), timeParse (0.001f, 4.0f)));
+
     layout.add (std::make_unique<juce::AudioParameterBool> (
         ParamIDs::irEnabled, "IR Enabled", false));
 
@@ -329,6 +341,9 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     }
     envelope = 0.0f;
     modEnvelope = 0.0f;
+    adsrEnvelope.reset();
+    prevGateWasOpen = false;
+    lastTransientNoteOn = false;
     glide.reset();
     gateIsOpen = false;
     envelopeFilter.reset();
@@ -453,6 +468,8 @@ JQGunkAudioProcessor::BlockParams JQGunkAudioProcessor::readBlockParams() const
         const float modDecay  = params.modEnvDecay->load();
         p.modAttCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modAttack));
         p.modDecCoef = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * modDecay));
+        p.modEnvSusLevel = params.modEnvSustain->load();
+        p.modEnvRelCoef  = 1.0f - std::exp (-1.0f / ((float) currentSampleRate * params.modEnvRelease->load()));
     }
 
     // 0 = least sensitive (threshold 0.6), 1 = most sensitive (threshold 0.1)
@@ -545,8 +562,10 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float octMult    = kOctMult [juce::jlimit (0, 4, p.octaveShift)];
     const float osc2OctMult = kOct2Mult[juce::jlimit (0, 4, p.osc2OctaveShift)];
 
-    // Read latest detected pitch from pitch thread (single value per block)
+    // Read latest detected pitch from pitch thread (single value per block).
     const float rawFreq = pitchThread.getDetectedFrequency();
+    // Stable "last known" pitch: median-smoothed, used when raw drops to zero.
+    const float oscFreq = (rawFreq > 0.0f) ? rawFreq : pitchThread.getLastDetectedFrequency();
 
     // --- CONTROL PASS: envelope, gate, mod envelope, pitch, glide ---
 #ifdef ENABLE_DEBUG_LOG
@@ -557,14 +576,27 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float inputSample = inputData[i];
 
         scratch.envelopeBuf[i] = qEnvFollower ? (*qEnvFollower)(std::abs (inputSample)) : 0.0f;
+        const bool gateWasOpen = prevGateWasOpen;
         gateIsOpen             = qGate        ? (*qGate)(scratch.envelopeBuf[i])        : false;
-        scratch.modEnvBuf[i]   = updateModEnvelopeSample (scratch.envelopeBuf[i], p);
+        prevGateWasOpen        = gateIsOpen;
 
+        lastTransientNoteOn = false;
         updateTransientDetection (p, inputSample);
+
+        {
+            // Trigger on the gate-open edge as well as on an aubio onset, so notes the
+            // onset detector misses (hammer-ons, soft legato) still start the envelope.
+            const bool noteOn  = lastTransientNoteOn || (! gateWasOpen && gateIsOpen);
+            const bool noteOff = gateWasOpen && !gateIsOpen;
+            adsrEnvelope.trackVelocity (noteOn, std::abs (inputSample), currentSampleRate);
+            const ADSREnvelope::Coefficients adsrCoefs { p.modAttCoef, p.modDecCoef, p.modEnvSusLevel, p.modEnvRelCoef };
+            scratch.modEnvBuf[i] = adsrEnvelope.update (noteOn, noteOff, adsrCoefs)
+                                   * adsrEnvelope.getVelocity();
+        }
 
         scratch.gatedInput[i] = gateIsOpen ? inputSample : 0.0f;
 
-        scratch.glidedFreq[i] = glide.update (rawFreq * octMult * p.osc1PitchMult,
+        scratch.glidedFreq[i] = glide.update (oscFreq * octMult * p.osc1PitchMult,
                                                p.glideSamples, gateIsOpen);
     }
 
@@ -575,7 +607,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // Update member vars from last sample for next block's snapshot
     envelope    = scratch.envelopeBuf[N - 1];
-    // modEnvelope already updated in-place by updateModEnvelopeSample
+    modEnvelope = scratch.modEnvBuf[N - 1];  // valid for both ADSR and follower modes
 
     // --- DERIVE PER-OSC FREQ BUFFERS (tight loops, auto-vectorizable) ---
     for (int i = 0; i < N; ++i)
@@ -750,22 +782,14 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 #endif
 }
 
-float JQGunkAudioProcessor::updateModEnvelopeSample (float envSample, const BlockParams& p)
-{
-    if (envSample > modEnvelope)
-        modEnvelope += p.modAttCoef * (envSample - modEnvelope);
-    else
-        modEnvelope += p.modDecCoef * (envSample - modEnvelope);
-    return modEnvelope;
-}
 
 void JQGunkAudioProcessor::updateTransientDetection (const BlockParams& p, float inputSample)
 {
-    const float gated = gateIsOpen ? inputSample : 0.0f;
-    if (onsetDetector.processSample (gated))
+    if (onsetDetector.processSample (inputSample) && gateIsOpen)
     {
         transientFlag.store (true, std::memory_order_relaxed);
         transientPlayer.trigger (p.transientAttack, p.transientHold, p.transientDecay);
+        lastTransientNoteOn = true;
     }
 }
 

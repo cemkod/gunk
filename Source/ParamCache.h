@@ -36,6 +36,8 @@ struct ParamCache
     std::atomic<float>* osc2FineTune     = nullptr;
     std::atomic<float>* modEnvAttack     = nullptr;
     std::atomic<float>* modEnvDecay      = nullptr;
+    std::atomic<float>* modEnvSustain    = nullptr;
+    std::atomic<float>* modEnvRelease    = nullptr;
     std::atomic<float>* transientSens    = nullptr;
     std::atomic<float>* lfoShape         = nullptr;
     std::atomic<float>* ampEnvSource     = nullptr;
@@ -91,6 +93,8 @@ struct ParamCache
         osc2FineTune     = apvts.getRawParameterValue (ParamIDs::osc2FineTune);
         modEnvAttack     = apvts.getRawParameterValue (ParamIDs::modEnvAttack);
         modEnvDecay      = apvts.getRawParameterValue (ParamIDs::modEnvDecay);
+        modEnvSustain    = apvts.getRawParameterValue (ParamIDs::modEnvSustain);
+        modEnvRelease    = apvts.getRawParameterValue (ParamIDs::modEnvRelease);
         transientSens    = apvts.getRawParameterValue (ParamIDs::transientSens);
         lfoShape         = apvts.getRawParameterValue (ParamIDs::lfoShape);
         ampEnvSource     = apvts.getRawParameterValue (ParamIDs::ampEnvSource);

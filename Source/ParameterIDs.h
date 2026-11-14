@@ -72,9 +72,10 @@ namespace ParamIDs {
     inline constexpr const char* transientDry    = "transientDry";
 
     // Mod envelope
-    inline constexpr const char* modEnvAttack = "modEnvAttack";
-    inline constexpr const char* modEnvDecay  = "modEnvDecay";
-
+    inline constexpr const char* modEnvAttack   = "modEnvAttack";
+    inline constexpr const char* modEnvDecay    = "modEnvDecay";
+    inline constexpr const char* modEnvSustain  = "modEnvSustain";
+    inline constexpr const char* modEnvRelease  = "modEnvRelease";
     // Impulse response
     inline constexpr const char* irEnabled = "irEnabled";
     inline constexpr const char* irMix     = "irMix";

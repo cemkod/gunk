@@ -6,15 +6,15 @@
 class EnvelopeDisplayComponent : public juce::Component
 {
 public:
-    EnvelopeDisplayComponent() : history (256, 0.0f) {}
+    EnvelopeDisplayComponent() : history (256, 0.0f), velocityHistory (256, 0.0f) {}
 
-    void pushSample (float v)
+    void pushSample (float v, float velocity = -1.0f)
     {
-        const float evicted = history[(size_t) writePos];
         history[(size_t) writePos] = v;
+        velocityHistory[(size_t) writePos] = velocity;
         writePos = (writePos + 1) % (int) history.size();
-        if (std::abs (v - evicted) > 0.001f)
-            repaint();
+        showVelocity = (velocity >= 0.0f);
+        repaint();
     }
 
     void paint (juce::Graphics& g) override
@@ -76,10 +76,33 @@ public:
             g.setColour (lineColour);
             g.strokePath (wavePath, juce::PathStrokeType (1.5f));
         }
+
+        if (showVelocity)
+        {
+            juce::Path velPath;
+            bool velStarted = false;
+            for (int i = 0; i < N; ++i)
+            {
+                const int idx = (writePos + i) % N;
+                const float v = velocityHistory[(size_t) idx];
+                if (v < 0.0f) continue;
+                const float px = x0 + (float) i / (float) (N - 1) * w;
+                const float py = toY (juce::jmax (v, 1e-10f));
+                if (!velStarted) { velPath.startNewSubPath (px, py); velStarted = true; }
+                else             { velPath.lineTo (px, py); }
+            }
+            if (velStarted)
+            {
+                g.setColour (lineColour.withAlpha (0.55f));
+                g.strokePath (velPath, juce::PathStrokeType (1.0f));
+            }
+        }
     }
 
 private:
     std::vector<float> history;
+    std::vector<float> velocityHistory;
+    bool showVelocity = false;
     int writePos = 0;
     juce::Path wavePath, fillPath;
 
