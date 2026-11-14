@@ -109,3 +109,29 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SegmentedControl)
 };
+
+// A dim caption followed by a SegmentedControl, e.g. "AMP [Input | ADSR]" in a header.
+class CaptionedSegmentedControl : public juce::Component
+{
+public:
+    CaptionedSegmentedControl (const juce::String& captionText, juce::StringArray labels, int captionWidth)
+        : control (std::move (labels)), captionW (captionWidth)
+    {
+        BassLookAndFeel::setupCaption (caption, captionText, *this, juce::Justification::centredRight);
+        addAndMakeVisible (control);
+    }
+
+    void resized() override
+    {
+        auto b = getLocalBounds();
+        caption.setBounds (b.removeFromLeft (captionW));
+        b.removeFromLeft (8);
+        control.setBounds (b);
+    }
+
+    juce::Label      caption;
+    SegmentedControl control;
+
+private:
+    int captionW;
+};

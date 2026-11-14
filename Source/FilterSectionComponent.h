@@ -12,9 +12,6 @@ class FilterSectionComponent : public SectionPanel
 public:
     FilterSectionComponent (JQGunkAudioProcessor& proc,
                             juce::AudioProcessorValueTreeState& apvts);
-    ~FilterSectionComponent() override;
-
-    void resized() override;
 
     void repaintDisplay()
     {
@@ -32,6 +29,8 @@ public:
     }
 
 private:
+    void layoutBody (juce::Rectangle<int> body) override;
+
     JQGunkAudioProcessor& processor;
     juce::AudioProcessorValueTreeState& apvts;
 

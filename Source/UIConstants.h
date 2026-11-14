@@ -68,21 +68,4 @@ namespace UIConst {
     constexpr float displayCornerRadius = 5.0f;
     constexpr float displayStrokeWidth  = 1.8f;
     constexpr float displayFillAlpha    = 0.12f;
-
-    // Legacy fixed-layout constants, still used by the pre-redesign section layouts.
-    // Removed once every section lays itself out proportionally.
-    constexpr int   knobRowH          = 48;
-    constexpr int   knobLabelH        = 13;
-    constexpr int   knobCellH         = knobStandardD + knobNameGap + knobNameH + knobValueH;
-    constexpr int   displayH_small    = 44;
-    constexpr int   displayH_filter   = 70;
-    constexpr int   displayH_waveform = 59;
-    constexpr int   oscSectionH       = 380;
-    constexpr int   topRowH           = 290;
-    constexpr int   oscColW           = 180;
-    constexpr int   headerHeight      = 52;
-    constexpr int   labelRowH         = 14;
-    constexpr int   presetStripH      = 28;
-    constexpr int   gateLedSize       = 8;
-    constexpr int   gateLedPad        = 6;
 }

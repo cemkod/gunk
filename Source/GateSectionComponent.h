@@ -4,25 +4,23 @@
 #include "SectionPanel.h"
 #include "GateDisplayComponent.h"
 
+// TRACKING: the gate meter strip, gate threshold/hysteresis, transient sensitivity, glide
+// and the pitch detector window.
 class GateSectionComponent : public SectionPanel
 {
 public:
-    explicit GateSectionComponent (juce::AudioProcessorValueTreeState& avts);
-    ~GateSectionComponent() override;
-
-    void paint (juce::Graphics&) override;
-    void resized() override;
+    explicit GateSectionComponent (juce::AudioProcessorValueTreeState& apvts);
 
     void setMeterValues (float envelope, bool gateOpen, bool transientFired = false);
 
 private:
-    juce::AudioProcessorValueTreeState& apvts;
+    void layoutBody (juce::Rectangle<int> body) override;
 
     GateDisplayComponent displayComponent;
 
-    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider, drySlider, transientSensSlider;
-    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel,  dryLabel,  transientSensLabel;
-    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach, dryAttach, transientSensAttach;
+    juce::Slider gateThresholdSlider, gateHysteresisSlider, glideSlider, transientSensSlider;
+    juce::Label  gateThresholdLabel,  gateHysteresisLabel,  glideLabel,  transientSensLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment gateThresholdAttach, gateHysteresisAttach, glideAttach, transientSensAttach;
 
     juce::ComboBox pitchWindowCombo;
     juce::Label    pitchWindowLabel;

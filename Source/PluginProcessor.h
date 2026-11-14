@@ -105,6 +105,10 @@ public:
         return juce::jlimit (0.0f, 1.0f, base + offset);
     }
 
+    float getModulatedWidth (int oscIdx) const {
+        return (oscIdx == 0 ? lastModulatedWidth1 : lastModulatedWidth2).load (std::memory_order_relaxed);
+    }
+
     float getDetectedFrequency() const { return pitchThread.getDetectedFrequency(); }
     bool  isGateOpen() const           { return gateIsOpen; }
     float getEnvelope() const          { return envelope; }
@@ -272,6 +276,8 @@ private:
     int editorWidth = 0;   // 0 = default size; see getEditorWidth()
     std::atomic<float> outputPeak { 0.0f };   // max |output| since the UI last read it
 
+    std::atomic<float> lastModulatedWidth1 { 0.0f };
+    std::atomic<float> lastModulatedWidth2 { 0.0f };
     std::atomic<float> lastModDetuneOffset  { 0.0f };
     std::atomic<float> lastModDetune2Offset { 0.0f };
     std::atomic<float> lastModBlendOffset   { 0.0f };

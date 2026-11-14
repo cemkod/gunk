@@ -1,75 +1,50 @@
 #include "GateSectionComponent.h"
 #include "LookAndFeel.h"
 
-
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& avts)
-    : SectionPanel ("GATE/TRACKING"),
-      apvts (avts),
+    : SectionPanel ("TRACKING"),
       displayComponent (avts),
-      gateThresholdAttach  (avts, "gateThreshold",   gateThresholdSlider),
-      gateHysteresisAttach (avts, "gateHysteresis",  gateHysteresisSlider),
-      glideAttach          (avts, "glide",            glideSlider),
-      dryAttach            (avts, "dryLevel",         drySlider),
-      transientSensAttach  (avts, "transientSens",    transientSensSlider)
+      gateThresholdAttach  (avts, "gateThreshold",  gateThresholdSlider),
+      gateHysteresisAttach (avts, "gateHysteresis", gateHysteresisSlider),
+      glideAttach          (avts, "glide",          glideSlider),
+      transientSensAttach  (avts, "transientSens",  transientSensSlider)
 {
-    BassLookAndFeel::setupRotarySlider (gateThresholdSlider,  gateThresholdLabel,  "THRS",  *this);
-    BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYST",  *this);
-    BassLookAndFeel::setupRotarySlider (glideSlider,          glideLabel,          "GLIDE", *this);
-    BassLookAndFeel::setupRotarySlider (drySlider,            dryLabel,            "DRY",   *this);
-    BassLookAndFeel::setupRotarySlider (transientSensSlider, transientSensLabel, "SENS",  *this);
+    // The meter strip is the only feedback for setting the threshold
     addAndMakeVisible (displayComponent);
+
+    BassLookAndFeel::setupRotarySlider (gateThresholdSlider,  gateThresholdLabel,  "THRESHOLD",   *this);
+    BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYSTERESIS",  *this);
+    BassLookAndFeel::setupRotarySlider (transientSensSlider,  transientSensLabel,  "SENSITIVITY", *this);
+    BassLookAndFeel::setupRotarySlider (glideSlider,          glideLabel,          "GLIDE",       *this);
 
     pitchWindowCombo.addItem ("4096 (B0)", 1);
     pitchWindowCombo.addItem ("2048 (fast)", 2);
     // Attach after the items exist, so the initial selection is applied.
     pitchWindowAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         avts, "pitchWindow", pitchWindowCombo);
-    pitchWindowCombo.setColour (juce::ComboBox::backgroundColourId, BassLookAndFeel::surface);
-    pitchWindowCombo.setColour (juce::ComboBox::textColourId,       BassLookAndFeel::text);
-    pitchWindowCombo.setColour (juce::ComboBox::outlineColourId,    BassLookAndFeel::border);
-
-    pitchWindowLabel.setText ("WINDOW", juce::dontSendNotification);
-    pitchWindowLabel.setFont (BassLookAndFeel::uiFont (10.0f));
-    pitchWindowLabel.setJustificationType (juce::Justification::centred);
+    pitchWindowCombo.setTooltip ("Pitch detector window: 4096 tracks down to B0, 2048 responds faster");
     addAndMakeVisible (pitchWindowCombo);
-    addAndMakeVisible (pitchWindowLabel);
+    BassLookAndFeel::setupCaption (pitchWindowLabel, "WINDOW", *this);
 }
 
-GateSectionComponent::~GateSectionComponent()
+void GateSectionComponent::layoutBody (juce::Rectangle<int> body)
 {
-    setLookAndFeel (nullptr);
-}
+    displayComponent.setBounds (body.removeFromTop (20));
+    body.removeFromTop (4);
 
-void GateSectionComponent::paint (juce::Graphics& g)
-{
-    SectionPanel::paint (g);
-}
+    auto windowRow = body.removeFromBottom (UIConst::buttonH);
+    pitchWindowLabel.setBounds (windowRow.removeFromLeft (64));
+    pitchWindowCombo.setBounds (windowRow);
+    body.removeFromBottom (4);
 
-void GateSectionComponent::resized()
-{
-    auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
-    inner.removeFromTop (UIConst::sectionHeaderH); // skip section label row
-    displayComponent.setBounds (inner.removeFromTop (UIConst::displayH_small));
-    inner.removeFromTop (UIConst::knobGap);
-
-    // Row 1: THRS, HYST, GLIDE
-    BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
-                                   { { &gateThresholdSlider,  &gateThresholdLabel },
-                                     { &gateHysteresisSlider, &gateHysteresisLabel },
-                                     { &glideSlider,          &glideLabel } });
-
-    inner.removeFromTop (UIConst::knobGap);
-
-    // Row 2: DRY, SENS, then WINDOW label over its combo
-    auto row2 = inner.removeFromTop (UIConst::knobCellH);
-    const int colW = row2.getWidth() / 3;
-    BassLookAndFeel::placeKnob (drySlider,           dryLabel,           row2.removeFromLeft (colW));
-    BassLookAndFeel::placeKnob (transientSensSlider, transientSensLabel, row2.removeFromLeft (colW));
-    auto windowArea = row2.reduced (2, 0).withSizeKeepingCentre (row2.getWidth() - 4,
-                                                                 UIConst::knobNameH + 2 + UIConst::buttonH);
-    pitchWindowLabel.setBounds (windowArea.removeFromTop (UIConst::knobNameH));
-    windowArea.removeFromTop (2);
-    pitchWindowCombo.setBounds (windowArea);
+    // 2 x 2 knobs: THRESHOLD HYSTERESIS / SENSITIVITY GLIDE (small)
+    const int colW = body.getWidth() / 2;
+    auto row1 = body.removeFromTop (body.getHeight() / 2);
+    auto row2 = body;
+    BassLookAndFeel::placeKnob (gateThresholdSlider,  gateThresholdLabel,  row1.removeFromLeft (colW));
+    BassLookAndFeel::placeKnob (gateHysteresisSlider, gateHysteresisLabel, row1);
+    BassLookAndFeel::placeKnob (transientSensSlider,  transientSensLabel,  row2.removeFromLeft (colW));
+    BassLookAndFeel::placeKnob (glideSlider,          glideLabel,          row2, BassLookAndFeel::KnobSize::small);
 }
 
 void GateSectionComponent::setMeterValues (float envelope, bool gateOpen, bool transientFired)

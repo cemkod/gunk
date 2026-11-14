@@ -5,91 +5,65 @@
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "ParameterIDs.h"
+#include "SegmentedControl.h"
 
+// OUTPUT: master volume, the dry input level and path, and the stereo mono-below crossover.
 class OutputSectionComponent : public SectionPanel
 {
 public:
     explicit OutputSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : SectionPanel ("OUTPUT"),
-          apvts (avts),
-          volAttach    (avts, "masterVolume", volSlider),
-          monoAttach   (avts, ParamIDs::stereoMonoBelow, monoSlider)
+          volAttach  (avts, "masterVolume", volSlider),
+          dryAttach  (avts, "dryLevel", drySlider),
+          monoAttach (avts, ParamIDs::stereoMonoBelow, monoSlider)
     {
-        BassLookAndFeel::setupRotarySlider (volSlider, volLabel, "VOL", *this);
-        BassLookAndFeel::setupRotarySlider (monoSlider, monoLabel, "MONO <", *this);
+        BassLookAndFeel::setupRotarySlider (volSlider,  volLabel,  "VOLUME",     *this);
+        BassLookAndFeel::setupRotarySlider (drySlider,  dryLabel,  "DRY",        *this);
+        BassLookAndFeel::setupRotarySlider (monoSlider, monoLabel, "MONO BELOW", *this);
+        drySlider .setTooltip ("Level of the unprocessed input in the mix");
         monoSlider.setTooltip ("Unison WIDTH is kept mono below this frequency");
 
-        ampEnvLabel.setText ("AMP ENV", juce::dontSendNotification);
-        ampEnvLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
-        ampEnvLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
-        ampEnvLabel.setJustificationType (juce::Justification::centred);
-        addAndMakeVisible (ampEnvLabel);
-
-        ampEnvCombo.addItem ("SRC", 1);
-        ampEnvCombo.addItem ("ENV", 2);
-        addAndMakeVisible (ampEnvCombo);
-
-        dryPathLabel.setText ("DRY PATH", juce::dontSendNotification);
-        dryPathLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
-        dryPathLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
-        dryPathLabel.setJustificationType (juce::Justification::centred);
-        addAndMakeVisible (dryPathLabel);
-
-        dryPathCombo.addItem ("CLEAN", 1);
-        dryPathCombo.addItem ("FX", 2);
-        dryPathCombo.setTooltip ("FX: the dry input goes through Drive and the Filter with the synth");
-        addAndMakeVisible (dryPathCombo);
-
-        // Attach after the items exist, so the initial selection is applied.
-        using ComboAttach = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-        ampEnvAttach  = std::make_unique<ComboAttach> (avts, "ampEnvSource",       ampEnvCombo);
-        dryPathAttach = std::make_unique<ComboAttach> (avts, ParamIDs::dryRouting, dryPathCombo);
+        BassLookAndFeel::setupCaption (dryPathLabel, "DRY PATH", *this);
+        dryPathSwitch.attachToParameter (avts, ParamIDs::dryRouting);
+        addAndMakeVisible (dryPathSwitch);
+        dryPathLabel.setTooltip ("Through FX: the dry input goes through Drive and the Filter with the synth");
     }
 
-    ~OutputSectionComponent() override
+    void paint (juce::Graphics& g) override
     {
-        setLookAndFeel (nullptr);
-    }
-
-    void resized() override
-    {
-        auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
-        inner.removeFromTop (UIConst::sectionHeaderH); // skip section label
-
-        inner.removeFromTop (UIConst::knobGap);
-        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
-                                       { { &volSlider,  &volLabel },
-                                         { &monoSlider, &monoLabel } });
-
-        inner.removeFromTop (UIConst::sectionInnerPad);
-        ampEnvLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
-        inner.removeFromTop (UIConst::knobGap);
-        ampEnvCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
-
-        inner.removeFromTop (UIConst::sectionInnerPad);
-        dryPathLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
-        inner.removeFromTop (UIConst::knobGap);
-        dryPathCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
+        SectionPanel::paint (g);
+        // Divider between the knobs and the dry path switch
+        g.setColour (BassLookAndFeel::border);
+        g.fillRect (dividerX, getBodyBounds().getY() + 4, 1, getBodyBounds().getHeight() - 8);
     }
 
 private:
-    juce::AudioProcessorValueTreeState& apvts;
+    void layoutBody (juce::Rectangle<int> body) override
+    {
+        using K = BassLookAndFeel::KnobSize;
+        auto path = body.removeFromRight (150);
+        dividerX = path.getX() - 8;
+        body.removeFromRight (16);
 
-    juce::Slider volSlider;
-    juce::Label  volLabel { "", "VOL" };
-    juce::AudioProcessorValueTreeState::SliderAttachment volAttach;
+        path = path.withSizeKeepingCentre (path.getWidth(), UIConst::captionH + 6 + 34);
+        dryPathLabel.setBounds (path.removeFromTop (UIConst::captionH));
+        path.removeFromTop (6);
+        dryPathSwitch.setBounds (path);
 
-    juce::Slider monoSlider;
-    juce::Label  monoLabel { "", "MONO <" };
-    juce::AudioProcessorValueTreeState::SliderAttachment monoAttach;
+        const int colW = body.getWidth() / 3;
+        BassLookAndFeel::placeKnob (volSlider,  volLabel,  body.removeFromLeft (colW), K::hero);
+        BassLookAndFeel::placeKnob (drySlider,  dryLabel,  body.removeFromLeft (colW));
+        BassLookAndFeel::placeKnob (monoSlider, monoLabel, body);
+    }
 
-    juce::Label    ampEnvLabel;
-    juce::ComboBox ampEnvCombo;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> ampEnvAttach;
+    juce::Slider volSlider, drySlider, monoSlider;
+    juce::Label  volLabel,  dryLabel,  monoLabel;
+    juce::AudioProcessorValueTreeState::SliderAttachment volAttach, dryAttach, monoAttach;
 
-    juce::Label    dryPathLabel;
-    juce::ComboBox dryPathCombo;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> dryPathAttach;
+    juce::Label      dryPathLabel;
+    SegmentedControl dryPathSwitch { { "Clean", "Through FX" } };
+
+    int dividerX = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OutputSectionComponent)
 };

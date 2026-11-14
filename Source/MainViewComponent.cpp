@@ -6,7 +6,6 @@ MainViewComponent::MainViewComponent (JQGunkAudioProcessor& p)
       gateSection     (p.apvts),
       envelopeSection (p.apvts),
       filterSection   (p, p.apvts),
-      subOscSection   (p.apvts),
       combinedOscSection (p.apvts,
           OscParamIds { ParamIDs::waveform,    ParamIDs::oscLevel,  ParamIDs::unisonVoices,    ParamIDs::unisonDetune,    ParamIDs::unisonBlend,    ParamIDs::octaveShift,    ParamIDs::morph,    ParamIDs::coarseTune,   ParamIDs::fineTune,     ParamIDs::unisonWidth     },
           OscParamIds { ParamIDs::osc2Waveform, ParamIDs::osc2Level, ParamIDs::osc2UnisonVoices, ParamIDs::osc2UnisonDetune, ParamIDs::osc2UnisonBlend, ParamIDs::osc2OctaveShift, ParamIDs::osc2Morph, ParamIDs::osc2CoarseTune, ParamIDs::osc2FineTune, ParamIDs::osc2UnisonWidth }),
@@ -36,6 +35,7 @@ MainViewComponent::MainViewComponent (JQGunkAudioProcessor& p)
 
     combinedOscSection.getModDetune = [&p] (int idx) { return p.getModulatedDetune (idx); };
     combinedOscSection.getModBlend  = [&p] (int idx) { return p.getModulatedBlend  (idx); };
+    combinedOscSection.getModWidth  = [&p] (int idx) { return p.getModulatedWidth  (idx); };
 
     transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
     transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
@@ -43,7 +43,7 @@ MainViewComponent::MainViewComponent (JQGunkAudioProcessor& p)
     irSection.getLoadedPath  = [&p] { return p.getIRSamplePath(); };
 
     for (auto* c : std::initializer_list<juce::Component*> {
-             &gateSection, &envelopeSection, &filterSection, &subOscSection, &combinedOscSection,
+             &gateSection, &envelopeSection, &filterSection, &combinedOscSection,
              &transientSection, &irSection, &driveSection, &outputSection, &lfoSection })
         addAndMakeVisible (c);
 }
@@ -52,10 +52,13 @@ void MainViewComponent::tick (bool gateOpen, bool transientFired)
 {
     combinedOscSection.updateButtonStates();
     combinedOscSection.repaintDisplays();
-    subOscSection.updateButtonStates();
     transientSection.updateButtonStates();
     irSection.updateButtonStates();
     filterSection.repaintDisplay();
+
+    for (auto* s : std::initializer_list<SectionPanel*> { &combinedOscSection, &transientSection,
+                                                          &irSection, &driveSection, &filterSection })
+        s->refreshDimmed();
 
     gateSection.setMeterValues (processor.getEnvelope(), gateOpen, transientFired);
     envelopeSection.pushSample (processor.getModEnvelope(), processor.getADSRVelocity());
@@ -64,32 +67,32 @@ void MainViewComponent::tick (bool gateOpen, bool transientFired)
 
 void MainViewComponent::resized()
 {
+    // Three rows in signal-flow order. Widths are proportions of each row.
+    //   Tracking | Oscillators | Transient
+    //   ADSR     | Drive       | Filter
+    //   LFO      | IR          | Output
     auto area = getLocalBounds();
     const int g = UIConst::sectionGap;
+    const int h = area.getHeight() - 2 * g;
 
-    // Top row: gate | envelope | filter | ir | output
-    auto topRow = area.removeFromTop (UIConst::topRowH);
-    gateSection    .setBounds (topRow.removeFromLeft (220));
-    topRow.removeFromLeft (g);
-    envelopeSection.setBounds (topRow.removeFromLeft (220));
-    topRow.removeFromLeft (g);
-    outputSection  .setBounds (topRow.removeFromRight (UIConst::oscColW));
-    topRow.removeFromRight (g);
-    irSection      .setBounds (topRow.removeFromRight (UIConst::oscColW));
-    topRow.removeFromRight (g);
-    filterSection  .setBounds (topRow);
-
+    auto row1 = area.removeFromTop (h * 415 / 1000);
     area.removeFromTop (g);
+    auto row2 = area.removeFromTop (h * 352 / 1000);
+    area.removeFromTop (g);
+    auto row3 = area;
 
-    // Osc row: sub | osc | drive | transient | lfo
-    auto oscRow = area;
-    subOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW));
-    oscRow.removeFromLeft (g);
-    lfoSection   .setBounds (oscRow.removeFromRight (UIConst::oscColW));
-    oscRow.removeFromRight (g);
-    combinedOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW * 2));
-    oscRow.removeFromLeft (g);
-    driveSection.setBounds (oscRow.removeFromLeft (110));
-    oscRow.removeFromLeft (g);
-    transientSection.setBounds (oscRow);
+    auto split = [g] (juce::Rectangle<int> row, std::initializer_list<std::pair<juce::Component*, int>> cols)
+    {
+        const int w = row.getWidth() - g * ((int) cols.size() - 1);
+        int i = 0;
+        for (auto [c, pct] : cols)
+        {
+            c->setBounds (++i == (int) cols.size() ? row : row.removeFromLeft (w * pct / 100));
+            row.removeFromLeft (g);
+        }
+    };
+
+    split (row1, { { &gateSection, 22 }, { &combinedOscSection, 52 }, { &transientSection, 26 } });
+    split (row2, { { &envelopeSection, 34 }, { &driveSection, 20 }, { &filterSection, 46 } });
+    split (row3, { { &lfoSection, 32 }, { &irSection, 26 }, { &outputSection, 42 } });
 }

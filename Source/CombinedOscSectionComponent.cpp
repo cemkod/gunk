@@ -18,13 +18,10 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     juce::AudioProcessorValueTreeState& avts,
     const OscParamIds& ids1,
     const OscParamIds& ids2)
-    : SectionPanel ("OSC"),
+    : SectionPanel ("OSCILLATORS"),
       apvts (avts),
-      osc1    ("", ids1, avts, true),
-      osc2Comp("", ids2, avts, true),
-      pwrAttach1 (avts, ParamIDs::osc1Enabled, pwrBtn1),
-      pwrAttach2 (avts, ParamIDs::osc2Enabled, pwrBtn2)
-
+      osc1     (ids1, avts),
+      osc2Comp (ids2, avts)
 {
     paramIds[0] = ids1;
     paramIds[1] = ids2;
@@ -48,99 +45,119 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
         }
     }
 
-    // Tab buttons
-    const int tabGroup = juce::Random::getSystemRandom().nextInt (0x7fffffff);
-    for (auto* b : { &tabBtn1, &tabBtn2 })
+    // Header tabs, each with its section's enable switch
+    const juce::String enableIds[3] { ParamIDs::osc1Enabled, ParamIDs::osc2Enabled, ParamIDs::subEnabled };
+    for (int i = 0; i < 3; ++i)
     {
-        b->setRadioGroupId (tabGroup);
-        b->setClickingTogglesState (true);
-        b->setColour (juce::TextButton::buttonColourId,   BassLookAndFeel::surface);
-        b->setColour (juce::TextButton::buttonOnColourId, BassLookAndFeel::accent);
-        b->setColour (juce::TextButton::textColourOffId,  BassLookAndFeel::iconDim);
-        b->setColour (juce::TextButton::textColourOnId,   juce::Colours::black);
-        addAndMakeVisible (b);
-    }
-    tabBtn1.onClick = [this] { selectOsc (0); };
-    tabBtn2.onClick = [this] { selectOsc (1); };
-    tabBtn1.setToggleState (true, juce::dontSendNotification);
-
-    for (auto* b : { &pwrBtn1, &pwrBtn2 })
-    {
-        b->setClickingTogglesState (true);
-        addAndMakeVisible (b);
+        auto& t = tabs[(size_t) i];
+        tabPowerAttach[(size_t) i] = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+            avts, enableIds[i], t.power);
+        enabledParams[(size_t) i] = avts.getRawParameterValue (enableIds[i]);
+        t.onSelect = [this, i] { selectTab (i); };
+        addAndMakeVisible (t);
     }
 
-    // Waveform display + unison display
     addAndMakeVisible (waveformDisplay);
     addAndMakeVisible (unisonDisplay);
-    selectOsc (0); // initialises unisonDisplay callbacks
 
     // Waveform combos
     setupWaveCombo (waveCombo1, 0);
     setupWaveCombo (waveCombo2, 1);
-    waveCombo2.setVisible (false);
 
     // Octave combos
-    auto setupOct = [this] (juce::ComboBox& combo)
+    for (auto* combo : { &octCombo1, &octCombo2 })
     {
-        combo.addItem ("-2", 1);
-        combo.addItem ("-1", 2);
-        combo.addItem ( "0", 3);
-        combo.addItem ("+1", 4);
-        combo.addItem ("+2", 5);
+        combo->addItemList ({ "-2", "-1", "0", "+1", "+2" }, 1);
         addAndMakeVisible (combo);
-    };
-    setupOct (octCombo1);
-    setupOct (octCombo2);
-    octCombo2.setVisible (false);
+    }
     // Attach after the items exist, so the initial selection is applied.
     octAttach1 = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (avts, ids1.octaveShift, octCombo1);
     octAttach2 = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (avts, ids2.octaveShift, octCombo2);
-
-    octLabel.setText ("OCT", juce::dontSendNotification);
-    octLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
-    octLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
-    octLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (octLabel);
+    BassLookAndFeel::setupCaption (octLabel, "OCTAVE", *this, juce::Justification::centred);
+    BassLookAndFeel::setupCaption (unisonCaption, "UNISON", *this, juce::Justification::centred);
 
     addAndMakeVisible (osc1);
     addAndMakeVisible (osc2Comp);
-    osc2Comp.setVisible (false);
+
+    // SUB page
+    BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "LEVEL", *this);
+    subLevelAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        avts, ParamIDs::subLevel, subLevelSlider);
+    subOctCombo.addItemList ({ "-2", "-1", "0", "+1" }, 1);
+    subOctAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        avts, ParamIDs::subOctave, subOctCombo);
+    addAndMakeVisible (subOctCombo);
+    BassLookAndFeel::setupCaption (subOctLabel, "OCTAVE", *this, juce::Justification::centred);
+    skipFilterBtn.setClickingTogglesState (true);
+    BassLookAndFeel::setButtonStyle (skipFilterBtn, BassLookAndFeel::ButtonStyle::outline);
+    skipFilterBtn.setTooltip ("The sub skips the filter and joins the mix clean");
+    skipFilterAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        avts, ParamIDs::subBypassFilter, skipFilterBtn);
+    addAndMakeVisible (skipFilterBtn);
+
+    selectTab (0);
 }
 
-CombinedOscSectionComponent::~CombinedOscSectionComponent()
+void CombinedOscSectionComponent::selectTab (int idx)
 {
-    setLookAndFeel (nullptr);
-}
+    selectedTab = idx;
+    const bool isOsc = idx != kSubTab;
 
-void CombinedOscSectionComponent::selectOsc (int idx)
-{
-    selectedOsc = idx;
+    for (int i = 0; i < 3; ++i)
+    {
+        tabs[(size_t) i].selected = (i == idx);
+        tabs[(size_t) i].repaint();
+    }
+
     osc1    .setVisible (idx == 0);
     osc2Comp.setVisible (idx == 1);
-
-    tabBtn1.setToggleState (idx == 0, juce::dontSendNotification);
-    tabBtn2.setToggleState (idx == 1, juce::dontSendNotification);
-
-    waveformDisplay.getDisplayFrame = getDisplayFrame[(size_t) idx];
-    waveformDisplay.repaint();
-
-    unisonDisplay.getVoices = [this, idx] {
-        auto* p = apvts.getParameter (paramIds[idx].unisonVoices);
-        return p ? p->getValue() * 7.0f + 1.0f : 1.0f;
-    };
-    unisonDisplay.getDetune = [this, idx] {
-        return getModDetune ? getModDetune (idx) : 0.0f;
-    };
-    unisonDisplay.getBlend = [this, idx] {
-        return getModBlend ? getModBlend (idx) : 1.0f;
-    };
-
     waveCombo1.setVisible (idx == 0);
     waveCombo2.setVisible (idx == 1);
-    octCombo1.setVisible (idx == 0);
-    octCombo2.setVisible (idx == 1);
-    syncWaveCombo (idx);
+    octCombo1 .setVisible (idx == 0);
+    octCombo2 .setVisible (idx == 1);
+    octLabel     .setVisible (isOsc);
+    unisonCaption.setVisible (isOsc);
+    unisonDisplay.setVisible (isOsc);
+
+    subLevelSlider.setVisible (! isOsc);
+    subLevelLabel .setVisible (! isOsc);
+    subOctCombo   .setVisible (! isOsc);
+    subOctLabel   .setVisible (! isOsc);
+    skipFilterBtn .setVisible (! isOsc);
+
+    if (isOsc)
+    {
+        waveformDisplay.getDisplayFrame = getDisplayFrame[(size_t) idx];
+        unisonDisplay.getVoices = [this, idx] {
+            auto* p = apvts.getParameter (paramIds[idx].unisonVoices);
+            return p ? p->getValue() * 7.0f + 1.0f : 1.0f;
+        };
+        unisonDisplay.getBlend = [this, idx] { return getModBlend ? getModBlend (idx) : 1.0f; };
+        unisonDisplay.getWidth = [this, idx] { return getModWidth ? getModWidth (idx) : 0.0f; };
+        syncWaveCombo (idx);
+    }
+    else
+    {
+        // The sub is a sine
+        waveformDisplay.getDisplayFrame = [] (std::vector<float>& buf)
+        {
+            const auto n = buf.size();
+            for (size_t i = 0; i < n; ++i)
+                buf[i] = std::sin (juce::MathConstants<float>::twoPi * (float) i / (float) n);
+        };
+    }
+    repaintDisplays();
+
+    // Dimming follows the selected tab's enable switch
+    setDimmed (false);
+    refreshDimmed();
+    relayout();
+}
+
+void CombinedOscSectionComponent::refreshDimmed()
+{
+    if (auto* p = enabledParams[(size_t) selectedTab])
+        setDimmed (p->load (std::memory_order_relaxed) < 0.5f);
 }
 
 void CombinedOscSectionComponent::addFactorySubmenu (juce::ComboBox& combo)
@@ -214,7 +231,7 @@ void CombinedOscSectionComponent::setupWaveCombo (juce::ComboBox& combo, int osc
             if (loadWavetableFromFile[(size_t) oscIdx])
                 loadWavetableFromFile[(size_t) oscIdx] (factoryWavetables[id - 100]);
         }
-        // id 50 = loaded custom wavetable — no action needed, already active
+        // id 50 = loaded custom wavetable, already active
     };
 
     addAndMakeVisible (combo);
@@ -247,7 +264,7 @@ void CombinedOscSectionComponent::syncWaveCombo (int oscIdx)
         return;
     }
 
-    // Sync to APVTS waveform param (0=Triangle,1=Square,2=Sawtooth → IDs 1,2,3)
+    // Sync to APVTS waveform param (0=Triangle,1=Square,2=Sawtooth -> IDs 1,2,3)
     auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (paramIds[oscIdx].waveform));
     if (p)
         combo.setSelectedId ((int) p->getIndex() + 1, juce::dontSendNotification);
@@ -289,70 +306,94 @@ void CombinedOscSectionComponent::updateButtonStates()
     osc2Comp.getNumFrames = getNumFrames[1];
 
     // Keep display callbacks current (also fixes initial null on first load)
-    waveformDisplay.getDisplayFrame = getDisplayFrame[(size_t) selectedOsc];
+    if (selectedTab != kSubTab)
+        waveformDisplay.getDisplayFrame = getDisplayFrame[(size_t) selectedTab];
 
     syncWaveCombo (0);
     syncWaveCombo (1);
 
-    if (selectedOsc == 0)
+    if (selectedTab == 0)
         osc1.updateButtonStates();
-    else
+    else if (selectedTab == 1)
         osc2Comp.updateButtonStates();
 }
 
-void CombinedOscSectionComponent::resized()
+void CombinedOscSectionComponent::paint (juce::Graphics& g)
 {
-    auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
-    inner.removeFromTop (UIConst::sectionHeaderH); // section label row
+    SectionPanel::paint (g);
 
-    // Tab buttons + power buttons sit in the header bar (not consuming inner space)
+    if (separatorX >= 0 && selectedTab != kSubTab)
     {
-        const int tabW = 22;
-        const int pwrW = UIConst::powerToggleW;
-        const int btnH = UIConst::powerToggleH + 2;
-        const int gap  = 3;
-        const int pad  = UIConst::sectionInnerPad;
-        // Each group: [pwr][tab], two groups side by side with a small gap between groups
-        const int groupW = pwrW + gap + tabW;
-        const int totalW = groupW * 2 + gap * 2;
-        auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
-        auto btnArea = header.removeFromRight (pad + totalW)
-                             .withSizeKeepingCentre (totalW, btnH);
-        // Group 1: osc1
-        pwrBtn1.setBounds (btnArea.removeFromLeft (pwrW));
-        btnArea.removeFromLeft (gap);
-        tabBtn1.setBounds (btnArea.removeFromLeft (tabW));
-        btnArea.removeFromLeft (gap * 2);
-        // Group 2: osc2
-        pwrBtn2.setBounds (btnArea.removeFromLeft (pwrW));
-        btnArea.removeFromLeft (gap);
-        tabBtn2.setBounds (btnArea.removeFromLeft (tabW));
+        const auto body = getBodyBounds();
+        g.setColour (BassLookAndFeel::border);
+        g.fillRect (separatorX, body.getY() + 2, 1, body.getHeight() - 4);
+    }
+}
+
+void CombinedOscSectionComponent::layoutBody (juce::Rectangle<int> body)
+{
+    // Tabs on the right of the header
+    {
+        auto header = getHeaderBounds().reduced (UIConst::sectionInnerPad, 4);
+        constexpr int tabW = 112, gap = 6;
+        for (int i = 2; i >= 0; --i)
+        {
+            tabs[(size_t) i].setBounds (header.removeFromRight (tabW));
+            header.removeFromRight (gap);
+        }
     }
 
-    // Waveform display (left half) + placeholder (right half)
-    auto displayRow = inner.removeFromTop (UIConst::displayH_waveform);
-    const int gap = 4;
-    waveformDisplay  .setBounds (displayRow.removeFromLeft (displayRow.getWidth() / 2 - gap / 2));
-    displayRow.removeFromLeft (gap);
-    unisonDisplay.setBounds (displayRow);
+    const int knobH = BassLookAndFeel::knobCellHeight (BassLookAndFeel::KnobSize::standard);
+    constexpr int colGap = 24;
 
-    inner.removeFromTop (4);
+    // Two columns: waveform and the main knobs (60 %) | unison display and its knobs (40 %)
+    auto left  = body.removeFromLeft ((body.getWidth() - colGap) * 60 / 100);
+    body.removeFromLeft (colGap);
+    auto right = body;
+    separatorX = left.getRight() + colGap / 2;
 
-    // Waveform selector + octave selector (side by side)
-    auto comboRow = inner.removeFromTop (UIConst::buttonH);
-    const int octW   = 46;
-    const int octLblW = 28;
-    auto octComboArea = comboRow.removeFromRight (octW);
-    auto octLblArea   = comboRow.removeFromRight (octLblW);
-    octLabel  .setBounds (octLblArea);
-    octCombo1 .setBounds (octComboArea);
-    octCombo2 .setBounds (octComboArea);
+    auto leftKnobs  = left .removeFromBottom (knobH);
+    auto rightKnobs = right.removeFromBottom (knobH);
+    left .removeFromBottom (UIConst::knobGap);
+    right.removeFromBottom (UIConst::knobGap);
+
+    // Combo row under the waveform: [ wave combo | OCTAVE | octave combo ]
+    auto comboRow = left.removeFromBottom (UIConst::buttonH);
+    left.removeFromBottom (UIConst::knobGap);
+
+    if (selectedTab == kSubTab)
+    {
+        // SUB: sine across the full width, then [ OCTAVE combo | SKIP FILTER ], then LEVEL
+        waveformDisplay.setBounds (left.getUnion (right.withTrimmedBottom (0)).withBottom (left.getBottom()));
+        auto row = comboRow;
+        subOctLabel.setBounds (row.removeFromLeft (64));
+        subOctCombo.setBounds (row.removeFromLeft (90));
+        row.removeFromLeft (16);
+        skipFilterBtn.setBounds (row.removeFromLeft (130));
+        BassLookAndFeel::placeKnob (subLevelSlider, subLevelLabel, leftKnobs.removeFromLeft (leftKnobs.getWidth() / 4));
+        return;
+    }
+
+    waveformDisplay.setBounds (left);
+    auto octCombo = comboRow.removeFromRight (80);
+    octCombo1.setBounds (octCombo);
+    octCombo2.setBounds (octCombo);
+    octLabel.setBounds (comboRow.removeFromRight (70));
+    comboRow.removeFromRight (4);
     waveCombo1.setBounds (comboRow);
     waveCombo2.setBounds (comboRow);
 
-    inner.removeFromTop (UIConst::knobGap);
+    // Unison display, its caption at the bottom of the column, level with the combo row
+    unisonCaption.setBounds (right.removeFromBottom (UIConst::captionH));
+    right.removeFromBottom (UIConst::knobGap);
+    unisonDisplay.setBounds (right);
 
-    // Remaining: osc controls (both at same bounds, one visible)
-    osc1    .setBounds (inner);
-    osc2Comp.setBounds (inner);
+    // The knob holders cover the whole body so their rows can be placed in two columns
+    const auto whole = getBodyBounds();
+    for (auto* osc : { &osc1, &osc2Comp })
+    {
+        osc->setBounds (whole);
+        osc->layoutKnobs (leftKnobs.translated (-whole.getX(), -whole.getY()),
+                          rightKnobs.translated (-whole.getX(), -whole.getY()));
+    }
 }

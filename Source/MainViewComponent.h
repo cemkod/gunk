@@ -5,7 +5,6 @@
 #include "GateSectionComponent.h"
 #include "CombinedOscSectionComponent.h"
 #include "FilterSectionComponent.h"
-#include "SubOscSectionComponent.h"
 #include "TransientSectionComponent.h"
 #include "EnvelopeSectionComponent.h"
 #include "OutputSectionComponent.h"
@@ -30,7 +29,6 @@ private:
     GateSectionComponent          gateSection;
     EnvelopeSectionComponent      envelopeSection;
     FilterSectionComponent        filterSection;
-    SubOscSectionComponent        subOscSection;
     CombinedOscSectionComponent   combinedOscSection;
     TransientSectionComponent     transientSection;
     IRSectionComponent            irSection;

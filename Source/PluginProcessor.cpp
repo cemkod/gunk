@@ -714,6 +714,8 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const bool  stereo = numChannels >= 2;
     const float width1 = juce::jlimit (0.0f, 1.0f, params.unisonWidth->load()     + modMatrix.getOffset (ModTarget::Width1));
     const float width2 = juce::jlimit (0.0f, 1.0f, params.osc2UnisonWidth->load() + modMatrix.getOffset (ModTarget::Width2));
+    lastModulatedWidth1.store (width1, std::memory_order_relaxed);
+    lastModulatedWidth2.store (width2, std::memory_order_relaxed);
 
     const float osc1Gain = p.osc1Enabled ? p.oscLevel : 0.0f;
     oscillator.processBlock   (scratch.glidedFreq, scratch.osc1Out, N,

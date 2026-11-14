@@ -1,88 +1,54 @@
 #include "OscSectionComponent.h"
-#include "LookAndFeel.h"
 
-OscSectionComponent::OscSectionComponent (const juce::String& title,
-                                           const OscParamIds& ids,
-                                           juce::AudioProcessorValueTreeState& avts,
-                                           bool embedded)
-    : SectionPanel (title),
-      paramIds (ids),
-      apvts (avts),
-      embedded_ (embedded),
-      levelAttach        (avts, ids.level,        levelSlider),
+OscSectionComponent::OscSectionComponent (const OscParamIds& ids,
+                                          juce::AudioProcessorValueTreeState& avts)
+    : levelAttach        (avts, ids.level,        levelSlider),
+      morphAttach        (avts, ids.morph,        morphSlider),
+      coarseTuneAttach   (avts, ids.coarseTune,   coarseTuneSlider),
+      fineTuneAttach     (avts, ids.fineTune,     fineTuneSlider),
       unisonVoicesAttach (avts, ids.unisonVoices, unisonVoicesSlider),
       unisonDetuneAttach (avts, ids.unisonDetune, unisonDetuneSlider),
       unisonBlendAttach  (avts, ids.unisonBlend,  unisonBlendSlider),
-      unisonWidthAttach  (avts, ids.unisonWidth,  unisonWidthSlider),
-      morphAttach        (avts, ids.morph,         morphSlider),
-      coarseTuneAttach   (avts, ids.coarseTune,   coarseTuneSlider),
-      fineTuneAttach     (avts, ids.fineTune,     fineTuneSlider)
+      unisonWidthAttach  (avts, ids.unisonWidth,  unisonWidthSlider)
 {
-    if (embedded_)
-        setSuppressBorder (true);
+    // Only the knobs take the mouse; the panel's displays and combos sit underneath.
+    setInterceptsMouseClicks (false, true);
 
-    BassLookAndFeel::setupLinearSlider (levelSlider,        levelLabel,        "LEVEL",  *this);
-    BassLookAndFeel::setupLinearSlider (morphSlider,        morphLabel,        "MORPH",  *this);
-    BassLookAndFeel::setupLinearSlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
+    BassLookAndFeel::setupRotarySlider (levelSlider,        levelLabel,        "LEVEL",  *this);
+    BassLookAndFeel::setupRotarySlider (morphSlider,        morphLabel,        "MORPH",  *this);
+    BassLookAndFeel::setupRotarySlider (coarseTuneSlider,   coarseTuneLabel,   "COARSE", *this);
+    BassLookAndFeel::setupRotarySlider (fineTuneSlider,     fineTuneLabel,     "FINE",   *this);
+    BassLookAndFeel::setupRotarySlider (unisonVoicesSlider, unisonVoicesLabel, "VOICES", *this);
+    BassLookAndFeel::setupRotarySlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
+    BassLookAndFeel::setupRotarySlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
+    BassLookAndFeel::setupRotarySlider (unisonWidthSlider,  unisonWidthLabel,  "WIDTH",  *this);
+    coarseTuneSlider  .setNumDecimalPlacesToDisplay (0);
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
-    BassLookAndFeel::setupLinearSlider (unisonDetuneSlider, unisonDetuneLabel, "DETUNE", *this);
-    BassLookAndFeel::setupLinearSlider (unisonBlendSlider,  unisonBlendLabel,  "BLEND",  *this);
-    BassLookAndFeel::setupLinearSlider (unisonWidthSlider,  unisonWidthLabel,  "WIDTH",  *this);
 
-    BassLookAndFeel::setupLinearSlider (coarseTuneSlider,   coarseTuneLabel,   "COARSE", *this);
-    coarseTuneSlider.setNumDecimalPlacesToDisplay (0);
-    BassLookAndFeel::setupLinearSlider (fineTuneSlider,     fineTuneLabel,     "FINE",   *this);
+    morphSlider       .setTooltip ("Position in the wavetable (needs a multi-frame wavetable)");
+    unisonBlendSlider .setTooltip ("Level of the outer unison voices relative to the centre");
+    unisonWidthSlider .setTooltip ("Stereo spread of the unison voices");
 
     updateButtonStates();
 }
 
-
-OscSectionComponent::~OscSectionComponent()
-{
-    setLookAndFeel (nullptr);
-}
-
 void OscSectionComponent::updateButtonStates()
 {
+    // MORPH only means something with a multi-frame wavetable
     const bool multiFrame = getNumFrames && (getNumFrames() > 1);
     morphSlider.setEnabled (multiFrame);
-    morphLabel .setEnabled (multiFrame);
-    morphSlider.setAlpha (multiFrame ? 1.0f : 0.35f);
-    morphLabel .setAlpha (multiFrame ? 1.0f : 0.35f);
-
+    morphSlider.setAlpha (multiFrame ? 1.0f : 0.4f);
+    morphLabel .setAlpha (multiFrame ? 1.0f : 0.4f);
 }
 
-void OscSectionComponent::resized()
+void OscSectionComponent::layoutKnobs (juce::Rectangle<int> mainRow, juce::Rectangle<int> unisonRow)
 {
-    auto inner = embedded_ ? getLocalBounds() : getLocalBounds().reduced (UIConst::sectionInnerPad);
-    if (! embedded_)
-        inner.removeFromTop (UIConst::sectionHeaderH);
-
-    // 8 slider rows + the UNISON divider must fit the osc section's 187 px.
-    const int rowH   = 18;
-    const int gap    = 2;
-    const int labelW = 46;
-
-    auto sliderRow = [&] (juce::Label& lbl, juce::Slider& sl)
-    {
-        auto row = inner.removeFromTop (rowH);
-        lbl.setBounds (row.removeFromLeft (labelW));
-        sl .setBounds (row);
-        inner.removeFromTop (gap);
-    };
-
-    sliderRow (levelLabel,      levelSlider);
-    sliderRow (morphLabel,      morphSlider);
-    sliderRow (coarseTuneLabel, coarseTuneSlider);
-    sliderRow (fineTuneLabel,   fineTuneSlider);
-
-    inner.removeFromTop (gap);
-    dividerY = inner.getY();
-    inner.removeFromTop (20);   // separator row — same height as sliders
-    inner.removeFromTop (gap);
-
-    sliderRow (unisonVoicesLabel, unisonVoicesSlider);
-    sliderRow (unisonDetuneLabel, unisonDetuneSlider);
-    sliderRow (unisonBlendLabel,  unisonBlendSlider);
-    sliderRow (unisonWidthLabel,  unisonWidthSlider);
+    BassLookAndFeel::placeKnobRow (mainRow, { { &levelSlider,      &levelLabel },
+                                              { &morphSlider,      &morphLabel },
+                                              { &coarseTuneSlider, &coarseTuneLabel },
+                                              { &fineTuneSlider,   &fineTuneLabel } });
+    BassLookAndFeel::placeKnobRow (unisonRow, { { &unisonVoicesSlider, &unisonVoicesLabel },
+                                                { &unisonDetuneSlider, &unisonDetuneLabel },
+                                                { &unisonBlendSlider,  &unisonBlendLabel },
+                                                { &unisonWidthSlider,  &unisonWidthLabel } });
 }

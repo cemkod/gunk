@@ -322,18 +322,11 @@ public:
                 break;
 
             case ButtonStyle::outline:
-                if (on)
-                {
-                    g.setColour (accent.brighter (hover));
-                    g.fillRoundedRectangle (b, r);
-                }
-                else
-                {
-                    g.setColour (accent.withAlpha (hover));
-                    g.fillRoundedRectangle (b, r);
-                    g.setColour (button.isEnabled() ? accent : iconDim);
-                    g.drawRoundedRectangle (b.reduced (0.5f), r, 1.5f);
-                }
+                // On: accent outline over a faint accent tint. Off: quiet border.
+                g.setColour (accent.withAlpha ((on ? 0.16f : 0.0f) + hover));
+                g.fillRoundedRectangle (b, r);
+                g.setColour (! button.isEnabled() ? iconDim : (on ? accent : borderDim));
+                g.drawRoundedRectangle (b.reduced (0.5f), r, 1.5f);
                 break;
 
             case ButtonStyle::plain:
@@ -351,12 +344,13 @@ public:
         const bool on = button.getToggleState();
         juce::Colour c;
 
+        const bool outline = getButtonStyle (button) == ButtonStyle::outline;
         if (! button.isEnabled())
             c = iconDim;
-        else if (on)
-            c = accentText;
+        else if (outline)
+            c = on ? accent : textDim;
         else
-            c = getButtonStyle (button) == ButtonStyle::outline ? accent : text;
+            c = on ? accentText : text;
 
         g.setColour (c);
         g.setFont (uiFont (UIConst::fontButtonText, true));

@@ -38,6 +38,19 @@ public:
     }
     bool isDimmed() const { return dimmed; }
 
+    // Dims the body whenever this bool parameter (an *Enabled switch) is off.
+    // Call refreshDimmed() periodically (the main view does, from the UI timer).
+    void setEnabledParameter (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID)
+    {
+        enabledParam = apvts.getRawParameterValue (paramID);
+        jassert (enabledParam != nullptr);
+    }
+    virtual void refreshDimmed()
+    {
+        if (enabledParam != nullptr)
+            setDimmed (enabledParam->load (std::memory_order_relaxed) < 0.5f);
+    }
+
     void paint (juce::Graphics& g) override
     {
         if (suppressBorder_) return;
@@ -115,6 +128,7 @@ private:
     juce::String sectionTitle;
     bool suppressBorder_ = false;
     bool dimmed = false;
+    std::atomic<float>* enabledParam = nullptr;
     juce::Component* headerPower = nullptr;
     juce::Component* headerRight = nullptr;
     int headerRightW = 0;

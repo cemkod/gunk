@@ -5,6 +5,7 @@
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "PowerToggleButton.h"
+#include "SegmentedControl.h"
 #include "ParameterIDs.h"
 
 class DriveSectionComponent : public SectionPanel
@@ -17,57 +18,29 @@ public:
     {
         pwrBtn.setClickingTogglesState (true);
         addAndMakeVisible (pwrBtn);
+        setHeaderPower (&pwrBtn);
+        setEnabledParameter (avts, ParamIDs::driveEnabled);
+
         BassLookAndFeel::setupRotarySlider (driveSlider, driveLabel, "DRIVE", *this);
 
-        curveLabel.setText ("CURVE", juce::dontSendNotification);
-        curveLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
-        curveLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
-        curveLabel.setJustificationType (juce::Justification::centred);
-        addAndMakeVisible (curveLabel);
-
-        // Item IDs are choice index + 1, as ComboBoxAttachment expects.
-        curveCombo.addItemList ({ "Soft", "Hard", "Tube" }, 1);
-        addAndMakeVisible (curveCombo);
-        // Attach after the items exist, so the initial selection is applied.
-        curveAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
-            avts, ParamIDs::driveCurve, curveCombo);
-    }
-
-    ~DriveSectionComponent() override
-    {
-        setLookAndFeel (nullptr);
-    }
-
-    void resized() override
-    {
-        {
-            const int btnH = UIConst::powerToggleH;
-            const int btnW = UIConst::powerToggleW;
-            auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
-            pwrBtn.setBounds (header.removeFromRight (btnW + UIConst::sectionInnerPad)
-                                    .withSizeKeepingCentre (btnW, btnH));
-        }
-
-        auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
-        inner.removeFromTop (UIConst::sectionHeaderH);
-
-        inner.removeFromTop (UIConst::knobGap);
-        BassLookAndFeel::placeKnob (driveSlider, driveLabel, inner.removeFromTop (UIConst::knobCellH));
-
-        inner.removeFromTop (UIConst::sectionInnerPad);
-        curveLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
-        inner.removeFromTop (UIConst::knobGap);
-        curveCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
+        // Segment index = choice index (Soft, Hard, Tube)
+        curveSwitch.attachToParameter (avts, ParamIDs::driveCurve);
+        addAndMakeVisible (curveSwitch);
     }
 
 private:
+    void layoutBody (juce::Rectangle<int> body) override
+    {
+        curveSwitch.setBounds (body.removeFromBottom (32));
+        body.removeFromBottom (UIConst::knobGap);
+        BassLookAndFeel::placeKnob (driveSlider, driveLabel, body, BassLookAndFeel::KnobSize::hero);
+    }
+
     juce::Slider driveSlider;
-    juce::Label  driveLabel { "", "DRIVE" };
+    juce::Label  driveLabel;
     juce::AudioProcessorValueTreeState::SliderAttachment driveAttach;
 
-    juce::Label    curveLabel;
-    juce::ComboBox curveCombo;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> curveAttach;
+    SegmentedControl curveSwitch { { "Soft", "Hard", "Tube" } };
 
     PowerToggleButton pwrBtn;
     juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach;

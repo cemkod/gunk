@@ -27,14 +27,12 @@ public:
         addAndMakeVisible (enableBtn);
         enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
             avts, "irEnabled", enableBtn);
+        setHeaderPower (&enableBtn);
+        setEnabledParameter (avts, "irEnabled");
 
         setupIRCombo (factoryIRDir);
+        irCombo.setTooltip ("Impulse response: pick a factory IR or load a WAV/AIFF");
         addAndMakeVisible (irCombo);
-    }
-
-    ~IRSectionComponent() override
-    {
-        setLookAndFeel (nullptr);
     }
 
     void updateButtonStates()
@@ -42,26 +40,15 @@ public:
         syncIRCombo();
     }
 
-    void resized() override
+private:
+    void layoutBody (juce::Rectangle<int> body) override
     {
-        {
-            const int btnW = UIConst::powerToggleW, btnH = UIConst::powerToggleH;
-            auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
-            auto btnArea = header.removeFromRight (UIConst::sectionInnerPad + btnW)
-                                 .withSizeKeepingCentre (btnW, btnH);
-            enableBtn.setBounds (btnArea);
-        }
-
-        auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
-        inner.removeFromTop (UIConst::sectionHeaderH);
-
-        inner.removeFromTop (UIConst::knobGap);
-        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
-                                       { { &mixSlider,    &mixLabel },
-                                         { &makeupSlider, &makeupLabel } });
-
-        inner.removeFromTop (UIConst::sectionInnerPad);
-        irCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
+        // [ IR combo | MIX | MAKEUP ]
+        auto comboCol = body.removeFromLeft (body.getWidth() * 40 / 100);
+        irCombo.setBounds (comboCol.withSizeKeepingCentre (comboCol.getWidth(), UIConst::buttonH));
+        body.removeFromLeft (UIConst::knobGap);
+        BassLookAndFeel::placeKnobRow (body, { { &mixSlider,    &mixLabel },
+                                               { &makeupSlider, &makeupLabel } });
     }
 
 private:
