@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 
 struct ADSREnvelope
@@ -18,6 +19,7 @@ struct ADSREnvelope
         phase              = Phase::Idle;
         value              = 0.0f;
         velocity           = 1.0f;
+        velocityTarget     = 1.0f;
         peakTrackRemaining = 0;
     }
 
@@ -55,20 +57,32 @@ struct ADSREnvelope
         return value;
     }
 
-    // Call once per sample to track peak velocity in a 100ms window after onset.
+    // Call once per sample. Tracks the input peak in a 100ms window after onset, and
+    // smooths the result (~5ms one-pole) so the envelope never steps as the peak rises.
     void trackVelocity (bool noteOn, float inputSampleAbs, double sampleRate)
     {
+        if (sampleRate != smoothRate)
+        {
+            smoothRate = sampleRate;
+            smoothCoef = 1.0f - (float) std::exp (-1.0 / (0.005 * sampleRate));
+        }
+
         if (noteOn)
         {
-            velocity           = inputSampleAbs;
+            // A retrigger inside the window (gate-open then aubio onset on the same
+            // note) keeps the running peak instead of resetting it to one raw sample.
+            velocityTarget     = peakTrackRemaining > 0 ? std::max (velocityTarget, inputSampleAbs)
+                                                        : inputSampleAbs;
             peakTrackRemaining = (int) (sampleRate * 0.1);
         }
         else if (peakTrackRemaining > 0)
         {
             --peakTrackRemaining;
-            if (inputSampleAbs > velocity)
-                velocity = inputSampleAbs;
+            if (inputSampleAbs > velocityTarget)
+                velocityTarget = inputSampleAbs;
         }
+
+        velocity += smoothCoef * (velocityTarget - velocity);
     }
 
     float getVelocity() const { return velocity; }
@@ -78,5 +92,8 @@ private:
     Phase phase              = Phase::Idle;
     float value              = 0.0f;
     float velocity           = 1.0f;
+    float velocityTarget     = 1.0f;
     int   peakTrackRemaining = 0;
+    double smoothRate        = 0.0;
+    float  smoothCoef        = 1.0f;
 };
