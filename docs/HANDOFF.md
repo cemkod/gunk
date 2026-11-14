@@ -1,6 +1,6 @@
 # Handoff: plugin-review follow-up (branch `ADSR`)
 
-Started on 2026-11-14 and updated on 2026-11-14, after the second session.
+Started on 2026-11-14 and updated on 2026-11-14, after the third session.
 
 ## Goal
 
@@ -18,8 +18,9 @@ All of this is committed on `ADSR`, one commit per fix, and none of it is pushed
 | `96b73b8` | `setWaveform` no longer allocates or frees on the audio thread. | `Source/Oscillator.cpp:23` (`basicTable`), `:52`, `:203` and `:285` (custom loaders) |
 | `226afba` | The `transientDecay` parse limit is now 0.2 and the `transientDry` limit is 1.0. | `createParameterLayout` in `PluginProcessor.cpp` |
 | `ae094a8` | `getTailLengthSeconds` returns a real value. | `PluginProcessor.cpp:377`, `IRConvolutionEngine.h:86` |
+| `209baf0` | Presets store IR and transient paths relative to their library folder, as wavetables already did. | `toPresetPath`/`fromPresetPath`/`restoreSamplePaths` in `PluginProcessor.cpp`, file choosers in `IRSectionComponent.h` and `TransientSectionComponent.h` |
 
-Still open from the review's bug table: **absolute paths in presets** (transient sample and IR). The first session handoff listed "ADSR velocity steps during the attack" as open; it is now fixed (`b12665f`).
+The review's bug table is done.
 
 `pitch-debugger/` (433 MB) is deliberately untracked and not ignored, because the review names it as a possible starting point for tracking tests.
 
@@ -39,6 +40,9 @@ Still open from the review's bug table: **absolute paths in presets** (transient
   - **ADSR (amp source 1):** τ = `modEnvRelease`.
   - **Transient:** attack + hold + decay.
   - **IR:** `getCurrentIRSize() / sampleRate`, published from the audio thread through `std::atomic<double> tailSeconds`, because `getCurrentIRSize()` reads the engine that `process()` swaps.
+- **Preset paths are library-relative.** The user picked this over paths relative to the preset file. A file inside `~/.config/JQGunk/Impulse Responses/` or the new `~/.config/JQGunk/Transient Samples/` is saved relative to that folder. Anything else stays absolute. Session state (`getStateInformation`) still writes absolute paths, and every restore goes through `fromPresetPath`, which accepts either form.
+  - Relative paths are written with `/`, and `toPresetPath` uses `isAChildOf`, which fixes the old `..`-prefix check for a path on another Windows drive.
+  - No factory transient samples ship, so there is no install target for `Transient Samples/`. If the folder doesn't exist, the file chooser falls back to the home directory.
 - **Gate-open and onset are OR-ed** to trigger the ADSR. Gate-open catches the notes aubio misses, and the onset re-latches at the real pick peak.
 
 ## Next steps
@@ -49,8 +53,8 @@ Still open from the review's bug table: **absolute paths in presets** (transient
    - Load an IR while the IR section is off, then turn it on.
    - Play legato notes and hammer-ons in Env Module mode, and listen for bumps at note start and for whether 5 ms of velocity smoothing feels right.
    - Switch waveforms while playing. Load a multi-frame `.wt` file, then switch to a basic shape.
-2. **Absolute paths in presets.** This needs the user's decision before any code. The last proposal was to store paths relative to the `~/.config/JQGunk/...` folders, with an absolute-path fallback; the alternative is paths relative to the preset file. The paths are written in `getStateInformation` and read in `setStateInformation` and in the preset-load path. Both are in `PluginProcessor.cpp`: grep for `irSamplePath` and `transientSamplePath`.
-3. **Review items 2–4** in `plugin-review.md`: drive/saturation and stereo unison, onset-reset of the pitch window, and the preset rebuild. These are feature work, so agree on scope with the user first.
+   - Save a user preset that uses an IR from `Impulse Responses/` and check that the `.jqgpreset` has a relative `irSamplePath`. Load an old preset that has absolute paths and check that it still works.
+2. **Review items 2–4** in `plugin-review.md`: drive/saturation and stereo unison, onset-reset of the pitch window, and the preset rebuild. These are feature work, so agree on scope with the user first.
 
 ## Traps
 
