@@ -256,13 +256,13 @@ JQGunkAudioProcessor::createParameterLayout()
         "transientDecay", "Transient Decay",
         juce::NormalisableRange<float> (0.0001f, 0.2f, 0.0001f, 0.4f), 0.1f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        timeFmt(), timeParse (0.0001f, 0.05f)));
+        timeFmt(), timeParse (0.0001f, 0.2f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "transientDry", "Transient Dry",
         juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f,
         juce::String{}, juce::AudioProcessorParameter::genericParameter,
-        pctFmt(), pctParse (0.0f, 2.0f)));
+        pctFmt(), pctParse (0.0f, 1.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "modEnvAttack", "Env Attack",
