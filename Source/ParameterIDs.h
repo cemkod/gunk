@@ -59,6 +59,7 @@ namespace ParamIDs {
 
     // Output
     inline constexpr const char* masterVolume  = "masterVolume";
+    inline constexpr const char* dryRouting    = "dryRouting";   // 0 = Clean, 1 = Through FX
     inline constexpr const char* ampEnvSource  = "ampEnvSource";
 
     // LFO

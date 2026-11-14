@@ -205,6 +205,10 @@ JQGunkAudioProcessor::createParameterLayout()
         "ampEnvSource", "Amp Env Source",
         juce::StringArray { "Source", "Env Module" }, 0));
 
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        ParamIDs::dryRouting, "Dry Path",
+        juce::StringArray { "Clean", "Through FX" }, 0));
+
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "lfoRate", "LFO Rate",
         juce::NormalisableRange<float> (0.01f, 20.0f, 0.0f, 0.3f), 1.0f,
@@ -721,6 +725,18 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (! p.subBypassFilter)
         juce::FloatVectorOperations::add (scratch.osc1Out, scratch.subOut, N);
 
+    // Amp envelope source: 0 = input envelope follower, 1 = ADSR module.
+    const float* ampEnvBuf = (ampEnvSourceIdx == 0) ? scratch.envelopeBuf : scratch.modEnvBuf;
+
+    // Dry path "Through FX": the dry input joins the synth before drive and filter.
+    // The synth gets its amp envelope here instead of after the filter, because the
+    // two can't be separated after the drive. The dry signal is not enveloped; it
+    // already carries the playing dynamics. "Clean" keeps the original order.
+    const bool dryThroughFx = params.dryRouting->load() > 0.5f;
+    if (dryThroughFx)
+        for (int i = 0; i < N; ++i)
+            scratch.osc1Out[i] = scratch.osc1Out[i] * ampEnvBuf[i] + inputData[i] * p.dryLevel;
+
     // --- DRIVE (pre-filter; the sub joins after it when it bypasses the filter) ---
     if (params.driveEnabled->load() > 0.5f)
     {
@@ -752,11 +768,13 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Compute pre-IR, pre-masterVolume mix into irMixBuf
     for (int i = 0; i < N; ++i)
     {
-        const float ampEnv   = (ampEnvSourceIdx == 0) ? scratch.envelopeBuf[i] : scratch.modEnvBuf[i];
-        const float postFx   = p.subBypassFilter ? scratch.subOut[i] : 0.0f;
-        const float oscWet   = (scratch.osc1Out[i] + postFx) * ampEnv;
+        const float ampEnv   = ampEnvBuf[i];
+        const float postFx   = p.subBypassFilter ? scratch.subOut[i] * ampEnv : 0.0f;
+        // Through FX: osc1Out already holds enveloped synth + dry.
+        const float fxOut    = dryThroughFx ? scratch.osc1Out[i]
+                                            : scratch.osc1Out[i] * ampEnv + inputData[i] * p.dryLevel;
         const float transDry = inputData[i] * scratch.transientEnv[i] * p.transientDry;
-        scratch.irMixBuf[i]  = inputData[i] * p.dryLevel + oscWet
+        scratch.irMixBuf[i]  = fxOut + postFx
                                + scratch.transientOut[i] * (p.transientEnabled ? p.transientLevel : 0.0f) + (p.transientEnabled ? transDry : 0.0f);
     }
 

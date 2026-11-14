@@ -42,6 +42,7 @@ struct ParamCache
     std::atomic<float>* lfoShape         = nullptr;
     std::atomic<float>* ampEnvSource     = nullptr;
     std::atomic<float>* masterVolume     = nullptr;
+    std::atomic<float>* dryRouting       = nullptr;
     std::atomic<float>* lfoRate          = nullptr;
     std::atomic<float>* lfoAmount        = nullptr;
     std::atomic<float>* pitchWindow      = nullptr;
@@ -102,6 +103,7 @@ struct ParamCache
         lfoShape         = apvts.getRawParameterValue (ParamIDs::lfoShape);
         ampEnvSource     = apvts.getRawParameterValue (ParamIDs::ampEnvSource);
         masterVolume     = apvts.getRawParameterValue (ParamIDs::masterVolume);
+        dryRouting       = apvts.getRawParameterValue (ParamIDs::dryRouting);
         lfoRate          = apvts.getRawParameterValue (ParamIDs::lfoRate);
         lfoAmount        = apvts.getRawParameterValue (ParamIDs::lfoAmount);
         pitchWindow      = apvts.getRawParameterValue (ParamIDs::pitchWindow);

@@ -50,6 +50,7 @@ The review's bug table is done. The review's open question about `<PARAM id="mor
   - **Oversampling:** 2x `filterHalfBandPolyphaseIIR`, `isMaxQuality = false`. Its latency (a few samples) applies to the synth path only and isn't reported to the host, because the dry signal isn't delayed to match. When drive goes from off to on, the oversampler is reset and the gain jumps to its target.
   - **Auto-gain:** the output is scaled by `2·kRef / (f(g·kRef) − f(−g·kRef))` with kRef = 0.5. A 0.5-peak sine then stays within 3 dB of dry for every curve from 0 to 36 dB. Quiet inputs come out up to ~17 dB louder at full drive, which is the saturation compressing them, as intended. The osc mix is normally near full scale anyway, because the amp envelope is applied after the filter. These numbers come from a Python model of the curves, not from measuring the plugin.
   - **UI:** a 100 px Drive section in the osc row, between the combined-osc section and the transient section. The transient section had the most spare width. The editor size is unchanged.
+- **Dry path (`dryRouting`): Clean / Through FX.** The user asked for the dry signal's routing to be selectable. In Clean (the default) the maths is unchanged: `(osc + sub)·env + dry`. In Through FX it becomes `filter(drive(osc·env + dry)) + sub·env`, where the sub term is present only when the sub bypasses the filter. The amp envelope moves ahead of drive in this mode, because the synth can't be separated from the dry signal after the nonlinearity. The dry signal is not enveloped. The control is a DRY PATH combo in the Output section.
 - **Gate-open and onset are OR-ed** to trigger the ADSR. Gate-open catches the notes aubio misses, and the onset re-latches at the real pick peak.
 
 ## Next steps
@@ -60,6 +61,7 @@ The review's bug table is done. The review's open question about `<PARAM id="mor
    - Load an IR while the IR section is off, then turn it on.
    - Play legato notes and hammer-ons in Env Module mode, and listen for bumps at note start and for whether 5 ms of velocity smoothing feels right.
    - Switch waveforms while playing. Load a multi-frame `.wt` file, then switch to a basic shape.
+   - **Dry path:** switch DRY PATH to FX with DRY up, and check that the bass is driven and filtered. Then check that Clean sounds exactly as before. In FX mode with the ADSR as the amp source, the synth is enveloped before the drive, so the distortion fades with the release.
    - **Drive:** check the three curves at low and high drive, the level jump when toggling, zipper noise when modulating Drive from the LFO, and aliasing on high notes (Hard aliases most). Check that the section layout looks right.
    - **Old factory presets** (13 parameters): confirm that they now load the same way regardless of which preset came before. They will sound different from before, because unmentioned parameters are now at their defaults.
    - Save a user preset that uses an IR from `Impulse Responses/` and check that the `.jqgpreset` has a relative `irSamplePath`. Load an old preset that has absolute paths and check that it still works.

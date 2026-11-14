@@ -3,6 +3,8 @@
 #include <JuceHeader.h>
 #include "LabelledSectionComponent.h"
 #include "LookAndFeel.h"
+#include "UIConstants.h"
+#include "ParameterIDs.h"
 
 class OutputSectionComponent : public LabelledSectionComponent
 {
@@ -10,8 +12,7 @@ public:
     explicit OutputSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("OUTPUT"),
           apvts (avts),
-          volAttach    (avts, "masterVolume", volSlider),
-          ampEnvAttach (avts, "ampEnvSource", ampEnvCombo)
+          volAttach    (avts, "masterVolume", volSlider)
     {
         BassLookAndFeel::setupRotarySlider (volSlider, volLabel, "VOL", *this);
 
@@ -24,6 +25,22 @@ public:
         ampEnvCombo.addItem ("SRC", 1);
         ampEnvCombo.addItem ("ENV", 2);
         addAndMakeVisible (ampEnvCombo);
+
+        dryPathLabel.setText ("DRY PATH", juce::dontSendNotification);
+        dryPathLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        dryPathLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
+        dryPathLabel.setJustificationType (juce::Justification::centred);
+        addAndMakeVisible (dryPathLabel);
+
+        dryPathCombo.addItem ("CLEAN", 1);
+        dryPathCombo.addItem ("FX", 2);
+        dryPathCombo.setTooltip ("FX: the dry input goes through Drive and the Filter with the synth");
+        addAndMakeVisible (dryPathCombo);
+
+        // Attach after the items exist, so the initial selection is applied.
+        using ComboAttach = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+        ampEnvAttach  = std::make_unique<ComboAttach> (avts, "ampEnvSource",       ampEnvCombo);
+        dryPathAttach = std::make_unique<ComboAttach> (avts, ParamIDs::dryRouting, dryPathCombo);
     }
 
     ~OutputSectionComponent() override
@@ -44,6 +61,11 @@ public:
         ampEnvLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
         inner.removeFromTop (UIConst::knobGap);
         ampEnvCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
+
+        inner.removeFromTop (UIConst::sectionInnerPad);
+        dryPathLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
+        inner.removeFromTop (UIConst::knobGap);
+        dryPathCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
     }
 
 private:
@@ -55,7 +77,11 @@ private:
 
     juce::Label    ampEnvLabel;
     juce::ComboBox ampEnvCombo;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment ampEnvAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> ampEnvAttach;
+
+    juce::Label    dryPathLabel;
+    juce::ComboBox dryPathCombo;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> dryPathAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OutputSectionComponent)
 };

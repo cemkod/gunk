@@ -46,6 +46,8 @@ There are no automated tests. Verification is done by loading the plugin in a DA
 
 Signal flow: **Audio Input → Pitch Detector → Oscillators (OSC1 + OSC2 + Sub, each with unison) → Envelope Gate → Drive (2x oversampled) → Resonant Filter → Transient Player → IR Convolution → Mix → Output**
 
+The dry input normally skips drive and filter and joins at the mix. With `dryRouting` = Through FX, it is added to the synth before Drive, and the synth's amp envelope moves ahead of Drive so the dry signal isn't enveloped.
+
 Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 19 targets) → per-block parameter offsets**
 
 ### Key Source Files
