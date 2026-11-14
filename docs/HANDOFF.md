@@ -18,7 +18,7 @@ All of this is committed on `ADSR`, one commit per fix, and none of it is pushed
 | `96b73b8` | `setWaveform` no longer allocates or frees on the audio thread. | `Source/Oscillator.cpp:23` (`basicTable`), `:52`, `:203` and `:285` (custom loaders) |
 | `226afba` | The `transientDecay` parse limit is now 0.2 and the `transientDry` limit is 1.0. | `createParameterLayout` in `PluginProcessor.cpp` |
 | `ae094a8` | `getTailLengthSeconds` returns a real value. | `PluginProcessor.cpp:377`, `IRConvolutionEngine.h:86` |
-| (this session) | Stereo unison: per-osc WIDTH, MONO < crossover, stereo drive/filter/IR. Review item 2, second half. | `Oscillator.cpp` `processBlock`, `Source/SideHighpass.h`, `processBlock` from `// --- AUDIO GENERATORS ---` to the output loop |
+| `1411f61` | Stereo unison: per-osc WIDTH, MONO < crossover, stereo drive/filter/IR. Review item 2, second half. | `Oscillator.cpp` `processBlock`, `Source/SideHighpass.h`, `processBlock` from `// --- AUDIO GENERATORS ---` to the output loop |
 | `fb2a919` | Dry path selectable: Clean or Through FX. | `dryRouting`, `processBlock` before `// --- DRIVE` |
 | `8e80608` | Drive stage before the filter: Soft/Hard/Tube, 2x oversampling, auto-gain, Drive mod target. Review item 2, first half. | `Source/DriveEngine.h`, `Source/DriveSectionComponent.h`, `processBlock` before `// --- FILTER ---` |
 | `38f609c` | Parameters missing from a loaded preset or session reset to their defaults instead of keeping the previous value. | `PresetManager::replaceStateFilling` |
