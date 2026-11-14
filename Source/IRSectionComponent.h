@@ -56,14 +56,9 @@ public:
         inner.removeFromTop (UIConst::sectionHeaderH);
 
         inner.removeFromTop (UIConst::knobGap);
-        auto knobRow = inner.removeFromTop (UIConst::knobRowH);
-        const int knobW = knobRow.getWidth() / 2;
-        mixSlider   .setBounds (knobRow.removeFromLeft (knobW));
-        makeupSlider.setBounds (knobRow);
-
-        auto labelRow = inner.removeFromTop (UIConst::knobLabelH);
-        mixLabel   .setBounds (labelRow.removeFromLeft (knobW));
-        makeupLabel.setBounds (labelRow);
+        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                       { { &mixSlider,    &mixLabel },
+                                         { &makeupSlider, &makeupLabel } });
 
         inner.removeFromTop (UIConst::sectionInnerPad);
         irCombo.setBounds (inner.removeFromTop (UIConst::buttonH));

@@ -97,7 +97,7 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     octCombo2.setVisible (false);
 
     octLabel.setText ("OCT", juce::dontSendNotification);
-    octLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+    octLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
     octLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
     octLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (octLabel);

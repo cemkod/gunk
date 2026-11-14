@@ -73,7 +73,7 @@ void ModMatrixComponent::paint (juce::Graphics& g)
 
     // Column header labels
     auto hdr = getLocalBounds().reduced (8).removeFromTop (kHeaderH);
-    g.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+    g.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
     g.setColour (BassLookAndFeel::textDim);
 
     const int srcW = 150, gap = 6, tgtW = 170;

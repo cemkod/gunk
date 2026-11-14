@@ -81,7 +81,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     // Set LookAndFeel after sections are children so propagation covers them
     setLookAndFeel (&lookAndFeel);
 
-    freqLabel.setFont (juce::Font (UIConst::uiFontSize));
+    freqLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize));
     freqLabel.setColour (juce::Label::textColourId, BassLookAndFeel::text.withAlpha (0.7f));
     freqLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (freqLabel);
@@ -301,7 +301,7 @@ void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
         logo->drawWithin (g, logoBounds, juce::RectanglePlacement::centred, 1.0f);
     }
 
-    g.setFont (juce::Font (10.0f));
+    g.setFont (BassLookAndFeel::uiFont (10.0f));
     g.setColour (BassLookAndFeel::text.withAlpha (0.45f));
     g.drawText ("v" JucePlugin_VersionString,
                 getLocalBounds().reduced (8).removeFromTop (18),

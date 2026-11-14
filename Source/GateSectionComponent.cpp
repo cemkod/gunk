@@ -27,7 +27,7 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
     pitchWindowCombo.setColour (juce::ComboBox::outlineColourId,    BassLookAndFeel::border);
 
     pitchWindowLabel.setText ("WINDOW", juce::dontSendNotification);
-    pitchWindowLabel.setFont (juce::Font (10.0f));
+    pitchWindowLabel.setFont (BassLookAndFeel::uiFont (10.0f));
     pitchWindowLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (pitchWindowCombo);
     addAndMakeVisible (pitchWindowLabel);
@@ -51,30 +51,23 @@ void GateSectionComponent::resized()
     inner.removeFromTop (UIConst::knobGap);
 
     // Row 1: THRS, HYST, GLIDE
-    const int w = inner.getWidth();
-    const int knobW1 = w / 3;
-    auto knobRow1 = inner.removeFromTop (UIConst::knobRowH);
-    gateThresholdSlider .setBounds (knobRow1.removeFromLeft (knobW1));
-    gateHysteresisSlider.setBounds (knobRow1.removeFromLeft (knobW1));
-    glideSlider         .setBounds (knobRow1);
-    auto lblRow1 = inner.removeFromTop (UIConst::knobLabelH);
-    gateThresholdLabel .setBounds (lblRow1.removeFromLeft (knobW1));
-    gateHysteresisLabel.setBounds (lblRow1.removeFromLeft (knobW1));
-    glideLabel         .setBounds (lblRow1);
+    BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                   { { &gateThresholdSlider,  &gateThresholdLabel },
+                                     { &gateHysteresisSlider, &gateHysteresisLabel },
+                                     { &glideSlider,          &glideLabel } });
 
     inner.removeFromTop (UIConst::knobGap);
 
-    // Row 2: DRY, SENS, WINDOW (combo)
-    const int knobW2 = w / 3;
-    auto knobRow2 = inner.removeFromTop (UIConst::knobRowH);
-    drySlider           .setBounds (knobRow2.removeFromLeft (knobW2));
-    transientSensSlider.setBounds (knobRow2.removeFromLeft (knobW2));
-    // combo sits centred vertically in the knob area
-    pitchWindowCombo.setBounds (knobRow2.reduced (2, knobRow2.getHeight() / 4));
-    auto lblRow2 = inner.removeFromTop (UIConst::knobLabelH);
-    dryLabel           .setBounds (lblRow2.removeFromLeft (knobW2));
-    transientSensLabel.setBounds (lblRow2.removeFromLeft (knobW2));
-    pitchWindowLabel   .setBounds (lblRow2);
+    // Row 2: DRY, SENS, then WINDOW label over its combo
+    auto row2 = inner.removeFromTop (UIConst::knobCellH);
+    const int colW = row2.getWidth() / 3;
+    BassLookAndFeel::placeKnob (drySlider,           dryLabel,           row2.removeFromLeft (colW));
+    BassLookAndFeel::placeKnob (transientSensSlider, transientSensLabel, row2.removeFromLeft (colW));
+    auto windowArea = row2.reduced (2, 0).withSizeKeepingCentre (row2.getWidth() - 4,
+                                                                 UIConst::knobNameH + 2 + UIConst::buttonH);
+    pitchWindowLabel.setBounds (windowArea.removeFromTop (UIConst::knobNameH));
+    windowArea.removeFromTop (2);
+    pitchWindowCombo.setBounds (windowArea);
 }
 
 void GateSectionComponent::setMeterValues (float envelope, bool gateOpen, bool transientFired)

@@ -20,7 +20,7 @@ public:
         monoSlider.setTooltip ("Unison WIDTH is kept mono below this frequency");
 
         ampEnvLabel.setText ("AMP ENV", juce::dontSendNotification);
-        ampEnvLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        ampEnvLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
         ampEnvLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
         ampEnvLabel.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (ampEnvLabel);
@@ -30,7 +30,7 @@ public:
         addAndMakeVisible (ampEnvCombo);
 
         dryPathLabel.setText ("DRY PATH", juce::dontSendNotification);
-        dryPathLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        dryPathLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
         dryPathLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
         dryPathLabel.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (dryPathLabel);
@@ -57,13 +57,9 @@ public:
         inner.removeFromTop (UIConst::sectionHeaderH); // skip section label
 
         inner.removeFromTop (UIConst::knobGap);
-        auto knobRow  = inner.removeFromTop (UIConst::knobRowH);
-        auto labelRow = inner.removeFromTop (UIConst::knobLabelH);
-        const int half = knobRow.getWidth() / 2;
-        volSlider .setBounds (knobRow .removeFromLeft (half));
-        volLabel  .setBounds (labelRow.removeFromLeft (half));
-        monoSlider.setBounds (knobRow);
-        monoLabel .setBounds (labelRow);
+        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                       { { &volSlider,  &volLabel },
+                                         { &monoSlider, &monoLabel } });
 
         inner.removeFromTop (UIConst::sectionInnerPad);
         ampEnvLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));

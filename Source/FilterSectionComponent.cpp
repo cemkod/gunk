@@ -56,14 +56,8 @@ void FilterSectionComponent::resized()
     inner.removeFromTop (UIConst::knobGap);
 
     // FREQ | RESO | TRACK knobs
-    const int knobW = inner.getWidth() / 3;
-    auto knobRow = inner.removeFromTop (UIConst::knobRowH);
-    filterFreqSlider  .setBounds (knobRow.removeFromLeft (knobW));
-    resonanceSlider   .setBounds (knobRow.removeFromLeft (knobW));
-    freqTrackingSlider.setBounds (knobRow.removeFromLeft (knobRow.getWidth()));
-
-    auto lblRow = inner.removeFromTop (UIConst::knobLabelH);
-    filterFreqLabel  .setBounds (lblRow.removeFromLeft (knobW));
-    resonanceLabel   .setBounds (lblRow.removeFromLeft (knobW));
-    freqTrackingLabel.setBounds (lblRow.removeFromLeft (lblRow.getWidth()));
+    BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                   { { &filterFreqSlider,   &filterFreqLabel },
+                                     { &resonanceSlider,    &resonanceLabel },
+                                     { &freqTrackingSlider, &freqTrackingLabel } });
 }

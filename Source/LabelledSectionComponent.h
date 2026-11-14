@@ -36,7 +36,7 @@ public:
 
         // Section title in header bar
         g.setColour (BassLookAndFeel::accent);
-        g.setFont (juce::Font (UIConst::fontSectionTitle, juce::Font::bold));
+        g.setFont (BassLookAndFeel::uiFont (UIConst::fontSectionTitle, true));
         g.drawText (sectionTitle,
                     getLocalBounds().removeFromTop (UIConst::sectionHeaderH)
                                     .reduced (UIConst::sectionInnerPad, 0),

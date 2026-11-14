@@ -31,18 +31,11 @@ public:
         displayComponent.setBounds (inner.removeFromTop (UIConst::displayH_small));
         inner.removeFromTop (UIConst::knobGap);
 
-        const int knobW = inner.getWidth() / 4;
-        auto knobRow = inner.removeFromTop (UIConst::knobRowH);
-        attackSlider .setBounds (knobRow.removeFromLeft (knobW));
-        decaySlider  .setBounds (knobRow.removeFromLeft (knobW));
-        sustainSlider.setBounds (knobRow.removeFromLeft (knobW));
-        releaseSlider.setBounds (knobRow);
-
-        auto lblRow = inner.removeFromTop (UIConst::knobLabelH);
-        attackLabel .setBounds (lblRow.removeFromLeft (knobW));
-        decayLabel  .setBounds (lblRow.removeFromLeft (knobW));
-        sustainLabel.setBounds (lblRow.removeFromLeft (knobW));
-        releaseLabel.setBounds (lblRow);
+        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                       { { &attackSlider,  &attackLabel },
+                                         { &decaySlider,   &decayLabel },
+                                         { &sustainSlider, &sustainLabel },
+                                         { &releaseSlider, &releaseLabel } });
     }
 
     void pushSample (float v, float velocity = -1.0f) { displayComponent.pushSample (v, velocity); }

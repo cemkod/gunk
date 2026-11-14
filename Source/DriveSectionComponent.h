@@ -20,7 +20,7 @@ public:
         BassLookAndFeel::setupRotarySlider (driveSlider, driveLabel, "DRIVE", *this);
 
         curveLabel.setText ("CURVE", juce::dontSendNotification);
-        curveLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        curveLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));
         curveLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
         curveLabel.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (curveLabel);
@@ -52,8 +52,7 @@ public:
         inner.removeFromTop (UIConst::sectionHeaderH);
 
         inner.removeFromTop (UIConst::knobGap);
-        driveSlider.setBounds (inner.removeFromTop (UIConst::knobRowH));
-        driveLabel .setBounds (inner.removeFromTop (UIConst::knobLabelH));
+        BassLookAndFeel::placeKnob (driveSlider, driveLabel, inner.removeFromTop (UIConst::knobCellH));
 
         inner.removeFromTop (UIConst::sectionInnerPad);
         curveLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));

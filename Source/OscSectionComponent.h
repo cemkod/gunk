@@ -36,7 +36,7 @@ public:
         g.fillRect (lx, (float) lineY, lw, 1.0f);
 
         // Text with background cutout so line doesn't show through
-        juce::Font font (UIConst::fontSectionTitle, juce::Font::bold);
+        juce::Font font = BassLookAndFeel::uiFont (UIConst::fontSectionTitle, true);
         g.setFont (font);
         const juce::String txt = "UNISON";
         const float tw  = font.getStringWidthFloat (txt) + 6.0f;

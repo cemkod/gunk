@@ -23,7 +23,7 @@ public:
         BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "LEVEL", *this);
 
         octLabel.setText ("OCTAVE", juce::dontSendNotification);
-        octLabel.setFont (juce::Font (UIConst::uiFontSize));
+        octLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize));
         octLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
         octLabel.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (octLabel);
@@ -75,8 +75,8 @@ public:
         inner.removeFromTop (UIConst::sectionHeaderH); // skip section label row
 
         // Row 1: level rotary + label
-        subLevelSlider.setBounds (inner.removeFromTop (UIConst::knobRowH));
-        subLevelLabel .setBounds (inner.removeFromTop (UIConst::knobLabelH));
+        BassLookAndFeel::placeKnob (subLevelSlider, subLevelLabel,
+                                    inner.removeFromTop (UIConst::knobCellH));
 
         inner.removeFromTop (UIConst::knobGap);
 

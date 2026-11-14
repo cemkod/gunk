@@ -98,7 +98,10 @@ juce_add_plugin(JQGunk
     PRODUCT_NAME "JQ Gunk"
 )
 
-juce_add_binary_data(JQGunkData SOURCES logo.svg)
+juce_add_binary_data(JQGunkData SOURCES
+    logo.svg
+    Resources/Fonts/BarlowSemiCondensed-Medium.ttf
+    Resources/Fonts/BarlowSemiCondensed-SemiBold.ttf)
 
 juce_generate_juce_header(JQGunk)
 

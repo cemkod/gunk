@@ -15,7 +15,7 @@ public:
         LabelledSectionComponent::paint (g);  // draw frame + title
 
         g.setColour (BassLookAndFeel::textDim.withAlpha (0.4f));
-        g.setFont (juce::Font (UIConst::uiFontSize));
+        g.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize));
         g.drawText ("coming soon", getLocalBounds(), juce::Justification::centred);
     }
 

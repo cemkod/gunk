@@ -43,13 +43,9 @@ public:
         displayComponent.setBounds (inner.removeFromTop (UIConst::displayH_small));
         inner.removeFromTop (UIConst::knobGap);
 
-        const int halfW = inner.getWidth() / 2;
-        auto knobRow1 = inner.removeFromTop (UIConst::knobRowH);
-        rateSlider  .setBounds (knobRow1.removeFromLeft (halfW));
-        amountSlider.setBounds (knobRow1);
-        auto lblRow1 = inner.removeFromTop (UIConst::knobLabelH);
-        rateLabel  .setBounds (lblRow1.removeFromLeft (halfW));
-        amountLabel.setBounds (lblRow1);
+        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                       { { &rateSlider,   &rateLabel },
+                                         { &amountSlider, &amountLabel } });
 
         inner.removeFromTop (UIConst::knobGap);
         shapeCombo.setBounds (inner.removeFromTop (UIConst::buttonH));

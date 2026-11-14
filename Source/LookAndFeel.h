@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include <BinaryData.h>
 #include "UIConstants.h"
 
 
@@ -21,7 +22,7 @@ public:
     inline static const juce::Colour accent      { 0xfffcd03c };  // warm yellow
     inline static const juce::Colour accentText  { 0xff1b1930 };  // text drawn on accent fills
     inline static const juce::Colour buttonFill  { 0xff2e2858 };  // unselected tab / plain button
-    inline static const juce::Colour knobBody    { 0xff221f3e };
+    inline static const juce::Colour knobBody    { 0xff35306a };
 
     // Button styles, set via setButtonStyle(). When unset, the style is inferred:
     // radio-group buttons are tabs, toggling buttons are outlined, the rest are plain.
@@ -31,6 +32,47 @@ public:
     {
         b.getProperties().set (buttonStyleProp, (int) s);
         b.repaint();
+    }
+
+    // UI font: Barlow Semi Condensed (SIL OFL, Resources/Fonts), embedded as binary data.
+    // JUCE 7 resolves typefaces through the *default* LookAndFeel, so fonts are built
+    // explicitly from the embedded typefaces rather than via getTypefaceForFont().
+    static juce::Font uiFont (float height, bool bold = false)
+    {
+        static const juce::Typeface::Ptr regular = juce::Typeface::createSystemTypefaceFor (
+            BinaryData::BarlowSemiCondensedMedium_ttf, BinaryData::BarlowSemiCondensedMedium_ttfSize);
+        static const juce::Typeface::Ptr semiBold = juce::Typeface::createSystemTypefaceFor (
+            BinaryData::BarlowSemiCondensedSemiBold_ttf, BinaryData::BarlowSemiCondensedSemiBold_ttfSize);
+        return juce::Font (bold ? semiBold : regular).withHeight (height * UIConst::fontScale);
+    }
+
+    // Swap a default-sans font for the UI font, keeping its size and weight.
+    static juce::Font toUiFont (const juce::Font& f)
+    {
+        if (f.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
+            return uiFont (f.getHeight(), f.isBold());
+        return f;
+    }
+
+    // Knob cell (top to bottom): knob, name label, value text box.
+    // The name label overlays the slider and ignores the mouse, so dragging it turns the knob.
+    static void placeKnob (juce::Slider& s, juce::Label& l, juce::Rectangle<int> cell)
+    {
+        s.setBounds (cell);
+        cell.removeFromBottom (UIConst::knobValueH);
+        l.setBounds (cell.removeFromBottom (UIConst::knobNameH));
+    }
+
+    // Lay out a row of knob cells of equal width across `row`.
+    static void placeKnobRow (juce::Rectangle<int> row,
+                              std::initializer_list<std::pair<juce::Slider*, juce::Label*>> knobs,
+                              int columns = 0)
+    {
+        const int n = columns > 0 ? columns : (int) knobs.size();
+        const int w = row.getWidth() / n;
+        int i = 0;
+        for (auto [s, l] : knobs)
+            placeKnob (*s, *l, ++i == n ? row : row.removeFromLeft (w));
     }
 
     BassLookAndFeel()
@@ -69,8 +111,10 @@ public:
 
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setFont (juce::Font (UIConst::fontKnobLabel, juce::Font::bold));
+        l.setFont (uiFont (UIConst::fontKnobLabel, true));
         l.setColour (juce::Label::textColourId, accent);
+        l.setInterceptsMouseClicks (false, false);
+        l.setBorderSize ({});
         parent.addAndMakeVisible (l);
     }
 
@@ -87,7 +131,7 @@ public:
 
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centredLeft);
-        l.setFont (juce::Font (UIConst::fontKnobLabel, juce::Font::bold));
+        l.setFont (uiFont (UIConst::fontKnobLabel, true));
         l.setColour (juce::Label::textColourId, accent);
         parent.addAndMakeVisible (l);
     }
@@ -100,11 +144,12 @@ public:
                            float rotaryStartAngle, float rotaryEndAngle,
                            juce::Slider& slider) override
     {
-        const float stroke = UIConst::knobArcStrokeWidth;
         const float cx = x + width  * 0.5f;
         const float cy = y + height * 0.5f;
-        const float radius = juce::jmin (width, height) * 0.5f - stroke * 0.5f - 1.0f;
-        if (radius <= 2.0f) return;
+        const float outerR = juce::jmin (width, height) * 0.5f - 1.0f;
+        const float stroke = juce::jmax (2.5f, outerR * UIConst::knobArcStrokeRatio);
+        const float radius = outerR - stroke * 0.5f;   // arc centreline
+        if (radius <= 4.0f) return;
 
         const float toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
         const bool enabled = slider.isEnabled();
@@ -140,21 +185,41 @@ public:
             g.strokePath (rotaryValue, arcStroke);
         }
 
-        // Body: dark disc with a subtle rim
-        const float bodyR = radius * UIConst::knobBodyRadiusRatio;
-        g.setColour (knobBody);
-        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
-        g.setColour (border);
-        g.drawEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f, 1.0f);
+        // Body: dark disc inset from the arc, lit slightly from the top, with a thin rim
+        const float bodyR = radius - stroke * 0.5f - juce::jmax (1.5f, outerR * UIConst::knobBodyGapRatio);
+        const juce::Rectangle<float> body (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+        g.setGradientFill (juce::ColourGradient (knobBody.brighter (0.15f), cx, body.getY(),
+                                                 knobBody.darker (0.35f),   cx, body.getBottom(), false));
+        g.fillEllipse (body);
+        g.setColour (surfaceDark);
+        g.drawEllipse (body.reduced (0.6f), 1.2f);
 
-        // Pointer line from inside the body out towards the rim
+        // Pointer line from inside the body out to its rim
         const float sinA = std::sin (toAngle), cosA = -std::cos (toAngle);
-        const float r0 = bodyR * 0.35f;
-        const float r1 = bodyR * UIConst::knobPointerPosRatio;
+        const float r0 = bodyR * UIConst::knobPointerInnerRatio;
+        const float r1 = bodyR * UIConst::knobPointerOuterRatio;
+        knobPointer.clear();
+        knobPointer.startNewSubPath (cx + r0 * sinA, cy + r0 * cosA);
+        knobPointer.lineTo          (cx + r1 * sinA, cy + r1 * cosA);
         g.setColour (valueCol);
-        g.drawLine (cx + r0 * sinA, cy + r0 * cosA,
-                    cx + r1 * sinA, cy + r1 * cosA,
-                    UIConst::knobPointerWidth);
+        g.strokePath (knobPointer, juce::PathStrokeType (juce::jmax (1.8f, outerR * UIConst::knobPointerWidthRatio),
+                                                         juce::PathStrokeType::curved,
+                                                         juce::PathStrokeType::rounded));
+    }
+
+    // Knob cells: square knob on top, then the name label (placed by placeKnob), then the value
+    juce::Slider::SliderLayout getSliderLayout (juce::Slider& s) override
+    {
+        if (! s.isRotary() || s.getTextBoxPosition() != juce::Slider::TextBoxBelow)
+            return juce::LookAndFeel_V4::getSliderLayout (s);
+
+        auto b = s.getLocalBounds();
+        juce::Slider::SliderLayout layout;
+        layout.textBoxBounds = b.removeFromBottom (UIConst::knobValueH);
+        b.removeFromBottom (UIConst::knobNameH);
+        const int d = juce::jmin (b.getWidth(), b.getHeight());
+        layout.sliderBounds = b.withSizeKeepingCentre (d, d);
+        return layout;
     }
 
     //==========================================================================
@@ -215,7 +280,7 @@ public:
             c = getButtonStyle (button) == ButtonStyle::outline ? accent : text;
 
         g.setColour (c);
-        g.setFont (juce::Font (UIConst::fontButtonText, juce::Font::bold));
+        g.setFont (uiFont (UIConst::fontButtonText, true));
         g.drawFittedText (button.getButtonText(),
                           button.getLocalBounds().reduced (3, 0),
                           juce::Justification::centred, 1);
@@ -334,7 +399,7 @@ public:
 
     juce::Font getComboBoxFont (juce::ComboBox&) override
     {
-        return juce::Font (UIConst::uiFontSize, juce::Font::bold);
+        return uiFont (UIConst::uiFontSize, true);
     }
 
     void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
@@ -346,15 +411,25 @@ public:
 
     juce::Font getPopupMenuFont() override
     {
-        return juce::Font (UIConst::uiFontSize + 2.0f);
+        return uiFont (UIConst::uiFontSize + 2.0f);
     }
+
+    // Anything else that asks the LookAndFeel for a font gets the UI font
+    juce::Font getLabelFont (juce::Label& l) override              { return toUiFont (l.getFont()); }
+    juce::Font getTextButtonFont (juce::TextButton&, int h) override { return uiFont (juce::jmin (UIConst::fontButtonText, h * 0.6f), true); }
+    juce::Font getSliderPopupFont (juce::Slider&) override          { return uiFont (UIConst::fontKnobValue); }
+    juce::Font getAlertWindowTitleFont() override                   { return uiFont (16.0f, true); }
+    juce::Font getAlertWindowMessageFont() override                 { return uiFont (14.0f); }
+    juce::Font getAlertWindowFont() override                        { return uiFont (13.0f); }
 
     //==========================================================================
     // Slider value text box: no box, value text centred
     juce::Label* createSliderTextBox (juce::Slider& slider) override
     {
         auto* l = juce::LookAndFeel_V4::createSliderTextBox (slider);
-        l->setFont (juce::Font (UIConst::fontKnobValue));
+        l->setFont (uiFont (UIConst::fontKnobValue));
+        if (slider.isRotary())
+            l->setBorderSize ({});
         return l;
     }
 
@@ -370,5 +445,5 @@ private:
         return ButtonStyle::plain;
     }
 
-    juce::Path rotaryTrack, rotaryValue, comboArrow;
+    juce::Path rotaryTrack, rotaryValue, knobPointer, comboArrow;
 };

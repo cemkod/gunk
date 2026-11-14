@@ -77,31 +77,19 @@ public:
         auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
         inner.removeFromTop (UIConst::sectionHeaderH); // section label row
 
-        const int thirdW = inner.getWidth() / 3;
-
         // Row 1: Pitch + Level + Dry
-        auto knobRow1 = inner.removeFromTop (UIConst::knobRowH);
-        pitchSlider.setBounds (knobRow1.removeFromLeft (thirdW));
-        levelSlider.setBounds (knobRow1.removeFromLeft (thirdW));
-        drySlider  .setBounds (knobRow1);
-
-        auto labelRow1 = inner.removeFromTop (UIConst::knobLabelH);
-        pitchLabel.setBounds (labelRow1.removeFromLeft (thirdW));
-        levelLabel.setBounds (labelRow1.removeFromLeft (thirdW));
-        dryLabel  .setBounds (labelRow1);
+        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                       { { &pitchSlider, &pitchLabel },
+                                         { &levelSlider, &levelLabel },
+                                         { &drySlider,   &dryLabel } });
 
         inner.removeFromTop (UIConst::knobGap);
 
         // Row 2: Attack + Hold + Decay
-        auto knobRow2 = inner.removeFromTop (UIConst::knobRowH);
-        attackSlider.setBounds (knobRow2.removeFromLeft (thirdW));
-        holdSlider  .setBounds (knobRow2.removeFromLeft (thirdW));
-        decaySlider .setBounds (knobRow2);
-
-        auto labelRow2 = inner.removeFromTop (UIConst::knobLabelH);
-        attackLabel.setBounds (labelRow2.removeFromLeft (thirdW));
-        holdLabel  .setBounds (labelRow2.removeFromLeft (thirdW));
-        decayLabel .setBounds (labelRow2);
+        BassLookAndFeel::placeKnobRow (inner.removeFromTop (UIConst::knobCellH),
+                                       { { &attackSlider, &attackLabel },
+                                         { &holdSlider,   &holdLabel },
+                                         { &decaySlider,  &decayLabel } });
 
         inner.removeFromTop (UIConst::knobGap);
 

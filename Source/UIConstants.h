@@ -22,10 +22,14 @@ namespace UIConst {
 
     // LookAndFeel
     constexpr float sectionCornerRadius  = 4.0f;
-    constexpr float knobArcStrokeWidth   = 3.5f;
-    constexpr float knobBodyRadiusRatio  = 0.78f;
-    constexpr float knobPointerPosRatio  = 0.85f;   // pointer line end, fraction of body radius
-    constexpr float knobPointerWidth     = 2.0f;
+    // Knob proportions, as fractions of the knob's outer radius / body radius
+    constexpr float knobArcStrokeRatio    = 0.16f;  // arc thickness / outer radius
+    constexpr float knobBodyGapRatio      = 0.08f;  // gap between arc and body / outer radius
+    constexpr float knobPointerInnerRatio = 0.30f;  // pointer start / body radius
+    constexpr float knobPointerOuterRatio = 0.92f;  // pointer end / body radius
+    constexpr float knobPointerWidthRatio = 0.09f;  // pointer thickness / outer radius
+    constexpr int   knobNameH             = 12;     // name label row inside a knob cell
+    constexpr int   knobValueH            = 13;     // value text row inside a knob cell
     constexpr float linearTrackH         = 5.0f;
     constexpr float linearThumbW         = 7.0f;
     constexpr int   powerToggleW         = 26;
@@ -42,11 +46,15 @@ namespace UIConst {
     constexpr float fontSectionTitle = 11.0f;
     constexpr float fontKnobLabel    = 9.0f;
     constexpr float fontKnobValue    = 10.0f;
+    // Barlow's line height is ~1.2 em, so it renders smaller than the old system font
+    // at the same JUCE height; every uiFont() size is scaled by this.
+    constexpr float fontScale        = 1.25f;
     constexpr float fontButtonText   = 9.5f;
 
     // Layout
     constexpr int   knobRowH          = 48;
     constexpr int   knobLabelH        = 13;
+    constexpr int   knobCellH         = knobRowH + knobLabelH;  // knob + name + value
     constexpr int   buttonH           = 22;
     constexpr int   knobGap           = 3;
 
