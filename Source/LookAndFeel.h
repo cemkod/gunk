@@ -68,6 +68,13 @@ public:
         return KnobSize::standard;
     }
 
+    // Larger text for a particular combo box (e.g. the preset name).
+    static void setComboFontHeight (juce::ComboBox& c, float uiFontHeight)
+    {
+        c.getProperties().set (comboFontProp, uiFontHeight);
+        c.lookAndFeelChanged();
+    }
+
     // Fill colour for a linear slider (mod amount bars use the source colour).
     static void setFillColour (juce::Slider& s, juce::Colour c)
     {
@@ -475,8 +482,10 @@ public:
         g.fillPath (comboArrow);
     }
 
-    juce::Font getComboBoxFont (juce::ComboBox&) override
+    juce::Font getComboBoxFont (juce::ComboBox& box) override
     {
+        if (const auto* v = box.getProperties().getVarPointer (comboFontProp))
+            return uiFont ((float) *v, true);
         return uiFont (UIConst::uiFontSize, true);
     }
 
@@ -528,6 +537,7 @@ private:
     inline static const juce::Identifier buttonStyleProp { "jqButtonStyle" };
     inline static const juce::Identifier knobSizeProp    { "jqKnobSize" };
     inline static const juce::Identifier fillColourProp  { "jqFillColour" };
+    inline static const juce::Identifier comboFontProp   { "jqComboFont" };
 
     static ButtonStyle getButtonStyle (const juce::Button& b)
     {

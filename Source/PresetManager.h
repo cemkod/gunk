@@ -23,6 +23,9 @@ public:
                          const juce::String& irPath = {});
     bool deleteUserPreset (int index);
 
+    // Index `delta` steps from the current preset, wrapping at both ends; -1 if there are none.
+    int getAdjacentIndex (int delta) const;
+
     int getCurrentIndex() const { return currentIndex; }
     void setCurrentIndex (int i) { currentIndex = i; }
 

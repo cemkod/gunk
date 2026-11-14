@@ -870,6 +870,16 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // Output meter: keep the highest block peak until the UI consumes it
+    {
+        float blockPeak = 0.0f;
+        for (int ch = 0; ch < numChannels; ++ch)
+            blockPeak = juce::jmax (blockPeak, buffer.getMagnitude (ch, 0, N));
+        float prev = outputPeak.load (std::memory_order_relaxed);
+        while (blockPeak > prev
+               && ! outputPeak.compare_exchange_weak (prev, blockPeak, std::memory_order_relaxed)) {}
+    }
+
     // --- POST: push gated input to pitch detector ---
 #ifdef ENABLE_DEBUG_LOG
     perfMix.stop();

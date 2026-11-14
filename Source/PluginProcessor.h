@@ -114,6 +114,9 @@ public:
     bool  consumeTransient()           { return transientFlag.exchange (false, std::memory_order_relaxed); }
     float getLFOValue() const          { return lfo.getValue(); }
 
+    // Highest |output| sample since the last call (linear). For the UI meter; resets on read.
+    float consumeOutputPeak()          { return outputPeak.exchange (0.0f, std::memory_order_relaxed); }
+
     PresetManager& getPresetManager() { return presetManager; }
 
     // Editor window width, saved with the session (not with presets) so a reload reopens
@@ -267,6 +270,7 @@ private:
     std::atomic<float> lastModulatedMorph  { 0.0f };
     std::atomic<float> lastModulatedMorph2 { 0.0f };
     int editorWidth = 0;   // 0 = default size; see getEditorWidth()
+    std::atomic<float> outputPeak { 0.0f };   // max |output| since the UI last read it
 
     std::atomic<float> lastModDetuneOffset  { 0.0f };
     std::atomic<float> lastModDetune2Offset { 0.0f };

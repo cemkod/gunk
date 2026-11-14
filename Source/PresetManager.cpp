@@ -56,6 +56,15 @@ bool PresetManager::loadPreset (int index)
     return true;
 }
 
+int PresetManager::getAdjacentIndex (int delta) const
+{
+    const int n = (int) presets.size();
+    if (n == 0) return -1;
+    // With nothing loaded, "next" goes to the first preset and "previous" to the last.
+    const int from = currentIndex >= 0 ? currentIndex : (delta > 0 ? -1 : 0);
+    return ((from + delta) % n + n) % n;
+}
+
 void PresetManager::replaceStateFilling (juce::AudioProcessorValueTreeState& apvts,
                                          const juce::XmlElement& xml)
 {
