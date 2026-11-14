@@ -18,7 +18,7 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     juce::AudioProcessorValueTreeState& avts,
     const OscParamIds& ids1,
     const OscParamIds& ids2)
-    : LabelledSectionComponent ("OSC"),
+    : SectionPanel ("OSC"),
       apvts (avts),
       osc1    ("", ids1, avts, true),
       osc2Comp("", ids2, avts, true),

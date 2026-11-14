@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include <functional>
 
 struct OscParamIds
@@ -10,7 +10,7 @@ struct OscParamIds
                  coarseTune, fineTune, unisonWidth;
 };
 
-class OscSectionComponent : public LabelledSectionComponent
+class OscSectionComponent : public SectionPanel
 {
 public:
     // Callback for morph enable/disable (returns oscillator frame count)

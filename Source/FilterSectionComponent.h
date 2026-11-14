@@ -3,11 +3,11 @@
 #include <JuceHeader.h>
 #include "FilterDisplayComponent.h"
 #include "PluginProcessor.h"
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "ParameterIDs.h"
 #include "PowerToggleButton.h"
 
-class FilterSectionComponent : public LabelledSectionComponent
+class FilterSectionComponent : public SectionPanel
 {
 public:
     FilterSectionComponent (JQGunkAudioProcessor& proc,

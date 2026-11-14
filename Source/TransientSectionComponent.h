@@ -1,13 +1,13 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "PowerToggleButton.h"
 #include "ParameterIDs.h"
 
-class TransientSectionComponent : public LabelledSectionComponent
+class TransientSectionComponent : public SectionPanel
 {
 public:
     // Wired by the editor after construction
@@ -16,7 +16,7 @@ public:
 
     TransientSectionComponent (juce::AudioProcessorValueTreeState& avts,
                                const juce::File& libraryDir)
-        : LabelledSectionComponent ("TRANS"),
+        : SectionPanel ("TRANS"),
           pitchAttach  (avts, "transientPitch",  pitchSlider),
           levelAttach  (avts, "transientLevel",  levelSlider),
           dryAttach    (avts, "transientDry",    drySlider),

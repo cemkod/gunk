@@ -3,7 +3,7 @@
 
 
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& avts)
-    : LabelledSectionComponent ("GATE/TRACKING"),
+    : SectionPanel ("GATE/TRACKING"),
       apvts (avts),
       displayComponent (avts),
       gateThresholdAttach  (avts, "gateThreshold",   gateThresholdSlider),
@@ -42,7 +42,7 @@ GateSectionComponent::~GateSectionComponent()
 
 void GateSectionComponent::paint (juce::Graphics& g)
 {
-    LabelledSectionComponent::paint (g);
+    SectionPanel::paint (g);
 }
 
 void GateSectionComponent::resized()

@@ -115,6 +115,11 @@ public:
     float getLFOValue() const          { return lfo.getValue(); }
 
     PresetManager& getPresetManager() { return presetManager; }
+
+    // Editor window width, saved with the session (not with presets) so a reload reopens
+    // at the same size. Message thread only.
+    int  getEditorWidth() const      { return editorWidth; }
+    void setEditorWidth (int w)      { editorWidth = w; }
     juce::StringArray syncOscillatorAfterPresetLoad();
 
     static juce::File getWavetablesDir();
@@ -261,6 +266,8 @@ private:
 
     std::atomic<float> lastModulatedMorph  { 0.0f };
     std::atomic<float> lastModulatedMorph2 { 0.0f };
+    int editorWidth = 0;   // 0 = default size; see getEditorWidth()
+
     std::atomic<float> lastModDetuneOffset  { 0.0f };
     std::atomic<float> lastModDetune2Offset { 0.0f };
     std::atomic<float> lastModBlendOffset   { 0.0f };

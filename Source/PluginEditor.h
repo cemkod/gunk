@@ -22,13 +22,27 @@ public:
     ~JQGunkAudioProcessorEditor() override;
 
     void paint (juce::Graphics&) override;
-    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
 
 private:
     JQGunkAudioProcessor& processor;
 
     BassLookAndFeel lookAndFeel;
+
+    // Fixed-size design canvas (UIConst::editorWidth x editorHeight). Every child lives in
+    // here, and resized() scales it to the window with a transform.
+    struct Canvas : public juce::Component
+    {
+        std::function<void (juce::Graphics&)> onPaint, onPaintOver;
+        std::function<void()> onResized;
+        void paint (juce::Graphics& g) override             { if (onPaint) onPaint (g); }
+        void paintOverChildren (juce::Graphics& g) override { if (onPaintOver) onPaintOver (g); }
+        void resized() override                             { if (onResized) onResized(); }
+    } canvas;
+
+    void paintCanvas (juce::Graphics&);
+    void paintCanvasOver (juce::Graphics&);
+    void layoutCanvas();
 
     GateSectionComponent          gateSection;
     EnvelopeSectionComponent      envelopeSection;

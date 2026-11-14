@@ -1,16 +1,16 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "LookAndFeel.h"
 #include "LFODisplayComponent.h"
 #include "UIConstants.h"
 
-class LFOSectionComponent : public LabelledSectionComponent
+class LFOSectionComponent : public SectionPanel
 {
 public:
     explicit LFOSectionComponent (juce::AudioProcessorValueTreeState& avts)
-        : LabelledSectionComponent ("LFO"),
+        : SectionPanel ("LFO"),
           apvts (avts),
           rateAttach   (avts, "lfoRate",   rateSlider),
           amountAttach (avts, "lfoAmount", amountSlider)

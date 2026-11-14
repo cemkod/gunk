@@ -3,7 +3,7 @@
 
 FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
                                                 juce::AudioProcessorValueTreeState& avts)
-    : LabelledSectionComponent ("FILTER"),
+    : SectionPanel ("FILTER"),
       processor (proc),
       apvts (avts),
       displayComponent (proc, avts),

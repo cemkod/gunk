@@ -1,12 +1,12 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "PowerToggleButton.h"
 
-class IRSectionComponent : public LabelledSectionComponent
+class IRSectionComponent : public SectionPanel
 {
 public:
     // Wired by the editor after construction
@@ -15,7 +15,7 @@ public:
 
     IRSectionComponent (juce::AudioProcessorValueTreeState& avts,
                         const juce::File& factoryIRDir)
-        : LabelledSectionComponent ("IR"),
+        : SectionPanel ("IR"),
           mixAttach    (avts, "irMix",    mixSlider),
           makeupAttach (avts, "irMakeup", makeupSlider),
           irLibraryDir (factoryIRDir)

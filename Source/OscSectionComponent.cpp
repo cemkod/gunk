@@ -5,7 +5,7 @@ OscSectionComponent::OscSectionComponent (const juce::String& title,
                                            const OscParamIds& ids,
                                            juce::AudioProcessorValueTreeState& avts,
                                            bool embedded)
-    : LabelledSectionComponent (title),
+    : SectionPanel (title),
       paramIds (ids),
       apvts (avts),
       embedded_ (embedded),

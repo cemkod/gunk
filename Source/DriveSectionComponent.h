@@ -1,17 +1,17 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "PowerToggleButton.h"
 #include "ParameterIDs.h"
 
-class DriveSectionComponent : public LabelledSectionComponent
+class DriveSectionComponent : public SectionPanel
 {
 public:
     explicit DriveSectionComponent (juce::AudioProcessorValueTreeState& avts)
-        : LabelledSectionComponent ("DRIVE"),
+        : SectionPanel ("DRIVE"),
           driveAttach (avts, ParamIDs::driveAmount, driveSlider),
           pwrAttach   (avts, ParamIDs::driveEnabled, pwrBtn)
     {

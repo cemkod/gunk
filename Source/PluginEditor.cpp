@@ -42,23 +42,23 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     combinedOscSection.getModDetune = [&p] (int idx) { return p.getModulatedDetune (idx); };
     combinedOscSection.getModBlend  = [&p] (int idx) { return p.getModulatedBlend  (idx); };
 
-    addAndMakeVisible (gateSection);
-    addAndMakeVisible (envelopeSection);
-    addAndMakeVisible (filterSection);
-    addAndMakeVisible (subOscSection);
-    addAndMakeVisible (combinedOscSection);
+    canvas.addAndMakeVisible (gateSection);
+    canvas.addAndMakeVisible (envelopeSection);
+    canvas.addAndMakeVisible (filterSection);
+    canvas.addAndMakeVisible (subOscSection);
+    canvas.addAndMakeVisible (combinedOscSection);
     transientSection.loadSampleFromFile = [&p] (const juce::File& f) { return p.loadTransientSampleFromFile (f); };
     transientSection.getLoadedPath      = [&p] { return p.getTransientSamplePath(); };
-    addAndMakeVisible (transientSection);
+    canvas.addAndMakeVisible (transientSection);
     irSection.loadIRFromFile = [&p] (const juce::File& f) { return p.loadIRFromFile (f); };
     irSection.getLoadedPath  = [&p] { return p.getIRSamplePath(); };
-    addAndMakeVisible (irSection);
-    addAndMakeVisible (driveSection);
-    addAndMakeVisible (outputSection);
-    addAndMakeVisible (lfoSection);
+    canvas.addAndMakeVisible (irSection);
+    canvas.addAndMakeVisible (driveSection);
+    canvas.addAndMakeVisible (outputSection);
+    canvas.addAndMakeVisible (lfoSection);
 
     // MOD matrix view (hidden by default; addChildComponent does not call setVisible)
-    addChildComponent (modMatrixView);
+    canvas.addChildComponent (modMatrixView);
 
     modToggleBtn.setClickingTogglesState (true);
     modToggleBtn.onClick = [this]
@@ -76,7 +76,12 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         outputSection    .setVisible (!modViewVisible);
         lfoSection       .setVisible (!modViewVisible);
     };
-    addAndMakeVisible (modToggleBtn);
+    canvas.addAndMakeVisible (modToggleBtn);
+
+    canvas.onPaint     = [this] (juce::Graphics& g) { paintCanvas (g); };
+    canvas.onPaintOver = [this] (juce::Graphics& g) { paintCanvasOver (g); };
+    canvas.onResized   = [this] { layoutCanvas(); };
+    addAndMakeVisible (canvas);
 
     // Set LookAndFeel after sections are children so propagation covers them
     setLookAndFeel (&lookAndFeel);
@@ -84,7 +89,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     freqLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize));
     freqLabel.setColour (juce::Label::textColourId, BassLookAndFeel::text.withAlpha (0.7f));
     freqLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (freqLabel);
+    canvas.addAndMakeVisible (freqLabel);
 
     // Preset strip setup
     refreshPresetCombo();
@@ -119,16 +124,29 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         }
     };
 
-    addAndMakeVisible (presetCombo);
-    addAndMakeVisible (presetSaveBtn);
-    addAndMakeVisible (presetDeleteBtn);
+    canvas.addAndMakeVisible (presetCombo);
+    canvas.addAndMakeVisible (presetSaveBtn);
+    canvas.addAndMakeVisible (presetDeleteBtn);
 
     startTimerHz (UIConst::uiTimerHz);
 
     if (auto svgXml = juce::parseXML (juce::String::fromUTF8 (BinaryData::logo_svg, BinaryData::logo_svgSize)))
         logo = juce::Drawable::createFromSVG (*svgXml);
 
-    setSize (UIConst::editorWidth, UIConst::editorHeight);
+    // Read the saved size first: setResizeLimits() resizes us, and resized() records the width.
+    const int savedWidth = processor.getEditorWidth();
+
+    // Resizable with a fixed aspect ratio, 75 %..150 % of the design canvas.
+    // setResizeLimits creates the default constrainer, so set it before the aspect ratio.
+    setResizable (true, true);
+    setResizeLimits (UIConst::editorMinWidth, UIConst::editorMinWidth * UIConst::editorHeight / UIConst::editorWidth,
+                     UIConst::editorMaxWidth, UIConst::editorMaxWidth * UIConst::editorHeight / UIConst::editorWidth);
+    getConstrainer()->setFixedAspectRatio (UIConst::editorAspect);
+
+    canvas.setBounds (0, 0, UIConst::editorWidth, UIConst::editorHeight);
+    const int w = savedWidth > 0 ? juce::jlimit (UIConst::editorMinWidth, UIConst::editorMaxWidth, savedWidth)
+                                 : UIConst::editorWidth;
+    setSize (w, juce::roundToInt (w / UIConst::editorAspect));
 }
 
 JQGunkAudioProcessorEditor::~JQGunkAudioProcessorEditor()
@@ -177,14 +195,14 @@ void JQGunkAudioProcessorEditor::timerCallback()
     if (nowOpen != gateOpen)
     {
         gateOpen = nowOpen;
-        repaint (gateLedBounds);
+        canvas.repaint (gateLedBounds);
     }
 
     const bool newTransient = processor.consumeTransient();
     if (newTransient != transientLedActive)
     {
         transientLedActive = newTransient;
-        repaint (transientLedBounds);
+        canvas.repaint (transientLedBounds);
     }
 
 #ifdef ENABLE_DEBUG_LOG
@@ -238,6 +256,17 @@ void JQGunkAudioProcessorEditor::timerCallback()
 void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (BassLookAndFeel::bg);
+}
+
+void JQGunkAudioProcessorEditor::resized()
+{
+    canvas.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) UIConst::editorWidth));
+    processor.setEditorWidth (getWidth());
+}
+
+void JQGunkAudioProcessorEditor::paintCanvas (juce::Graphics& g)
+{
+    g.fillAll (BassLookAndFeel::bg);
 
     g.setColour (BassLookAndFeel::surface);
     g.fillRoundedRectangle (presetStripBounds.toFloat(), 4.0f);
@@ -287,13 +316,13 @@ void JQGunkAudioProcessorEditor::paint (juce::Graphics& g)
     }
 }
 
-void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
+void JQGunkAudioProcessorEditor::paintCanvasOver (juce::Graphics& g)
 {
     if (logo != nullptr)
     {
         constexpr float logoH = 120.0f;
         constexpr float logoW = logoH * (184.0f / 98.0f);
-        auto headerBounds = getLocalBounds().removeFromTop (UIConst::headerHeight).toFloat();
+        auto headerBounds = canvas.getLocalBounds().removeFromTop (UIConst::headerHeight).toFloat();
         juce::Rectangle<float> logoBounds (
             (headerBounds.getWidth() - logoW) * 0.5f,
             (headerBounds.getHeight() - logoH) * 0.6f,
@@ -304,13 +333,13 @@ void JQGunkAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
     g.setFont (BassLookAndFeel::uiFont (10.0f));
     g.setColour (BassLookAndFeel::text.withAlpha (0.45f));
     g.drawText ("v" JucePlugin_VersionString,
-                getLocalBounds().reduced (8).removeFromTop (18),
+                canvas.getLocalBounds().reduced (8).removeFromTop (18),
                 juce::Justification::topRight);
 }
 
-void JQGunkAudioProcessorEditor::resized()
+void JQGunkAudioProcessorEditor::layoutCanvas()
 {
-    auto area = getLocalBounds().reduced (UIConst::editorPad);
+    auto area = canvas.getLocalBounds().reduced (UIConst::editorPad);
     auto header = area.removeFromTop (UIConst::headerHeight);
     auto labelRow = header.removeFromBottom (UIConst::labelRowH);
     gateLedBounds = labelRow.removeFromLeft (UIConst::gateLedSize + UIConst::gateLedPad)

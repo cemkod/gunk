@@ -1,16 +1,16 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "ParameterIDs.h"
 
-class OutputSectionComponent : public LabelledSectionComponent
+class OutputSectionComponent : public SectionPanel
 {
 public:
     explicit OutputSectionComponent (juce::AudioProcessorValueTreeState& avts)
-        : LabelledSectionComponent ("OUTPUT"),
+        : SectionPanel ("OUTPUT"),
           apvts (avts),
           volAttach    (avts, "masterVolume", volSlider),
           monoAttach   (avts, ParamIDs::stereoMonoBelow, monoSlider)

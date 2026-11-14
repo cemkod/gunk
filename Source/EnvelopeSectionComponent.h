@@ -1,15 +1,15 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "LookAndFeel.h"
 #include "EnvelopeDisplayComponent.h"
 
-class EnvelopeSectionComponent : public LabelledSectionComponent
+class EnvelopeSectionComponent : public SectionPanel
 {
 public:
     explicit EnvelopeSectionComponent (juce::AudioProcessorValueTreeState& avts)
-        : LabelledSectionComponent ("ENVELOPE"),
+        : SectionPanel ("ENVELOPE"),
           attackAtt  (avts, "modEnvAttack",  attackSlider),
           decayAtt   (avts, "modEnvDecay",   decaySlider),
           sustainAtt (avts, "modEnvSustain", sustainSlider),

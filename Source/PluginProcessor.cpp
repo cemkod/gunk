@@ -1125,6 +1125,8 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
     else
         xml->removeAttribute ("irSamplePath");
     xml->setAttribute ("currentPresetIndex", presetManager.getCurrentIndex());
+    if (editorWidth > 0)
+        xml->setAttribute ("editorWidth", editorWidth);
     copyXmlToBinary (*xml, dest);
 
     dbgLog ("getStateInformation | waveParam=" + juce::String ((int) apvts.getRawParameterValue (ParamIDs::waveform)->load())
@@ -1222,6 +1224,7 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
 
     PresetManager::replaceStateFilling (apvts, *xml);
     presetManager.setCurrentIndex (xml->getIntAttribute ("currentPresetIndex", -1));
+    editorWidth = xml->getIntAttribute ("editorWidth", editorWidth);
 
     const int waveIdx = (int) apvts.getRawParameterValue (ParamIDs::waveform)->load();
     dbgLog ("setStateInformation: after replaceState | waveParam=" + juce::String (waveIdx));

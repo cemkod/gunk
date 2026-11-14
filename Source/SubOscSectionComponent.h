@@ -1,17 +1,17 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "ParameterIDs.h"
 #include "LookAndFeel.h"
 #include "UIConstants.h"
 #include "PowerToggleButton.h"
 
-class SubOscSectionComponent : public LabelledSectionComponent
+class SubOscSectionComponent : public SectionPanel
 {
 public:
     SubOscSectionComponent (juce::AudioProcessorValueTreeState& avts)
-        : LabelledSectionComponent ("SUB"),
+        : SectionPanel ("SUB"),
           apvts (avts),
           subLevelAttach (avts, ParamIDs::subLevel,   subLevelSlider),
           pwrAttach      (avts, ParamIDs::subEnabled, pwrBtn)

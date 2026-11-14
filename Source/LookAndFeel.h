@@ -4,14 +4,14 @@
 #include "UIConstants.h"
 
 
-// Look based on docs/ui-concepts/F_restructure_fix.png:
-// navy/purple panels, purple section header bars, warm-yellow accent,
-// thick arc knobs with a line pointer, pill power switches, filled tabs.
+// Look based on docs/ui-concepts/G2_hierarchy.png and G2_modmatrix.png:
+// navy/purple panels with a subtle header strip, warm-yellow accent for live values,
+// thick arc knobs in three sizes, pill power switches, segmented controls.
 class BassLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     inline static const juce::Colour bg          { 0xff1b1930 };  // editor background
-    inline static const juce::Colour headerBar   { 0xff4b3d82 };  // section title bar (purple)
+    inline static const juce::Colour headerBar   { 0xff221f3e };  // section title strip
     inline static const juce::Colour surfaceDark { 0xff14122a };  // display wells, combo boxes
     inline static const juce::Colour surface     { 0xff2a2748 };  // section body
     inline static const juce::Colour border      { 0xff3a3660 };
@@ -23,6 +23,57 @@ public:
     inline static const juce::Colour accentText  { 0xff1b1930 };  // text drawn on accent fills
     inline static const juce::Colour buttonFill  { 0xff2e2858 };  // unselected tab / plain button
     inline static const juce::Colour knobBody    { 0xff35306a };
+
+    // Mod source colours, indexed by the modSlot*Source choice index
+    // (None, Input Env, Pitch, ADSR, LFO). Display names live next to them so they can't drift.
+    inline static const std::array<juce::Colour, 5> modSourceColours {
+        juce::Colour (0xff9a94c4),   // None
+        juce::Colour (0xffff8a3d),   // Input Env (orange)
+        juce::Colour (0xff4cd964),   // Pitch (green)
+        juce::Colour (0xff3ec9f0),   // ADSR (cyan)
+        juce::Colour (0xffff4fb3)    // LFO (magenta)
+    };
+    inline static const juce::StringArray modSourceNames { "None", "Input Env", "Pitch", "ADSR", "LFO" };
+
+    static juce::Colour modSourceColour (int sourceIndex)
+    {
+        return modSourceColours[(size_t) juce::jlimit (0, (int) modSourceColours.size() - 1, sourceIndex)];
+    }
+
+    // Name labels are quiet; the value under them is accent, so yellow means "a live value".
+    inline static const juce::Colour knobName = text.withAlpha (0.8f);
+
+    // Knob size tiers, set via placeKnob() and stored as a component property.
+    enum class KnobSize { small, standard, hero };
+
+    static int knobDiameter (KnobSize k)
+    {
+        switch (k)
+        {
+            case KnobSize::small: return UIConst::knobSmallD;
+            case KnobSize::hero:  return UIConst::knobHeroD;
+            default:              return UIConst::knobStandardD;
+        }
+    }
+
+    static int knobCellHeight (KnobSize k)
+    {
+        return knobDiameter (k) + UIConst::knobNameGap + UIConst::knobNameH + UIConst::knobValueH;
+    }
+
+    static KnobSize getKnobSize (const juce::Component& c)
+    {
+        if (const auto* v = c.getProperties().getVarPointer (knobSizeProp))
+            return (KnobSize) (int) *v;
+        return KnobSize::standard;
+    }
+
+    // Fill colour for a linear slider (mod amount bars use the source colour).
+    static void setFillColour (juce::Slider& s, juce::Colour c)
+    {
+        s.getProperties().set (fillColourProp, (juce::int64) c.getARGB());
+        s.repaint();
+    }
 
     // Button styles, set via setButtonStyle(). When unset, the style is inferred:
     // radio-group buttons are tabs, toggling buttons are outlined, the rest are plain.
@@ -54,10 +105,18 @@ public:
         return f;
     }
 
-    // Knob cell (top to bottom): knob, name label, value text box.
+    // Knob cell (top to bottom): dial, name label, value text box. The cell's height
+    // comes from the tier, centred vertically in `cell`; the width is the whole cell.
     // The name label overlays the slider and ignores the mouse, so dragging it turns the knob.
-    static void placeKnob (juce::Slider& s, juce::Label& l, juce::Rectangle<int> cell)
+    static void placeKnob (juce::Slider& s, juce::Label& l, juce::Rectangle<int> cell,
+                           KnobSize size = KnobSize::standard)
     {
+        if (getKnobSize (s) != size)
+        {
+            s.getProperties().set (knobSizeProp, (int) size);
+            s.lookAndFeelChanged();   // rebuild the value box so it picks up the tier's font
+        }
+        cell = cell.withSizeKeepingCentre (cell.getWidth(), juce::jmin (cell.getHeight(), knobCellHeight (size)));
         s.setBounds (cell);
         cell.removeFromBottom (UIConst::knobValueH);
         l.setBounds (cell.removeFromBottom (UIConst::knobNameH));
@@ -66,13 +125,26 @@ public:
     // Lay out a row of knob cells of equal width across `row`.
     static void placeKnobRow (juce::Rectangle<int> row,
                               std::initializer_list<std::pair<juce::Slider*, juce::Label*>> knobs,
-                              int columns = 0)
+                              int columns = 0, KnobSize size = KnobSize::standard)
     {
         const int n = columns > 0 ? columns : (int) knobs.size();
         const int w = row.getWidth() / n;
         int i = 0;
         for (auto [s, l] : knobs)
-            placeKnob (*s, *l, ++i == n ? row : row.removeFromLeft (w));
+            placeKnob (*s, *l, ++i == n ? row : row.removeFromLeft (w), size);
+    }
+
+    // A small dim caption, e.g. "WINDOW" or "SHAPE" next to a combo.
+    static void setupCaption (juce::Label& l, const juce::String& textToShow, juce::Component& parent,
+                              juce::Justification j = juce::Justification::centredLeft)
+    {
+        l.setText (textToShow, juce::dontSendNotification);
+        l.setFont (uiFont (UIConst::fontCaption, true));
+        l.setColour (juce::Label::textColourId, knobName);
+        l.setJustificationType (j);
+        l.setBorderSize ({});
+        l.setInterceptsMouseClicks (false, false);
+        parent.addAndMakeVisible (l);
     }
 
     BassLookAndFeel()
@@ -102,7 +174,7 @@ public:
                                     const juce::String& name, juce::Component& parent)
     {
         s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, UIConst::sliderTextBoxW, UIConst::sliderTextBoxH);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, UIConst::knobValueH);
         s.setColour (juce::Slider::textBoxTextColourId,       accent);
         s.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         s.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
@@ -112,7 +184,7 @@ public:
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setFont (uiFont (UIConst::fontKnobLabel, true));
-        l.setColour (juce::Label::textColourId, accent);
+        l.setColour (juce::Label::textColourId, knobName);
         l.setInterceptsMouseClicks (false, false);
         l.setBorderSize ({});
         parent.addAndMakeVisible (l);
@@ -122,7 +194,7 @@ public:
                                     const juce::String& name, juce::Component& parent)
     {
         s.setSliderStyle (juce::Slider::LinearHorizontal);
-        s.setTextBoxStyle (juce::Slider::TextBoxRight, false, 42, 14);
+        s.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 20);
         s.setColour (juce::Slider::textBoxTextColourId,       accent);
         s.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         s.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
@@ -132,7 +204,7 @@ public:
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centredLeft);
         l.setFont (uiFont (UIConst::fontKnobLabel, true));
-        l.setColour (juce::Label::textColourId, accent);
+        l.setColour (juce::Label::textColourId, knobName);
         parent.addAndMakeVisible (l);
     }
 
@@ -216,8 +288,8 @@ public:
         auto b = s.getLocalBounds();
         juce::Slider::SliderLayout layout;
         layout.textBoxBounds = b.removeFromBottom (UIConst::knobValueH);
-        b.removeFromBottom (UIConst::knobNameH);
-        const int d = juce::jmin (b.getWidth(), b.getHeight());
+        b.removeFromBottom (UIConst::knobNameH + UIConst::knobNameGap);
+        const int d = juce::jmin (b.getWidth(), b.getHeight(), knobDiameter (getKnobSize (s)));
         layout.sliderBounds = b.withSizeKeepingCentre (d, d);
         return layout;
     }
@@ -331,7 +403,10 @@ public:
         }
 
         const bool isBipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
-        const auto valueCol = slider.isEnabled() ? accent : iconDim;
+        auto fill = accent;
+        if (const auto* v = slider.getProperties().getVarPointer (fillColourProp))
+            fill = juce::Colour ((juce::uint32) (juce::int64) *v);
+        const auto valueCol = slider.isEnabled() ? fill : iconDim;
 
         const float trackH = UIConst::linearTrackH;
         const float trackY = y + (height - trackH) * 0.5f;
@@ -387,9 +462,12 @@ public:
         g.setColour (surfaceDark);
         g.fillRoundedRectangle (b, UIConst::comboBoxCornerRadius);
 
-        const float aw = juce::jmin (9.0f, h * 0.45f);
+        g.setColour (box.findColour (juce::ComboBox::outlineColourId));
+        g.drawRoundedRectangle (b.reduced (0.5f), UIConst::comboBoxCornerRadius, 1.0f);
+
+        const float aw = juce::jmin (11.0f, h * 0.4f);
         const float ah = aw * 0.6f;
-        const float ax = (float) w - aw - 6.0f;
+        const float ax = (float) w - aw - 9.0f;
         const float ay = (float) h * 0.5f - ah * 0.5f;
         comboArrow.clear();
         comboArrow.addTriangle (ax, ay, ax + aw, ay, ax + aw * 0.5f, ay + ah);
@@ -404,18 +482,31 @@ public:
 
     void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
     {
-        label.setBounds (4, 0, box.getWidth() - 20, box.getHeight());
+        label.setBounds (6, 0, box.getWidth() - 24, box.getHeight());
         label.setFont (getComboBoxFont (box));
         label.setColour (juce::Label::textColourId, box.isEnabled() ? accent : iconDim);
     }
 
     juce::Font getPopupMenuFont() override
     {
-        return uiFont (UIConst::uiFontSize + 2.0f);
+        return uiFont (UIConst::px (15.0f));
     }
 
     // Anything else that asks the LookAndFeel for a font gets the UI font
-    juce::Font getLabelFont (juce::Label& l) override              { return toUiFont (l.getFont()); }
+    juce::Font getLabelFont (juce::Label& l) override
+    {
+        // A rotary slider's value box: size from the knob tier
+        if (auto* s = dynamic_cast<juce::Slider*> (l.getParentComponent()); s != nullptr && s->isRotary())
+        {
+            switch (getKnobSize (*s))
+            {
+                case KnobSize::small: return uiFont (UIConst::fontKnobValueSmall, true);
+                case KnobSize::hero:  return uiFont (UIConst::fontKnobValueHero, true);
+                default:              return uiFont (UIConst::fontKnobValue, true);
+            }
+        }
+        return toUiFont (l.getFont());
+    }
     juce::Font getTextButtonFont (juce::TextButton&, int h) override { return uiFont (juce::jmin (UIConst::fontButtonText, h * 0.6f), true); }
     juce::Font getSliderPopupFont (juce::Slider&) override          { return uiFont (UIConst::fontKnobValue); }
     juce::Font getAlertWindowTitleFont() override                   { return uiFont (16.0f, true); }
@@ -427,7 +518,7 @@ public:
     juce::Label* createSliderTextBox (juce::Slider& slider) override
     {
         auto* l = juce::LookAndFeel_V4::createSliderTextBox (slider);
-        l->setFont (uiFont (UIConst::fontKnobValue));
+        l->setFont (getLabelFont (*l));   // not parented yet; getLabelFont re-resolves the tier at paint
         if (slider.isRotary())
             l->setBorderSize ({});
         return l;
@@ -435,6 +526,8 @@ public:
 
 private:
     inline static const juce::Identifier buttonStyleProp { "jqButtonStyle" };
+    inline static const juce::Identifier knobSizeProp    { "jqKnobSize" };
+    inline static const juce::Identifier fillColourProp  { "jqFillColour" };
 
     static ButtonStyle getButtonStyle (const juce::Button& b)
     {

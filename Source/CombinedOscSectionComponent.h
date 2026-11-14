@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "LabelledSectionComponent.h"
+#include "SectionPanel.h"
 #include "OscSectionComponent.h"
 #include "PowerToggleButton.h"
 #include "WaveformDisplayComponent.h"
@@ -9,7 +9,7 @@
 #include <array>
 #include <vector>
 
-class CombinedOscSectionComponent : public LabelledSectionComponent
+class CombinedOscSectionComponent : public SectionPanel
 {
 public:
     // Modulated parameter getters — set from PluginEditor
