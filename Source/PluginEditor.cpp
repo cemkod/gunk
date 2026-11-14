@@ -8,7 +8,8 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       processor (p),
       topBar (p),
       mainView (p),
-      modView (p)
+      modView (p),
+      knobAnnotator (p.apvts)
 {
     topBar.onViewChanged = [this] (bool showMod)
     {
@@ -40,6 +41,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
                                  : UIConst::editorWidth;
     setSize (w, juce::roundToInt (w / UIConst::editorAspect));
 
+    knobAnnotator.build (canvas);
     startTimerHz (UIConst::uiTimerHz);
 }
 
@@ -60,6 +62,7 @@ void JQGunkAudioProcessorEditor::timerCallback()
     const bool transientFired = processor.consumeTransient();
 
     topBar.update (gateOpen, transientFired);
+    knobAnnotator.refresh();
     // Only the visible view pulls live data, so idle cost stays flat
     if (mainView.isVisible())
         mainView.tick (gateOpen, transientFired);

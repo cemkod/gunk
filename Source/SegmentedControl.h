@@ -13,7 +13,7 @@ public:
         : labels (std::move (segmentLabels))
     {
         setRepaintsOnMouseActivity (true);
-        setWantsKeyboardFocus (false);
+        setWantsKeyboardFocus (true);   // left/right arrows change the selection
     }
 
     std::function<void (int)> onChange;
@@ -84,9 +84,20 @@ public:
             g.drawFittedText (labels[i], seg.toNearestInt().reduced (4, 0), juce::Justification::centred, 1);
         }
 
-        g.setColour (BassLookAndFeel::border);
+        g.setColour (hasKeyboardFocus (false) ? BassLookAndFeel::accent.withAlpha (0.6f) : BassLookAndFeel::border);
         g.drawRoundedRectangle (b, r, 1.0f);
     }
+
+    bool keyPressed (const juce::KeyPress& k) override
+    {
+        if (! isEnabled()) return false;
+        if (k == juce::KeyPress::leftKey)  { setSelected (selected - 1); return true; }
+        if (k == juce::KeyPress::rightKey) { setSelected (selected + 1); return true; }
+        return false;
+    }
+
+    void focusGained (FocusChangeType) override { repaint(); }
+    void focusLost   (FocusChangeType) override { repaint(); }
 
     void mouseDown (const juce::MouseEvent& e) override
     {

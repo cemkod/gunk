@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "LookAndFeel.h"
+#include "ModMatrix.h"
 #include <functional>
 
 struct OscParamIds
@@ -19,7 +20,8 @@ public:
     // Callback for morph enable/disable (returns oscillator frame count)
     std::function<int()> getNumFrames;
 
-    OscSectionComponent (const OscParamIds& ids, juce::AudioProcessorValueTreeState& apvts);
+    // oscIndex: 0 = OSC 1, 1 = OSC 2 (picks the mod targets for tooltips and mod dots)
+    OscSectionComponent (const OscParamIds& ids, juce::AudioProcessorValueTreeState& apvts, int oscIndex);
 
     // Rows are in this component's coordinates.
     void layoutKnobs (juce::Rectangle<int> mainRow, juce::Rectangle<int> unisonRow);

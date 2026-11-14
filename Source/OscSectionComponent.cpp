@@ -1,7 +1,8 @@
 #include "OscSectionComponent.h"
 
 OscSectionComponent::OscSectionComponent (const OscParamIds& ids,
-                                          juce::AudioProcessorValueTreeState& avts)
+                                          juce::AudioProcessorValueTreeState& avts,
+                                          int oscIndex)
     : levelAttach        (avts, ids.level,        levelSlider),
       morphAttach        (avts, ids.morph,        morphSlider),
       coarseTuneAttach   (avts, ids.coarseTune,   coarseTuneSlider),
@@ -24,6 +25,15 @@ OscSectionComponent::OscSectionComponent (const OscParamIds& ids,
     BassLookAndFeel::setupRotarySlider (unisonWidthSlider,  unisonWidthLabel,  "WIDTH",  *this);
     coarseTuneSlider  .setNumDecimalPlacesToDisplay (0);
     unisonVoicesSlider.setNumDecimalPlacesToDisplay (0);
+
+    const bool first = oscIndex == 0;
+    using T = ModTarget;
+    BassLookAndFeel::setModTarget (levelSlider,        (int) (first ? T::Osc1Level     : T::Osc2Level));
+    BassLookAndFeel::setModTarget (morphSlider,        (int) (first ? T::Morph1        : T::Morph2));
+    BassLookAndFeel::setModTarget (fineTuneSlider,     (int) (first ? T::Osc1FineTune  : T::Osc2FineTune));
+    BassLookAndFeel::setModTarget (unisonDetuneSlider, (int) (first ? T::Unison1Detune : T::Unison2Detune));
+    BassLookAndFeel::setModTarget (unisonBlendSlider,  (int) (first ? T::Unison1Blend  : T::Unison2Blend));
+    BassLookAndFeel::setModTarget (unisonWidthSlider,  (int) (first ? T::Width1        : T::Width2));
 
     morphSlider       .setTooltip ("Position in the wavetable (needs a multi-frame wavetable)");
     unisonBlendSlider .setTooltip ("Level of the outer unison voices relative to the centre");

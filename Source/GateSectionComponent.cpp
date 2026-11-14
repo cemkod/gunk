@@ -1,5 +1,6 @@
 #include "GateSectionComponent.h"
 #include "LookAndFeel.h"
+#include "ModMatrix.h"
 
 GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& avts)
     : SectionPanel ("TRACKING"),
@@ -16,6 +17,7 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
     BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYSTERESIS",  *this);
     BassLookAndFeel::setupRotarySlider (transientSensSlider,  transientSensLabel,  "SENSITIVITY", *this);
     BassLookAndFeel::setupRotarySlider (glideSlider,          glideLabel,          "GLIDE",       *this);
+    BassLookAndFeel::setModTarget (glideSlider, (int) ModTarget::Glide);
 
     pitchWindowCombo.addItem ("4096 (B0)", 1);
     pitchWindowCombo.addItem ("2048 (fast)", 2);

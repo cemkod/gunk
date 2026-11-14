@@ -64,7 +64,7 @@ Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 21 
 - `Source/SideHighpass.h` — 12 dB/oct TPT high-pass on the side signal (the MONO < control).
 - `Source/GlideEngine.h` — Pitch portamento/glide.
 - `Source/LFOEngine.h` — Low-frequency oscillator (mod source).
-- `Source/ModMatrix.h` — Modulation routing: 8 slots × 5 sources (None/Envelope/Pitch/ModEnvelope/LFO) × 21 targets. Presets store the target index, so new `ModTarget` values must be appended. Per-target scaling in `kTargetScale[]`. Call `snapshot()` then `computeTargetBlock()` per audio block.
+- `Source/ModMatrix.h` — Modulation routing: 8 slots × 5 sources (None/Envelope/Pitch/ModEnvelope/LFO) × 21 targets. Presets store the target index, so new `ModTarget` values must be appended. Per-target scaling in `kTargetScale[]`. The UI shows Envelope as **Input Env** and ModEnvelope as **ADSR** (display names only; presets store the index). Call `snapshot()` then `computeTargetBlock()` per audio block.
 - `Source/AubioOnsetDetector.h` — Onset/transient detection wrapping aubio.
 - `Source/TransientPlayer.h` — Sample playback triggered by onsets, with pitch tracking.
 - `Source/IRConvolutionEngine.h` — `IRConvolutionEngine`: wraps `juce::dsp::Convolution` for dry/wet impulse response processing. Factory IRs in `~/.config/JQGunk/Impulse Responses/`, shipped in `ImpulseResponses/Factory/`.
@@ -73,11 +73,18 @@ Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 21 
 - `Source/ParameterIDs.h` — All APVTS parameter ID string constants in `ParamIDs` namespace.
 
 **UI:**
-- `Source/PluginEditor.h/.cpp` — Main editor; delegates to section components. Timer-driven live frequency label.
-- `Source/LookAndFeel.h` — `BassLookAndFeel`: dark navy/purple theme with yellow accent.
-- Section components follow naming pattern `*SectionComponent.h` (Osc, CombinedOsc, Drive, Filter, Gate, Envelope, LFO, Transient, IR, Output, ModMatrix).
+- `Source/PluginEditor.h/.cpp` — Editor: a top bar plus one view (MAIN or MOD) on a fixed 1200×800 design canvas. The canvas is scaled to the window with `setTransform`, so lay everything out in canvas pixels; the window resizes 75–150 % at a fixed 3:2 aspect, and its width is saved with the session (`editorWidth` attribute, not a parameter). One timer drives the top bar and only the visible view.
+- `Source/TopBarComponent.h/.cpp` — Logo, preset box (prev/next/save/delete), note + Hz readout, GATE/HIT LEDs, MAIN | MOD switch, output meter (`consumeOutputPeak()`).
+- `Source/MainViewComponent.h/.cpp` — The MAIN screen: owns the sections and lays them out in three proportional rows (Tracking | Oscillators | Transient, ADSR | Drive | Filter, LFO | IR | Output).
+- `Source/ModViewComponent.h/.cpp` — The MOD screen: live source cards (Input Env, Pitch, ADSR, LFO) and the 8 slot rows (`ModSlotRow`, `TargetComboBox`).
+- `Source/LookAndFeel.h` — `BassLookAndFeel`: dark navy/purple theme with yellow accent. Holds the type/size tokens' helpers: knob tiers (`KnobSize` small/standard/hero via `placeKnob`), mod source colours and display names (`modSourceColours`/`modSourceNames`, indexed by source choice), and per-component style properties (bar sliders, combo dots, mod dots).
+- `Source/UIConstants.h` — Canvas size, type scale (`px()` converts rendered px to a `uiFont` size) and spacing.
+- `Source/SectionPanel.h` — Base for every section: header strip with title, a power-toggle slot and one more header slot, `layoutBody()` for the body, and `setEnabledParameter()`/`refreshDimmed()` to fade a bypassed section.
+- `Source/SegmentedControl.h` — Pill-shaped option switch; `attachToParameter()` binds it to a choice parameter. `IconButton.h` draws path icons (prev, next, save, trash, close, plus).
+- `Source/KnobAnnotator.h` — Builds every knob's tooltip (name, range, modulating slots) and the coloured mod dots under modulated knobs. Knobs declare their target with `BassLookAndFeel::setModTarget`.
+- Section components follow naming pattern `*SectionComponent.h` (CombinedOsc + Osc, Drive, Filter, Gate (TRACKING), Envelope (ADSR), LFO, Transient, IR, Output). The Sub oscillator has no section of its own: it is the SUB tab of the Oscillators panel.
 - Display components follow pattern `*DisplayComponent.h` (Filter, Gate, Envelope, LFO, Waveform).
-- `Source/PowerToggleButton.h` — `PowerToggleButton`: themed power-icon toggle button used to enable/disable each section (OSC1, OSC2, Sub, Filter, Transient, IR).
+- `Source/PowerToggleButton.h` — `PowerToggleButton`: pill switch used to enable/disable each section (OSC1, OSC2, Sub, Drive, Filter, Transient, IR).
 
 ### Notable Implementation Details
 

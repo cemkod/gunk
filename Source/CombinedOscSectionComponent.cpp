@@ -1,6 +1,7 @@
 #include "CombinedOscSectionComponent.h"
 #include "LookAndFeel.h"
 #include "ParameterIDs.h"
+#include "ModMatrix.h"
 
 static juce::File getWavetablesDir()
 {
@@ -20,8 +21,8 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     const OscParamIds& ids2)
     : SectionPanel ("OSCILLATORS"),
       apvts (avts),
-      osc1     (ids1, avts),
-      osc2Comp (ids2, avts)
+      osc1     (ids1, avts, 0),
+      osc2Comp (ids2, avts, 1)
 {
     paramIds[0] = ids1;
     paramIds[1] = ids2;
@@ -81,6 +82,7 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
 
     // SUB page
     BassLookAndFeel::setupRotarySlider (subLevelSlider, subLevelLabel, "LEVEL", *this);
+    BassLookAndFeel::setModTarget (subLevelSlider, (int) ModTarget::SubLevel);
     subLevelAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         avts, ParamIDs::subLevel, subLevelSlider);
     subOctCombo.addItemList ({ "-2", "-1", "0", "+1" }, 1);

@@ -16,6 +16,7 @@ public:
         : sectionTitle (std::move (title)) {}
 
     void setTitle (const juce::String& t)     { sectionTitle = t; repaint(); }
+    const juce::String& getTitle() const      { return sectionTitle; }
     // A coloured dot before the title (the mod source cards use it)
     void setTitleDot (juce::Colour c)         { titleDot = c; repaint(); }
     void setSuppressBorder (bool b)           { suppressBorder_ = b; }
@@ -130,7 +131,6 @@ protected:
         return b.reduced (UIConst::sectionInnerPad);
     }
 
-    const juce::String& getTitle() const { return sectionTitle; }
 
     void relayout() { if (! getLocalBounds().isEmpty()) resized(); }
 

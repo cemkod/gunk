@@ -336,6 +336,8 @@ ModViewComponent::ModViewComponent (JQGunkAudioProcessor& p)
     lfoCard.addAndMakeVisible (lfoTrace);
     BassLookAndFeel::setupRotarySlider (rateSlider,   rateLabel,   "RATE",   lfoCard);
     BassLookAndFeel::setupRotarySlider (amountSlider, amountLabel, "AMOUNT", lfoCard);
+    BassLookAndFeel::setModTarget (rateSlider,   (int) ModTarget::LfoRate);
+    BassLookAndFeel::setModTarget (amountSlider, (int) ModTarget::LfoAmount);
     rateAtt   = std::make_unique<SA> (apvts, "lfoRate",   rateSlider);
     amountAtt = std::make_unique<SA> (apvts, "lfoAmount", amountSlider);
     shapeCombo.addItemList ({ "Sine", "Triangle", "Square", "Saw" }, 1);

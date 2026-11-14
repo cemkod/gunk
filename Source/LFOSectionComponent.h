@@ -5,6 +5,7 @@
 #include "LookAndFeel.h"
 #include "LFODisplayComponent.h"
 #include "UIConstants.h"
+#include "ModMatrix.h"
 
 class LFOSectionComponent : public SectionPanel
 {
@@ -18,6 +19,8 @@ public:
 
         BassLookAndFeel::setupRotarySlider (rateSlider,   rateLabel,   "RATE",   *this);
         BassLookAndFeel::setupRotarySlider (amountSlider, amountLabel, "AMOUNT", *this);
+        BassLookAndFeel::setModTarget (rateSlider,   (int) ModTarget::LfoRate);
+        BassLookAndFeel::setModTarget (amountSlider, (int) ModTarget::LfoAmount);
 
         // Item IDs are choice index + 1
         shapeCombo.addItemList ({ "Sine", "Triangle", "Square", "Saw" }, 1);

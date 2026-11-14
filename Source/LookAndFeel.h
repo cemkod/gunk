@@ -202,6 +202,8 @@ public:
     {
         s.setSliderStyle (juce::Slider::RotaryVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, UIConst::knobValueH);
+        s.getProperties().set (knobNameProp, name);
+        s.setWantsKeyboardFocus (true);   // click a knob, then the arrow keys nudge it
         s.setColour (juce::Slider::textBoxTextColourId,       accent);
         s.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         s.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
@@ -304,7 +306,45 @@ public:
         g.strokePath (knobPointer, juce::PathStrokeType (juce::jmax (1.8f, outerR * UIConst::knobPointerWidthRatio),
                                                          juce::PathStrokeType::curved,
                                                          juce::PathStrokeType::rounded));
+
+        // Mod sources driving this knob: small dots in the arc's gap at the bottom
+        if (const auto* dots = slider.getProperties()[modDotsProp].getArray(); dots != nullptr && ! dots->isEmpty())
+        {
+            const float d = juce::jmax (4.0f, outerR * 0.13f), gap = d * 0.6f;
+            const int n = dots->size();
+            float dotX = cx - ((float) n * d + (float) (n - 1) * gap) * 0.5f;
+            const float dotY = cy + outerR - d;
+            for (const auto& v : *dots)
+            {
+                g.setColour (juce::Colour ((juce::uint32) (juce::int64) v));
+                g.fillEllipse (dotX, dotY, d, d);
+                dotX += d + gap;
+            }
+        }
+
+        // Keyboard focus: a faint ring (arrow keys then nudge the value)
+        if (slider.hasKeyboardFocus (false))
+        {
+            g.setColour (accent.withAlpha (0.35f));
+            g.drawEllipse (juce::Rectangle<float> (outerR * 2.0f, outerR * 2.0f).withCentre ({ cx, cy }).expanded (1.0f), 1.0f);
+        }
     }
+
+    // Mod indicator dots under a knob, one per modulating slot, in the source colours.
+    static void setModDots (juce::Slider& s, const juce::Array<juce::Colour>& colours)
+    {
+        juce::Array<juce::var> arr;
+        for (auto c : colours) arr.add ((juce::int64) c.getARGB());
+        const juce::var v (arr);
+        if (s.getProperties()[modDotsProp] == v) return;
+        s.getProperties().set (modDotsProp, v);
+        s.repaint();
+    }
+
+    // The ModTarget a knob controls (0 = none); used for tooltips and mod dots.
+    static void setModTarget (juce::Slider& s, int modTarget) { s.getProperties().set (modTargetProp, modTarget); }
+    static int  getModTarget (const juce::Slider& s)          { return (int) s.getProperties()[modTargetProp]; }
+    static juce::String getKnobName (const juce::Slider& s)   { return s.getProperties()[knobNameProp].toString(); }
 
     // Knob cells: square knob on top, then the name label (placed by placeKnob), then the value
     juce::Slider::SliderLayout getSliderLayout (juce::Slider& s) override
@@ -567,6 +607,42 @@ public:
         return l;
     }
 
+    //==========================================================================
+    // Tooltips: dark panel, first line (the name) in accent, the rest in text colour
+    static juce::TextLayout layoutTooltip (const juce::String& tip)
+    {
+        juce::AttributedString s;
+        s.setJustification (juce::Justification::topLeft);
+        const auto firstLine = tip.upToFirstOccurrenceOf ("\n", false, false);
+        const auto rest      = tip.fromFirstOccurrenceOf ("\n", true, false);
+        s.append (firstLine, uiFont (UIConst::px (15.0f), true), accent);
+        if (rest.isNotEmpty())
+            s.append (rest, uiFont (UIConst::px (14.0f)), text);
+        juce::TextLayout tl;
+        tl.createLayoutWithBalancedLineLengths (s, 360.0f);
+        return tl;
+    }
+
+    juce::Rectangle<int> getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos,
+                                           juce::Rectangle<int> parentArea) override
+    {
+        const auto tl = layoutTooltip (tipText);
+        const int w = (int) std::ceil (tl.getWidth()) + 20, h = (int) std::ceil (tl.getHeight()) + 14;
+        return juce::Rectangle<int> (screenPos.x > parentArea.getCentreX() ? screenPos.x - (w + 12) : screenPos.x + 24,
+                                     screenPos.y > parentArea.getCentreY() ? screenPos.y - (h + 6)  : screenPos.y + 6,
+                                     w, h).constrainedWithin (parentArea);
+    }
+
+    void drawTooltip (juce::Graphics& g, const juce::String& tipText, int width, int height) override
+    {
+        const auto b = juce::Rectangle<float> ((float) width, (float) height);
+        g.setColour (surfaceDark);
+        g.fillRoundedRectangle (b, 4.0f);
+        g.setColour (borderDim);
+        g.drawRoundedRectangle (b.reduced (0.5f), 4.0f, 1.0f);
+        layoutTooltip (tipText).draw (g, b.reduced (10.0f, 7.0f));
+    }
+
 private:
     inline static const juce::Identifier buttonStyleProp { "jqButtonStyle" };
     inline static const juce::Identifier knobSizeProp    { "jqKnobSize" };
@@ -574,6 +650,9 @@ private:
     inline static const juce::Identifier comboFontProp   { "jqComboFont" };
     inline static const juce::Identifier comboDotProp    { "jqComboDot" };
     inline static const juce::Identifier barStyleProp    { "jqBarStyle" };
+    inline static const juce::Identifier modDotsProp     { "jqModDots" };
+    inline static const juce::Identifier modTargetProp   { "jqModTarget" };
+    inline static const juce::Identifier knobNameProp    { "jqKnobName" };
 
     static ButtonStyle getButtonStyle (const juce::Button& b)
     {

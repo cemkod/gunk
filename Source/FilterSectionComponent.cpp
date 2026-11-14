@@ -1,5 +1,6 @@
 #include "FilterSectionComponent.h"
 #include "LookAndFeel.h"
+#include "ModMatrix.h"
 
 FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
                                                 juce::AudioProcessorValueTreeState& avts)
@@ -31,6 +32,8 @@ FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
     BassLookAndFeel::setupRotarySlider (filterFreqSlider,   filterFreqLabel,   "FREQ",  *this);
     BassLookAndFeel::setupRotarySlider (resonanceSlider,    resonanceLabel,    "RESO",  *this);
     BassLookAndFeel::setupRotarySlider (freqTrackingSlider, freqTrackingLabel, "TRACK", *this);
+    BassLookAndFeel::setModTarget (filterFreqSlider, (int) ModTarget::FilterFreq);
+    BassLookAndFeel::setModTarget (resonanceSlider,  (int) ModTarget::FilterRes);
     filterFreqSlider  .setTooltip ("Filter frequency, as an offset from the tracked pitch");
     resonanceSlider   .setTooltip ("Resonance");
     freqTrackingSlider.setTooltip ("How much the filter follows the detected pitch");

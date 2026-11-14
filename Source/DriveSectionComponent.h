@@ -7,6 +7,7 @@
 #include "PowerToggleButton.h"
 #include "SegmentedControl.h"
 #include "ParameterIDs.h"
+#include "ModMatrix.h"
 
 class DriveSectionComponent : public SectionPanel
 {
@@ -22,6 +23,7 @@ public:
         setEnabledParameter (avts, ParamIDs::driveEnabled);
 
         BassLookAndFeel::setupRotarySlider (driveSlider, driveLabel, "DRIVE", *this);
+        BassLookAndFeel::setModTarget (driveSlider, (int) ModTarget::Drive);
 
         // Segment index = choice index (Soft, Hard, Tube)
         curveSwitch.attachToParameter (avts, ParamIDs::driveCurve);

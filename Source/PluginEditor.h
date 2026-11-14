@@ -5,6 +5,7 @@
 #include "TopBarComponent.h"
 #include "MainViewComponent.h"
 #include "ModViewComponent.h"
+#include "KnobAnnotator.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
                                    public juce::Timer
@@ -33,6 +34,7 @@ private:
     TopBarComponent    topBar;
     MainViewComponent  mainView;
     ModViewComponent   modView;
+    KnobAnnotator      knobAnnotator;   // knob tooltips and mod dots
 
     juce::TooltipWindow tooltipWindow { this, 600 };
 

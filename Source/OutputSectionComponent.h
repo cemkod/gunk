@@ -6,6 +6,7 @@
 #include "UIConstants.h"
 #include "ParameterIDs.h"
 #include "SegmentedControl.h"
+#include "ModMatrix.h"
 
 // OUTPUT: master volume, the dry input level and path, and the stereo mono-below crossover.
 class OutputSectionComponent : public SectionPanel
@@ -20,6 +21,7 @@ public:
         BassLookAndFeel::setupRotarySlider (volSlider,  volLabel,  "VOLUME",     *this);
         BassLookAndFeel::setupRotarySlider (drySlider,  dryLabel,  "DRY",        *this);
         BassLookAndFeel::setupRotarySlider (monoSlider, monoLabel, "MONO BELOW", *this);
+        BassLookAndFeel::setModTarget (volSlider, (int) ModTarget::MasterVolume);
         drySlider .setTooltip ("Level of the unprocessed input in the mix");
         monoSlider.setTooltip ("Unison WIDTH is kept mono below this frequency");
 
