@@ -10,8 +10,7 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
       gateHysteresisAttach (avts, "gateHysteresis",  gateHysteresisSlider),
       glideAttach          (avts, "glide",            glideSlider),
       dryAttach            (avts, "dryLevel",         drySlider),
-      transientSensAttach  (avts, "transientSens",    transientSensSlider),
-      pitchWindowAttach    (avts, "pitchWindow",      pitchWindowCombo)
+      transientSensAttach  (avts, "transientSens",    transientSensSlider)
 {
     BassLookAndFeel::setupRotarySlider (gateThresholdSlider,  gateThresholdLabel,  "THRS",  *this);
     BassLookAndFeel::setupRotarySlider (gateHysteresisSlider, gateHysteresisLabel, "HYST",  *this);
@@ -22,6 +21,9 @@ GateSectionComponent::GateSectionComponent (juce::AudioProcessorValueTreeState& 
 
     pitchWindowCombo.addItem ("4096 (B0)", 1);
     pitchWindowCombo.addItem ("2048 (fast)", 2);
+    // Attach after the items exist, so the initial selection is applied.
+    pitchWindowAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        avts, "pitchWindow", pitchWindowCombo);
     pitchWindowCombo.setColour (juce::ComboBox::backgroundColourId, BassLookAndFeel::surface);
     pitchWindowCombo.setColour (juce::ComboBox::textColourId,       BassLookAndFeel::text);
     pitchWindowCombo.setColour (juce::ComboBox::outlineColourId,    BassLookAndFeel::border);

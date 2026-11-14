@@ -96,7 +96,7 @@ private:
     juce::ComboBox waveCombo1, waveCombo2;
     juce::ComboBox octCombo1, octCombo2;
     juce::Label    octLabel;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment octAttach1, octAttach2;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> octAttach1, octAttach2;
 
     PowerToggleButton pwrBtn1, pwrBtn2;
     juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach1, pwrAttach2;

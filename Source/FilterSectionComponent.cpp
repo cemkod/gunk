@@ -7,7 +7,6 @@ FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
       processor (proc),
       apvts (avts),
       displayComponent (proc, avts),
-      filterTypeAttach   (avts, "filterType",    filterTypeCombo),
       filterFreqAttach   (avts, "filterFreq",    filterFreqSlider),
       resonanceAttach    (avts, "envResonance",   resonanceSlider),
       freqTrackingAttach (avts, "freqTracking",   freqTrackingSlider)
@@ -22,6 +21,9 @@ FilterSectionComponent::FilterSectionComponent (JQGunkAudioProcessor& proc,
     filterTypeCombo.addItem ("LP", 1);
     filterTypeCombo.addItem ("HP", 2);
     filterTypeCombo.addItem ("BP", 3);
+    // Attach after the items exist, so the initial selection is applied.
+    filterTypeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        avts, "filterType", filterTypeCombo);
     addAndMakeVisible (filterTypeCombo);
 
     BassLookAndFeel::setupRotarySlider (filterFreqSlider,   filterFreqLabel,   "FREQ",  *this);

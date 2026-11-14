@@ -41,7 +41,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enableAttach;
 
     juce::ComboBox filterTypeCombo;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment filterTypeAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> filterTypeAttach;
 
     juce::Slider filterFreqSlider, resonanceSlider, freqTrackingSlider;
     juce::Label  filterFreqLabel,  resonanceLabel,  freqTrackingLabel;

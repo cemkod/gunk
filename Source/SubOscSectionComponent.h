@@ -14,7 +14,6 @@ public:
         : LabelledSectionComponent ("SUB"),
           apvts (avts),
           subLevelAttach (avts, ParamIDs::subLevel,   subLevelSlider),
-          subOctAttach   (avts, ParamIDs::subOctave,  subOctCombo),
           pwrAttach      (avts, ParamIDs::subEnabled, pwrBtn)
     {
         pwrBtn.setClickingTogglesState (true);
@@ -32,6 +31,9 @@ public:
         subOctCombo.addItem ("-1", 2);
         subOctCombo.addItem ( "0", 3);
         subOctCombo.addItem ("+1", 4);
+        // Attach after the items exist, so the initial selection is applied.
+        subOctAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+            avts, ParamIDs::subOctave, subOctCombo);
         addAndMakeVisible (subOctCombo);
 
         bypassFilterBtn.setClickingTogglesState (true);
@@ -99,7 +101,7 @@ private:
 
     juce::Label    octLabel;
     juce::ComboBox subOctCombo;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment subOctAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> subOctAttach;
 
     juce::TextButton bypassFilterBtn { "BYPASS FILT" };
 

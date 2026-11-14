@@ -12,7 +12,6 @@ public:
     explicit LFOSectionComponent (juce::AudioProcessorValueTreeState& avts)
         : LabelledSectionComponent ("LFO"),
           apvts (avts),
-          shapeAttach  (avts, "lfoShape",  shapeCombo),
           rateAttach   (avts, "lfoRate",   rateSlider),
           amountAttach (avts, "lfoAmount", amountSlider)
     {
@@ -25,6 +24,8 @@ public:
         shapeCombo.addItem ("Tri",  2);
         shapeCombo.addItem ("Sq",   3);
         shapeCombo.addItem ("Saw",  4);
+        // Attach after the items exist, so the initial selection is applied.
+        shapeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (avts, "lfoShape", shapeCombo);
         addAndMakeVisible (shapeCombo);
     }
 
@@ -57,7 +58,7 @@ private:
     LFODisplayComponent displayComponent;
 
     juce::ComboBox shapeCombo;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment shapeAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> shapeAttach;
 
     juce::Slider rateSlider;
     juce::Label  rateLabel { "", "RATE" };

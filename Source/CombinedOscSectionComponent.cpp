@@ -22,8 +22,6 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
       apvts (avts),
       osc1    ("", ids1, avts, true),
       osc2Comp("", ids2, avts, true),
-      octAttach1 (avts, ids1.octaveShift, octCombo1),
-      octAttach2 (avts, ids2.octaveShift, octCombo2),
       pwrAttach1 (avts, ParamIDs::osc1Enabled, pwrBtn1),
       pwrAttach2 (avts, ParamIDs::osc2Enabled, pwrBtn2)
 
@@ -95,6 +93,9 @@ CombinedOscSectionComponent::CombinedOscSectionComponent (
     setupOct (octCombo1);
     setupOct (octCombo2);
     octCombo2.setVisible (false);
+    // Attach after the items exist, so the initial selection is applied.
+    octAttach1 = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (avts, ids1.octaveShift, octCombo1);
+    octAttach2 = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (avts, ids2.octaveShift, octCombo2);
 
     octLabel.setText ("OCT", juce::dontSendNotification);
     octLabel.setFont (BassLookAndFeel::uiFont (UIConst::uiFontSize, true));

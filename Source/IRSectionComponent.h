@@ -67,6 +67,7 @@ public:
 private:
     void setupIRCombo (const juce::File& factoryIRDir)
     {
+        irCombo.setTextWhenNothingSelected ("No IR");
         irCombo.addItem ("Load IR...", 99);
 
         if (factoryIRDir.isDirectory())
