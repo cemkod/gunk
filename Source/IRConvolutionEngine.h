@@ -17,16 +17,18 @@ public:
     // loadIR() only posts the file; the audio thread calls loadImpulseResponse() in
     // applyPendingLoad(). prepare() also applies it, since the host never runs
     // prepare() concurrently with process().
-    void prepare (double sampleRate, int maxBlockSize)
+    void prepare (double newSampleRate, int maxBlockSize)
     {
         applyPendingLoad();
 
         juce::dsp::ProcessSpec spec;
-        spec.sampleRate       = sampleRate;
+        spec.sampleRate       = newSampleRate;
         spec.maximumBlockSize = (juce::uint32) maxBlockSize;
         spec.numChannels      = 1;
         convolution.prepare (spec);
-        prepared = true;
+        prepared         = true;
+        sampleRate       = newSampleRate;
+        tailSeconds.store (convolution.getCurrentIRSize() / sampleRate, std::memory_order_relaxed);
 
         wetBuffer.setSize (1, maxBlockSize);
         wetBuffer.clear();
@@ -79,6 +81,10 @@ public:
             wetBuffer.getArrayOfWritePointers(), 1, (size_t) numSamples);
         convolution.process (juce::dsp::ProcessContextReplacing<float> (block));
 
+        // getCurrentIRSize() reads the engine that process() swaps, so it may only be
+        // called here; publish it for the host's message-thread tail query.
+        tailSeconds.store (convolution.getCurrentIRSize() / sampleRate, std::memory_order_relaxed);
+
         const float  dryGain = 1.0f - mix;
         const float  wetGain = mix * makeup;
         const float* wet     = wetBuffer.getReadPointer (0);
@@ -86,6 +92,8 @@ public:
             data[i] = data[i] * dryGain + wet[i] * wetGain;
     }
 
+    // Any thread. Length of the active IR, as last seen by the audio thread.
+    double        getTailSeconds() const { return tailSeconds.load (std::memory_order_relaxed); }
     bool          isLoaded()      const { return irLoaded; }
     juce::String  getLoadedPath() const { return loadedPath; }
 
@@ -104,6 +112,9 @@ private:
     // Audio-thread state.
     bool                     audioHasIR = false;
     bool                     prepared   = false;
+    double                   sampleRate = 44100.0;
+
+    std::atomic<double>      tailSeconds { 0.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IRConvolutionEngine)
 };

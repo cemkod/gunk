@@ -61,7 +61,7 @@ struct ADSREnvelope
     // smooths the result (~5ms one-pole) so the envelope never steps as the peak rises.
     void trackVelocity (bool noteOn, float inputSampleAbs, double sampleRate)
     {
-        if (sampleRate != smoothRate)
+        if (std::abs (sampleRate - smoothRate) > 0.5)
         {
             smoothRate = sampleRate;
             smoothCoef = 1.0f - (float) std::exp (-1.0 / (0.005 * sampleRate));

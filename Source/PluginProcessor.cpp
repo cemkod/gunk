@@ -372,6 +372,32 @@ bool JQGunkAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
     return true;
 }
 
+// Time for the output to fall silent after the input stops. The amp envelope and the
+// transient player feed the IR, so the IR length adds on top of the longer of the two.
+double JQGunkAudioProcessor::getTailLengthSeconds() const
+{
+    // A one-pole decay reaches -60 dB after ln(1000) time constants.
+    constexpr double kTauTo60dB = 6.907755;
+
+    // Amp envelope source 0 is the Q envelope follower, built in prepareToPlay with a
+    // 100 ms release. Q's coefficient is exp(-2 / (sps * dur)), so tau = dur / 2.
+    // Otherwise it is the ADSR, whose release coefficient uses tau = release.
+    const double ampTail = ((int) params.ampEnvSource->load() == 0)
+                         ? 0.05 * kTauTo60dB
+                         : params.modEnvRelease->load() * kTauTo60dB;
+
+    // A transient triggered just before the input stops plays out in full.
+    const double transientTail = (params.transientEnabled->load() > 0.5f)
+                               ? (double) params.transientAttack->load()
+                                   + params.transientHold->load()
+                                   + params.transientDecay->load()
+                               : 0.0;
+
+    const double irTail = (params.irEnabled->load() > 0.5f) ? irConvolution.getTailSeconds() : 0.0;
+
+    return std::max (ampTail, transientTail) + irTail;
+}
+
 //==============================================================================
 void JQGunkAudioProcessor::updateOscParams (const OscUpdateConfig& cfg)
 {
