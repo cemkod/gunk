@@ -5,70 +5,62 @@ static constexpr juce::int64 kMaxWavReadSamples = (juce::int64) 384000 * 600;
 
 WavetableOscillator::WavetableOscillator()
 {
-    frames.resize (1, std::vector<float> ((size_t) kTableSize + 1, 0.0f));
-    buildSineTable();
+    frames = &basicTable (WaveformType::Sine);
 }
 
 //==============================================================================
-void WavetableOscillator::buildSineTable()
+template <typename Fn>
+static std::vector<std::vector<float>> buildSingleFrame (Fn&& shape)
 {
-    frames.resize (1);
-    frames[0].resize ((size_t) kTableSize + 1);
-    for (int i = 0; i < kTableSize; ++i)
-        frames[0][(size_t) i] = std::sin (2.0f * juce::MathConstants<float>::pi * (float) i / (float) kTableSize);
-    frames[0][(size_t) kTableSize] = frames[0][0];
-    numFrames = 1;
-    currentWaveform = WaveformType::Sine;
+    constexpr int size = WavetableOscillator::kTableSize;
+    std::vector<std::vector<float>> t (1, std::vector<float> ((size_t) size + 1));
+    for (int i = 0; i < size; ++i)
+        t[0][(size_t) i] = shape (i);
+    t[0][(size_t) size] = t[0][0];
+    return t;
 }
 
-void WavetableOscillator::buildTriangleTable()
+const WavetableOscillator::Frames& WavetableOscillator::basicTable (WaveformType type)
 {
-    frames.resize (1);
-    frames[0].resize ((size_t) kTableSize + 1);
-    for (int i = 0; i < kTableSize; ++i)
-    {
-        float t = (float) i / (float) kTableSize;
-        frames[0][(size_t) i] = (t < 0.5f) ? (4.0f * t - 1.0f) : (3.0f - 4.0f * t);
-    }
-    frames[0][(size_t) kTableSize] = frames[0][0];
-    numFrames = 1;
-    currentWaveform = WaveformType::Triangle;
-}
+    // Function-local statics: built once, on first use (the constructor, on the
+    // message thread), and initialisation is thread-safe.
+    static const Frames sine = buildSingleFrame ([] (int i)
+        { return std::sin (2.0f * juce::MathConstants<float>::pi * (float) i / (float) kTableSize); });
+    static const Frames triangle = buildSingleFrame ([] (int i)
+        { const float t = (float) i / (float) kTableSize;
+          return (t < 0.5f) ? (4.0f * t - 1.0f) : (3.0f - 4.0f * t); });
+    static const Frames square = buildSingleFrame ([] (int i)
+        { return (i < kTableSize / 2) ? 1.0f : -1.0f; });
+    static const Frames sawtooth = buildSingleFrame ([] (int i)
+        { return (float) (2.0 * i / kTableSize - 1.0); });
 
-void WavetableOscillator::buildSquareTable()
-{
-    frames.resize (1);
-    frames[0].resize ((size_t) kTableSize + 1);
-    for (int i = 0; i < kTableSize; ++i)
-        frames[0][(size_t) i] = (i < kTableSize / 2) ? 1.0f : -1.0f;
-    frames[0][(size_t) kTableSize] = frames[0][0];
-    numFrames = 1;
-    currentWaveform = WaveformType::Square;
-}
-
-void WavetableOscillator::buildSawtoothTable()
-{
-    frames.resize (1);
-    frames[0].resize ((size_t) kTableSize + 1);
-    for (int i = 0; i < kTableSize; ++i)
-        frames[0][(size_t) i] = (float) (2.0 * i / kTableSize - 1.0);
-    frames[0][(size_t) kTableSize] = frames[0][0];
-    numFrames = 1;
-    currentWaveform = WaveformType::Sawtooth;
-}
-
-//==============================================================================
-void WavetableOscillator::setWaveform (WaveformType type)
-{
-    juce::SpinLock::ScopedLockType sl (tableLock);
     switch (type)
     {
-        case WaveformType::Sine:     buildSineTable();     break;
-        case WaveformType::Triangle: buildTriangleTable(); break;
-        case WaveformType::Square:   buildSquareTable();   break;
-        case WaveformType::Sawtooth: buildSawtoothTable(); break;
-        case WaveformType::Custom:   break; // only settable via loadFromFile / loadWTFile
+        case WaveformType::Triangle: return triangle;
+        case WaveformType::Square:   return square;
+        case WaveformType::Sawtooth: return sawtooth;
+        case WaveformType::Sine:
+        case WaveformType::Custom:
+        default:                     return sine;
     }
+}
+
+//==============================================================================
+// Called from the audio thread (updateOscParams). No allocation or deallocation:
+// it only repoints at a prebuilt table. Uses a try-lock; if the message thread is
+// mid-swap, the caller sees the old waveform and retries next block.
+void WavetableOscillator::setWaveform (WaveformType type)
+{
+    if (type == WaveformType::Custom)
+        return; // only settable via loadFromFile / loadWTFile
+
+    juce::SpinLock::ScopedTryLockType sl (tableLock);
+    if (! sl.isLocked())
+        return;
+
+    frames          = &basicTable (type);
+    numFrames       = 1;
+    currentWaveform = type;
     // phaseIndex intentionally not reset to avoid click mid-playback
 }
 
@@ -205,10 +197,14 @@ bool WavetableOscillator::loadFromFile (const juce::File& file)
                 f[(size_t) i] *= inv;
     }
 
-    juce::SpinLock::ScopedLockType sl (tableLock);
-    frames    = std::move (newFrames);
-    numFrames = nFrames;
-    currentWaveform = WaveformType::Custom;
+    {
+        // Swap under the lock; the old table is freed below, after unlocking.
+        juce::SpinLock::ScopedLockType sl (tableLock);
+        std::swap (customFrames, newFrames);
+        frames    = &customFrames;
+        numFrames = nFrames;
+        currentWaveform = WaveformType::Custom;
+    }
     return true;
 }
 
@@ -283,10 +279,14 @@ bool WavetableOscillator::loadWTFile (const juce::File& file)
                 f[(size_t) i] *= inv;
     }
 
-    juce::SpinLock::ScopedLockType sl (tableLock);
-    frames    = std::move (newFrames);
-    numFrames = (int) nTables;
-    currentWaveform = WaveformType::Custom;
+    {
+        // Swap under the lock; the old table is freed below, after unlocking.
+        juce::SpinLock::ScopedLockType sl (tableLock);
+        std::swap (customFrames, newFrames);
+        frames    = &customFrames;
+        numFrames = (int) nTables;
+        currentWaveform = WaveformType::Custom;
+    }
     return true;
 }
 
@@ -358,8 +358,8 @@ void WavetableOscillator::processBlock (const float* freqBuf, float* out, int n)
     const int   frameA    = (int) morphPos;
     const int   frameB    = juce::jmin (frameA + 1, numFrames - 1);
     const float frameFrac = morphPos - (float) frameA;
-    const auto& fA = frames[(size_t) frameA];
-    const auto& fB = frames[(size_t) frameB];
+    const auto& fA = (*frames)[(size_t) frameA];
+    const auto& fB = (*frames)[(size_t) frameB];
 
     for (int i = 0; i < n; ++i)
     {
@@ -408,8 +408,8 @@ float WavetableOscillator::getNextSample()
     const int   frameB    = juce::jmin (frameA + 1, numFrames - 1);
     const float frameFrac = morphPos - (float) frameA;
 
-    const auto& fA = frames[(size_t) frameA];
-    const auto& fB = frames[(size_t) frameB];
+    const auto& fA = (*frames)[(size_t) frameA];
+    const auto& fB = (*frames)[(size_t) frameB];
 
     float sum = 0.0f;
     for (int v = 0; v < unisonVoices; ++v)
@@ -434,7 +434,7 @@ void WavetableOscillator::reset()
 void WavetableOscillator::getFrameForDisplay (float morphPos, std::vector<float>& out) const
 {
     juce::SpinLock::ScopedTryLockType sl (tableLock);
-    if (! sl.isLocked() || frames.empty()) return;
+    if (! sl.isLocked() || frames->empty()) return;
 
     const float mp   = juce::jlimit (0.0f, 1.0f, morphPos) * (float) (numFrames - 1);
     const int   fa   = (int) mp;
@@ -443,7 +443,7 @@ void WavetableOscillator::getFrameForDisplay (float morphPos, std::vector<float>
 
     out.resize ((size_t) kTableSize);
     for (int i = 0; i < kTableSize; ++i)
-        out[(size_t) i] = frames[(size_t) fa][(size_t) i]
-                        + frac * (frames[(size_t) fb][(size_t) i]
-                                - frames[(size_t) fa][(size_t) i]);
+        out[(size_t) i] = (*frames)[(size_t) fa][(size_t) i]
+                        + frac * ((*frames)[(size_t) fb][(size_t) i]
+                                - (*frames)[(size_t) fa][(size_t) i]);
 }

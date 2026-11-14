@@ -31,14 +31,16 @@ public:
     WaveformType getCurrentWaveform() const { return currentWaveform; }
 
 private:
-    void buildSineTable();
-    void buildTriangleTable();
-    void buildSquareTable();
-    void buildSawtoothTable();
+    // Multi-frame wavetable: frames[frameIdx][sample], each kTableSize+1 entries
+    using Frames = std::vector<std::vector<float>>;
+
+    // Built-in shapes are built once, shared by all instances and never freed, so
+    // switching to one is a pointer swap that is safe on the audio thread.
+    static const Frames& basicTable (WaveformType type);
     void recomputeVoiceIncrements();
 
-    // Multi-frame wavetable: frames[frameIdx][sample], each kTableSize+1 entries
-    std::vector<std::vector<float>> frames;
+    const Frames* frames = nullptr;  // points at a basic table or customFrames
+    Frames customFrames;             // only replaced on the message thread, under tableLock
     int   numFrames      = 1;
     float morphPosition  = 0.0f;  // 0..1
 
@@ -51,6 +53,9 @@ private:
     float  unisonBlend       = 0.5f;
     WaveformType currentWaveform = WaveformType::Sine;
     juce::SpinLock tableLock;    // guards frames during load
+
+    // frames may point into this object's own customFrames, so a copy would dangle.
+    JUCE_DECLARE_NON_COPYABLE (WavetableOscillator)
 };
 
 class SineOscillator
