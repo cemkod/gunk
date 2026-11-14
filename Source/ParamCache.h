@@ -58,6 +58,9 @@ struct ParamCache
     std::atomic<float>* irEnabled        = nullptr;
     std::atomic<float>* irMix            = nullptr;
     std::atomic<float>* irMakeup         = nullptr;
+    std::atomic<float>* driveEnabled     = nullptr;
+    std::atomic<float>* driveAmount      = nullptr;
+    std::atomic<float>* driveCurve       = nullptr;
 
     void init (juce::AudioProcessorValueTreeState& apvts)
     {
@@ -115,5 +118,8 @@ struct ParamCache
         irEnabled        = apvts.getRawParameterValue (ParamIDs::irEnabled);
         irMix            = apvts.getRawParameterValue (ParamIDs::irMix);
         irMakeup         = apvts.getRawParameterValue (ParamIDs::irMakeup);
+        driveEnabled     = apvts.getRawParameterValue (ParamIDs::driveEnabled);
+        driveAmount      = apvts.getRawParameterValue (ParamIDs::driveAmount);
+        driveCurve       = apvts.getRawParameterValue (ParamIDs::driveCurve);
     }
 };

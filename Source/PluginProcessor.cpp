@@ -289,6 +289,23 @@ JQGunkAudioProcessor::createParameterLayout()
         timeFmt(), timeParse (0.001f, 4.0f)));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
+        ParamIDs::driveEnabled, "Drive Enabled", false));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        ParamIDs::driveAmount, "Drive",
+        juce::NormalisableRange<float> (0.0f, 36.0f, 0.1f), 12.0f,
+        juce::String{}, juce::AudioProcessorParameter::genericParameter,
+        [] (float v, int) { return juce::String (v, 1) + " dB"; },
+        [] (const juce::String& t)
+        {
+            return juce::jlimit (0.0f, 36.0f, t.retainCharacters ("-0123456789.").getFloatValue());
+        }));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        ParamIDs::driveCurve, "Drive Curve",
+        juce::StringArray { "Soft", "Hard", "Tube" }, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
         ParamIDs::irEnabled, "IR Enabled", false));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -351,6 +368,7 @@ void JQGunkAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     transientPlayer.prepare (sampleRate);
     onsetDetector.prepare (sampleRate);
     irConvolution.prepare (sampleRate, samplesPerBlock);
+    drive.prepare (sampleRate, samplesPerBlock);
 
     dbgLog ("prepareToPlay finished | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));
 }
@@ -702,6 +720,19 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::FloatVectorOperations::add (scratch.osc1Out, scratch.osc2Out, N);
     if (! p.subBypassFilter)
         juce::FloatVectorOperations::add (scratch.osc1Out, scratch.subOut, N);
+
+    // --- DRIVE (pre-filter; the sub joins after it when it bypasses the filter) ---
+    if (params.driveEnabled->load() > 0.5f)
+    {
+        const float driveDb = juce::jlimit (0.0f, 36.0f,
+            params.driveAmount->load() + modMatrix.getOffset (ModTarget::Drive));
+        drive.processBlock (scratch.osc1Out, N, driveDb,
+                            static_cast<DriveEngine::Curve> ((int) params.driveCurve->load()));
+    }
+    else
+    {
+        drive.bypass();
+    }
 
     // --- FILTER ---
 #ifdef ENABLE_DEBUG_LOG

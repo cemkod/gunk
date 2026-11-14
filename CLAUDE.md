@@ -44,9 +44,9 @@ There are no automated tests. Verification is done by loading the plugin in a DA
 
 ## Architecture
 
-Signal flow: **Audio Input → Pitch Detector → Oscillators (OSC1 + OSC2 + Sub, each with unison) → Envelope Gate → Resonant Filter → Transient Player → IR Convolution → Mix → Output**
+Signal flow: **Audio Input → Pitch Detector → Oscillators (OSC1 + OSC2 + Sub, each with unison) → Envelope Gate → Drive (2x oversampled) → Resonant Filter → Transient Player → IR Convolution → Mix → Output**
 
-Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 18 targets) → per-block parameter offsets**
+Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 19 targets) → per-block parameter offsets**
 
 ### Key Source Files
 
@@ -56,9 +56,10 @@ Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 18 
 - `Source/PitchDetectorThread.h` — Runs pitch detection on a background thread.
 - `Source/Oscillator.h/.cpp` — `WavetableOscillator`: 2048-point wavetable, 4 built-in waveforms (Sine/Triangle/Square/Sawtooth), custom WAV/WT loading, SpinLock for thread-safe wavetable swapping. Supports unison via `setUnisonParams()`.
 - `Source/Filter.h` / `Source/FilterEngine.h` — `EnvelopeFilter`: SVF-based resonant filter with envelope-controlled sweep.
+- `Source/DriveEngine.h` — `DriveEngine`: pre-filter waveshaper (Soft/Hard/Tube) at 2x via `juce::dsp::Oversampling` (polyphase IIR), with auto-gain and a DC blocker. Bypassed when `driveEnabled` is off.
 - `Source/GlideEngine.h` — Pitch portamento/glide.
 - `Source/LFOEngine.h` — Low-frequency oscillator (mod source).
-- `Source/ModMatrix.h` — Modulation routing: 8 slots × 5 sources (None/Envelope/Pitch/ModEnvelope/LFO) × 18 targets. Per-target scaling in `kTargetScale[]`. Call `snapshot()` then `computeTargetBlock()` per audio block.
+- `Source/ModMatrix.h` — Modulation routing: 8 slots × 5 sources (None/Envelope/Pitch/ModEnvelope/LFO) × 19 targets. Presets store the target index, so new `ModTarget` values must be appended. Per-target scaling in `kTargetScale[]`. Call `snapshot()` then `computeTargetBlock()` per audio block.
 - `Source/AubioOnsetDetector.h` — Onset/transient detection wrapping aubio.
 - `Source/TransientPlayer.h` — Sample playback triggered by onsets, with pitch tracking.
 - `Source/IRConvolutionEngine.h` — `IRConvolutionEngine`: wraps `juce::dsp::Convolution` for dry/wet impulse response processing. Factory IRs in `~/.config/JQGunk/Impulse Responses/`, shipped in `ImpulseResponses/Factory/`.
@@ -69,7 +70,7 @@ Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 18 
 **UI:**
 - `Source/PluginEditor.h/.cpp` — Main editor; delegates to section components. Timer-driven live frequency label.
 - `Source/LookAndFeel.h` — `BassLookAndFeel`: dark navy/purple theme with yellow accent.
-- Section components follow naming pattern `*SectionComponent.h` (Osc, CombinedOsc, Filter, Gate, Envelope, LFO, Transient, IR, Output, ModMatrix).
+- Section components follow naming pattern `*SectionComponent.h` (Osc, CombinedOsc, Drive, Filter, Gate, Envelope, LFO, Transient, IR, Output, ModMatrix).
 - Display components follow pattern `*DisplayComponent.h` (Filter, Gate, Envelope, LFO, Waveform).
 - `Source/PowerToggleButton.h` — `PowerToggleButton`: themed power-icon toggle button used to enable/disable each section (OSC1, OSC2, Sub, Filter, Transient, IR).
 
@@ -82,5 +83,5 @@ Modulation: **LFO + Envelope + Mod Envelope + Pitch → Mod Matrix (8 slots, 18 
 - APVTS state ID: `"Parameters"` — root XML tag is `<Parameters>`.
 - `waveform` choice indices 0/1/2 map to Triangle/Square/Sawtooth (add 1 to get `WaveformType` enum value; Sine=0 is not exposed in the choice).
 - Factory presets ship in `Presets/Factory/`, wavetables in `Wavetables/` (includes `Wavetables/Gunk/` for custom wavetables; Surge XT-sourced tables are GPL v3), and impulse responses in `ImpulseResponses/Factory/`.
-- Each major section (OSC1, OSC2, Sub, Filter, Transient, IR) has an `*Enabled` boolean parameter that bypasses that section's processing entirely.
+- Each major section (OSC1, OSC2, Sub, Drive, Filter, Transient, IR) has an `*Enabled` boolean parameter that bypasses that section's processing entirely.
 - C++20 standard.

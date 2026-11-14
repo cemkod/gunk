@@ -32,6 +32,7 @@ public:
         juce::PopupMenu filter;
         filter.addItem ((int) ModTarget::FilterFreq, "Frequency");
         filter.addItem ((int) ModTarget::FilterRes,  "Resonance");
+        filter.addItem ((int) ModTarget::Drive,      "Drive");
         menu.addSubMenu ("Filter", filter);
 
         juce::PopupMenu lfo;

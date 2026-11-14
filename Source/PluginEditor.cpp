@@ -16,6 +16,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
           OscParamIds { ParamIDs::osc2Waveform, ParamIDs::osc2Level, ParamIDs::osc2UnisonVoices, ParamIDs::osc2UnisonDetune, ParamIDs::osc2UnisonBlend, ParamIDs::osc2OctaveShift, ParamIDs::osc2Morph, ParamIDs::osc2CoarseTune, ParamIDs::osc2FineTune }),
       transientSection (p.apvts, JQGunkAudioProcessor::getTransientSamplesDir()),
       irSection (p.apvts, JQGunkAudioProcessor::getIRPresetsDir()),
+      driveSection (p.apvts),
       outputSection (p.apvts),
       lfoSection (p.apvts),
       modMatrixView (p.apvts)
@@ -52,6 +53,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
     irSection.loadIRFromFile = [&p] (const juce::File& f) { return p.loadIRFromFile (f); };
     irSection.getLoadedPath  = [&p] { return p.getIRSamplePath(); };
     addAndMakeVisible (irSection);
+    addAndMakeVisible (driveSection);
     addAndMakeVisible (outputSection);
     addAndMakeVisible (lfoSection);
 
@@ -70,6 +72,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
         combinedOscSection.setVisible (!modViewVisible);
         transientSection .setVisible (!modViewVisible);
         irSection        .setVisible (!modViewVisible);
+        driveSection     .setVisible (!modViewVisible);
         outputSection    .setVisible (!modViewVisible);
         lfoSection       .setVisible (!modViewVisible);
     };
@@ -347,7 +350,7 @@ void JQGunkAudioProcessorEditor::resized()
 
     area.removeFromTop (UIConst::sectionGap);
 
-    // Osc row: sub (1 col) | combined osc (2 cols) | transient (1 col) | lfo (1 col)
+    // Osc row: sub (1 col) | combined osc (2 cols) | drive | transient | lfo (1 col)
     auto oscRow = area.removeFromTop (UIConst::oscSectionH);
     subOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW).withTrimmedRight (UIConst::sectionGap / 2));
     lfoSection   .setBounds (oscRow.removeFromRight (UIConst::oscColW));
@@ -355,7 +358,11 @@ void JQGunkAudioProcessorEditor::resized()
     combinedOscSection.setBounds (oscRow.removeFromLeft (UIConst::oscColW * 2)
                                         .withTrimmedLeft (UIConst::sectionGap / 2)
                                         .withTrimmedRight (UIConst::sectionGap / 2));
-    transientSection.setBounds (oscRow.withTrimmedLeft (UIConst::sectionGap / 2));
+    constexpr int driveW = 100;
+    driveSection.setBounds (oscRow.removeFromLeft (driveW + UIConst::sectionGap / 2)
+                                  .withTrimmedLeft (UIConst::sectionGap / 2));
+    oscRow.removeFromLeft (g);
+    transientSection.setBounds (oscRow);
 }
 
 //==============================================================================

@@ -52,6 +52,11 @@ namespace ParamIDs {
     inline constexpr const char* freqTracking = "freqTracking";
     inline constexpr const char* filterFreq   = "filterFreq";
 
+    // Drive
+    inline constexpr const char* driveEnabled = "driveEnabled";
+    inline constexpr const char* driveAmount  = "driveAmount";
+    inline constexpr const char* driveCurve   = "driveCurve";
+
     // Output
     inline constexpr const char* masterVolume  = "masterVolume";
     inline constexpr const char* ampEnvSource  = "ampEnvSource";

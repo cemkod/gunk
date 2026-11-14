@@ -9,6 +9,7 @@
 #include "PresetManager.h"
 #include "TransientPlayer.h"
 #include "IRConvolutionEngine.h"
+#include "DriveEngine.h"
 #include "ModMatrix.h"
 #include "LFOEngine.h"
 #include "AubioOnsetDetector.h"
@@ -244,6 +245,7 @@ private:
     TransientPlayer transientPlayer;
     juce::String    transientSamplePath;
 
+    DriveEngine         drive;
     IRConvolutionEngine irConvolution;
     juce::String        irSamplePath;
 

@@ -11,6 +11,7 @@
 #include "ModMatrixComponent.h"
 #include "OutputSectionComponent.h"
 #include "IRSectionComponent.h"
+#include "DriveSectionComponent.h"
 #include "LFOSectionComponent.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -36,6 +37,7 @@ private:
     CombinedOscSectionComponent   combinedOscSection;
     TransientSectionComponent     transientSection;
     IRSectionComponent            irSection;
+    DriveSectionComponent         driveSection;
     OutputSectionComponent        outputSection;
     LFOSectionComponent           lfoSection;
     ModMatrixComponent            modMatrixView;

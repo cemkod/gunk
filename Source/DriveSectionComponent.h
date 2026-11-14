@@ -1,0 +1,77 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "LabelledSectionComponent.h"
+#include "LookAndFeel.h"
+#include "UIConstants.h"
+#include "PowerToggleButton.h"
+#include "ParameterIDs.h"
+
+class DriveSectionComponent : public LabelledSectionComponent
+{
+public:
+    explicit DriveSectionComponent (juce::AudioProcessorValueTreeState& avts)
+        : LabelledSectionComponent ("DRIVE"),
+          driveAttach (avts, ParamIDs::driveAmount, driveSlider),
+          pwrAttach   (avts, ParamIDs::driveEnabled, pwrBtn)
+    {
+        pwrBtn.setClickingTogglesState (true);
+        addAndMakeVisible (pwrBtn);
+        BassLookAndFeel::setupRotarySlider (driveSlider, driveLabel, "DRIVE", *this);
+
+        curveLabel.setText ("CURVE", juce::dontSendNotification);
+        curveLabel.setFont (juce::Font (UIConst::uiFontSize, juce::Font::bold));
+        curveLabel.setColour (juce::Label::textColourId, BassLookAndFeel::textDim);
+        curveLabel.setJustificationType (juce::Justification::centred);
+        addAndMakeVisible (curveLabel);
+
+        // Item IDs are choice index + 1, as ComboBoxAttachment expects.
+        curveCombo.addItemList ({ "Soft", "Hard", "Tube" }, 1);
+        addAndMakeVisible (curveCombo);
+        // Attach after the items exist, so the initial selection is applied.
+        curveAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+            avts, ParamIDs::driveCurve, curveCombo);
+    }
+
+    ~DriveSectionComponent() override
+    {
+        setLookAndFeel (nullptr);
+    }
+
+    void resized() override
+    {
+        {
+            const int btnH = UIConst::sectionHeaderH - 4;
+            const int btnW = btnH;
+            auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
+            pwrBtn.setBounds (header.removeFromRight (btnW + UIConst::sectionInnerPad)
+                                    .withSizeKeepingCentre (btnW, btnH));
+        }
+
+        auto inner = getLocalBounds().reduced (UIConst::sectionInnerPad);
+        inner.removeFromTop (UIConst::sectionHeaderH);
+
+        inner.removeFromTop (UIConst::knobGap);
+        driveSlider.setBounds (inner.removeFromTop (UIConst::knobRowH));
+        driveLabel .setBounds (inner.removeFromTop (UIConst::knobLabelH));
+
+        inner.removeFromTop (UIConst::sectionInnerPad);
+        curveLabel.setBounds (inner.removeFromTop (UIConst::knobLabelH));
+        inner.removeFromTop (UIConst::knobGap);
+        curveCombo.setBounds (inner.removeFromTop (UIConst::buttonH));
+    }
+
+private:
+    juce::Slider driveSlider;
+    juce::Label  driveLabel { "", "DRIVE" };
+    juce::AudioProcessorValueTreeState::SliderAttachment driveAttach;
+
+    juce::Label    curveLabel;
+    juce::ComboBox curveCombo;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> curveAttach;
+
+    PowerToggleButton pwrBtn;
+    juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DriveSectionComponent)
+};
