@@ -8,7 +8,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       processor (p),
       topBar (p),
       mainView (p),
-      modView (p.apvts)
+      modView (p)
 {
     topBar.onViewChanged = [this] (bool showMod)
     {
@@ -60,8 +60,11 @@ void JQGunkAudioProcessorEditor::timerCallback()
     const bool transientFired = processor.consumeTransient();
 
     topBar.update (gateOpen, transientFired);
+    // Only the visible view pulls live data, so idle cost stays flat
     if (mainView.isVisible())
         mainView.tick (gateOpen, transientFired);
+    else
+        modView.tick();
 
 #ifdef ENABLE_DEBUG_LOG
     const double now = juce::Time::getMillisecondCounterHiRes();

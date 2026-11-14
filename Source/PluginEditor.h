@@ -4,7 +4,7 @@
 #include "LookAndFeel.h"
 #include "TopBarComponent.h"
 #include "MainViewComponent.h"
-#include "ModMatrixComponent.h"
+#include "ModViewComponent.h"
 
 class JQGunkAudioProcessorEditor : public juce::AudioProcessorEditor,
                                    public juce::Timer
@@ -32,7 +32,7 @@ private:
 
     TopBarComponent    topBar;
     MainViewComponent  mainView;
-    ModMatrixComponent modView;
+    ModViewComponent   modView;
 
     juce::TooltipWindow tooltipWindow { this, 600 };
 

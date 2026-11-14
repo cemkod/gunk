@@ -16,6 +16,8 @@ public:
         : sectionTitle (std::move (title)) {}
 
     void setTitle (const juce::String& t)     { sectionTitle = t; repaint(); }
+    // A coloured dot before the title (the mod source cards use it)
+    void setTitleDot (juce::Colour c)         { titleDot = c; repaint(); }
     void setSuppressBorder (bool b)           { suppressBorder_ = b; }
 
     // The component must already be a child of this panel.
@@ -75,9 +77,17 @@ public:
         g.setColour (BassLookAndFeel::border);
         g.drawRoundedRectangle (bounds.reduced (0.5f), r, 1.0f);
 
+        auto titleArea = getTitleBounds();
+        if (! titleDot.isTransparent())
+        {
+            const auto dot = titleArea.removeFromLeft (14).toFloat().withSizeKeepingCentre (12.0f, 12.0f);
+            g.setColour (titleDot);
+            g.fillEllipse (dot);
+            titleArea.removeFromLeft (8);
+        }
         g.setColour (BassLookAndFeel::accent);
         g.setFont (BassLookAndFeel::uiFont (UIConst::fontSectionTitle, true));
-        g.drawText (sectionTitle, getTitleBounds(), juce::Justification::centredLeft);
+        g.drawText (sectionTitle, titleArea, juce::Justification::centredLeft);
     }
 
     void resized() override
@@ -126,6 +136,7 @@ protected:
 
 private:
     juce::String sectionTitle;
+    juce::Colour titleDot { juce::Colours::transparentBlack };
     bool suppressBorder_ = false;
     bool dimmed = false;
     std::atomic<float>* enabledParam = nullptr;

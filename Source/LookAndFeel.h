@@ -68,6 +68,26 @@ public:
         return KnobSize::standard;
     }
 
+    // A coloured dot before a combo box's text (mod source combos). Transparent removes it.
+    static void setComboDotColour (juce::ComboBox& c, juce::Colour col)
+    {
+        const auto argb = (juce::int64) col.getARGB();
+        if (c.getProperties()[comboDotProp] == juce::var (argb)) return;
+        c.getProperties().set (comboDotProp, argb);
+        c.resized();      // re-runs positionComboBoxText
+        c.repaint();
+    }
+
+    static juce::Colour getComboDotColour (const juce::ComboBox& c)
+    {
+        if (const auto* v = c.getProperties().getVarPointer (comboDotProp))
+            return juce::Colour ((juce::uint32) (juce::int64) *v);
+        return juce::Colours::transparentBlack;
+    }
+
+    // Thick track with a round thumb (the mod amount bars)
+    static void setBarStyle (juce::Slider& s) { s.getProperties().set (barStyleProp, true); }
+
     // Larger text for a particular combo box (e.g. the preset name).
     static void setComboFontHeight (juce::ComboBox& c, float uiFontHeight)
     {
@@ -409,7 +429,9 @@ public:
             fill = juce::Colour ((juce::uint32) (juce::int64) *v);
         const auto valueCol = slider.isEnabled() ? fill : iconDim;
 
-        const float trackH = UIConst::linearTrackH;
+        // Mod amount bars: a thicker track and a round thumb
+        const bool bar = (bool) slider.getProperties()[barStyleProp];
+        const float trackH = bar ? 10.0f : UIConst::linearTrackH;
         const float trackY = y + (height - trackH) * 0.5f;
         const float trackX = (float) x;
         const float trackW = (float) width;
@@ -442,6 +464,17 @@ public:
             g.fillRoundedRectangle (fillL, trackY, fillR - fillL, trackH, trackH * 0.5f);
         }
 
+        if (bar)
+        {
+            const float d = trackH + 8.0f;
+            const auto knob = juce::Rectangle<float> (d, d).withCentre ({ thumbX, trackY + trackH * 0.5f });
+            g.setColour (valueCol);
+            g.fillEllipse (knob);
+            g.setColour (surface);
+            g.drawEllipse (knob, 1.5f);
+            return;
+        }
+
         // Thumb: rounded pill, slightly taller than the track, with a dark rim
         const float thumbW = UIConst::linearThumbW;
         const float thumbH = juce::jmin ((float) height * 0.85f, trackH * 2.6f);
@@ -466,6 +499,12 @@ public:
         g.setColour (box.findColour (juce::ComboBox::outlineColourId));
         g.drawRoundedRectangle (b.reduced (0.5f), UIConst::comboBoxCornerRadius, 1.0f);
 
+        if (const auto dot = getComboDotColour (box); ! dot.isTransparent())
+        {
+            g.setColour (dot);
+            g.fillEllipse (juce::Rectangle<float> (10.0f, (float) h * 0.5f - 6.0f, 12.0f, 12.0f));
+        }
+
         const float aw = juce::jmin (11.0f, h * 0.4f);
         const float ah = aw * 0.6f;
         const float ax = (float) w - aw - 9.0f;
@@ -485,14 +524,15 @@ public:
 
     void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
     {
-        label.setBounds (6, 0, box.getWidth() - 24, box.getHeight());
+        const int x = getComboDotColour (box).isTransparent() ? 6 : 28;
+        label.setBounds (x, 0, box.getWidth() - x - 18, box.getHeight());
         label.setFont (getComboBoxFont (box));
         label.setColour (juce::Label::textColourId, box.isEnabled() ? accent : iconDim);
     }
 
     juce::Font getPopupMenuFont() override
     {
-        return uiFont (UIConst::px (15.0f));
+        return uiFont (UIConst::px (17.0f));
     }
 
     // Anything else that asks the LookAndFeel for a font gets the UI font
@@ -532,6 +572,8 @@ private:
     inline static const juce::Identifier knobSizeProp    { "jqKnobSize" };
     inline static const juce::Identifier fillColourProp  { "jqFillColour" };
     inline static const juce::Identifier comboFontProp   { "jqComboFont" };
+    inline static const juce::Identifier comboDotProp    { "jqComboDot" };
+    inline static const juce::Identifier barStyleProp    { "jqBarStyle" };
 
     static ButtonStyle getButtonStyle (const juce::Button& b)
     {

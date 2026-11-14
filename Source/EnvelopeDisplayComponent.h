@@ -39,7 +39,6 @@ public:
             return y0 + h * (1.0f - norm);
         };
 
-        const juce::Colour lineColour = BassLookAndFeel::accent;
 
         wavePath.clear();
         fillPath.clear();
@@ -99,7 +98,11 @@ public:
         }
     }
 
+    // Line and fill colour (accent by default; the mod screen uses the source colours)
+    void setLineColour (juce::Colour c) { lineColour = c; repaint(); }
+
 private:
+    juce::Colour lineColour = BassLookAndFeel::accent;
     std::vector<float> history;
     std::vector<float> velocityHistory;
     bool showVelocity = false;

@@ -119,8 +119,7 @@ target_sources(JQGunk PRIVATE
     Source/TopBarComponent.cpp
     Source/MainViewComponent.cpp
     Source/ModMatrix.h
-    Source/ModMatrixComponent.h
-    Source/ModMatrixComponent.cpp
+    Source/ModViewComponent.cpp
 )
 
 if(UNIX AND NOT APPLE)
