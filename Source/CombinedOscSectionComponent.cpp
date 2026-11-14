@@ -306,10 +306,10 @@ void CombinedOscSectionComponent::resized()
 
     // Tab buttons + power buttons sit in the header bar (not consuming inner space)
     {
-        const int tabW = 18;
-        const int pwrW = 14;
-        const int btnH = 13;
-        const int gap  = 2;
+        const int tabW = 22;
+        const int pwrW = UIConst::powerToggleW;
+        const int btnH = UIConst::powerToggleH + 2;
+        const int gap  = 3;
         const int pad  = UIConst::sectionInnerPad;
         // Each group: [pwr][tab], two groups side by side with a small gap between groups
         const int groupW = pwrW + gap + tabW;

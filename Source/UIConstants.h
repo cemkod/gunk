@@ -22,10 +22,14 @@ namespace UIConst {
 
     // LookAndFeel
     constexpr float sectionCornerRadius  = 4.0f;
-    constexpr float knobArcStrokeWidth   = 2.5f;
-    constexpr float knobBodyRadiusRatio  = 0.65f;
-    constexpr float knobPointerPosRatio  = 0.6f;
-    constexpr float knobPointerRadius    = 2.5f;
+    constexpr float knobArcStrokeWidth   = 3.5f;
+    constexpr float knobBodyRadiusRatio  = 0.78f;
+    constexpr float knobPointerPosRatio  = 0.85f;   // pointer line end, fraction of body radius
+    constexpr float knobPointerWidth     = 2.0f;
+    constexpr float linearTrackH         = 5.0f;
+    constexpr float linearThumbW         = 7.0f;
+    constexpr int   powerToggleW         = 26;
+    constexpr int   powerToggleH         = 12;
     constexpr int   sliderTextBoxW       = 50;
     constexpr int   sliderTextBoxH       = 16;
     constexpr float uiFontSize           = 10.0f;
@@ -35,8 +39,9 @@ namespace UIConst {
     // Section header bar
     constexpr int   sectionHeaderH   = 18;
     constexpr int   sectionInnerPad  = 6;
-    constexpr float fontSectionTitle = 9.0f;
+    constexpr float fontSectionTitle = 11.0f;
     constexpr float fontKnobLabel    = 9.0f;
+    constexpr float fontKnobValue    = 10.0f;
     constexpr float fontButtonText   = 9.5f;
 
     // Layout

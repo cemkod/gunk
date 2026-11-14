@@ -64,8 +64,8 @@ public:
     {
         // Power button in header bar (top-right)
         {
-            const int btnH = UIConst::sectionHeaderH - 4;
-            const int btnW = btnH;
+            const int btnH = UIConst::powerToggleH;
+            const int btnW = UIConst::powerToggleW;
             auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
             pwrBtn.setBounds (header.removeFromRight (btnW + UIConst::sectionInnerPad)
                                     .withSizeKeepingCentre (btnW, btnH));

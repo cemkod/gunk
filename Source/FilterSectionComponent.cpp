@@ -37,7 +37,7 @@ FilterSectionComponent::~FilterSectionComponent()
 void FilterSectionComponent::resized()
 {
     {
-        const int btnW = 18, btnH = 13;
+        const int btnW = UIConst::powerToggleW, btnH = UIConst::powerToggleH;
         auto header = getLocalBounds().removeFromTop (UIConst::sectionHeaderH);
         auto btnArea = header.removeFromRight (UIConst::sectionInnerPad + btnW)
                              .withSizeKeepingCentre (btnW, btnH);
