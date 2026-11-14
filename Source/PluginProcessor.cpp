@@ -708,6 +708,7 @@ void JQGunkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         scratch.irMixBuf[i] *= masterVolume;
 
     // --- IR CONVOLUTION (post-fader) ---
+    irConvolution.applyPendingLoad();   // always, so loads made while bypassed still land
     if (params.irEnabled->load() > 0.5f)
         irConvolution.processBlock (scratch.irMixBuf, N,
                                     params.irMix->load(),
