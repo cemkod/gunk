@@ -17,7 +17,8 @@ public:
                         const juce::File& factoryIRDir)
         : LabelledSectionComponent ("IR"),
           mixAttach    (avts, "irMix",    mixSlider),
-          makeupAttach (avts, "irMakeup", makeupSlider)
+          makeupAttach (avts, "irMakeup", makeupSlider),
+          irLibraryDir (factoryIRDir)
     {
         BassLookAndFeel::setupRotarySlider (mixSlider,    mixLabel,    "MIX",    *this);
         BassLookAndFeel::setupRotarySlider (makeupSlider, makeupLabel, "MAKEUP", *this);
@@ -153,7 +154,8 @@ private:
     {
         fileChooser = std::make_unique<juce::FileChooser> (
             "Load Impulse Response",
-            juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+            irLibraryDir.isDirectory() ? irLibraryDir
+                                       : juce::File::getSpecialLocation (juce::File::userHomeDirectory),
             "*.wav;*.aif;*.aiff");
 
         fileChooser->launchAsync (
@@ -181,6 +183,7 @@ private:
     juce::Array<juce::File>  factoryIRFiles;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::File irLibraryDir;  // files inside it are saved preset-relative
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IRSectionComponent)
 };

@@ -880,6 +880,12 @@ juce::File JQGunkAudioProcessor::getIRPresetsDir()
                .getChildFile ("JQGunk/Impulse Responses");
 }
 
+juce::File JQGunkAudioProcessor::getTransientSamplesDir()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("JQGunk/Transient Samples");
+}
+
 //==============================================================================
 bool JQGunkAudioProcessor::loadWavetable2FromFile (const juce::File& file)
 {
@@ -932,28 +938,7 @@ juce::StringArray JQGunkAudioProcessor::syncOscillatorAfterPresetLoad()
     if (! xml) return missing;
     restoreOscWavetable (xml.get(), 1, missing);
     restoreOscWavetable (xml.get(), 2, missing);
-    transientSamplePath = xml->getStringAttribute ("transientSamplePath", {});
-    if (transientSamplePath.isNotEmpty())
-    {
-        juce::File f (transientSamplePath);
-        if (f.existsAsFile())  transientPlayer.loadFromFile (f);
-        else
-        {
-            missing.add ("Transient sample: " + transientSamplePath);
-            transientSamplePath = {};
-        }
-    }
-    irSamplePath = xml->getStringAttribute ("irSamplePath", {});
-    if (irSamplePath.isNotEmpty())
-    {
-        juce::File f (irSamplePath);
-        if (f.existsAsFile()) irConvolution.loadIR (f);
-        else
-        {
-            missing.add ("Impulse response: " + irSamplePath);
-            irSamplePath = {};
-        }
-    }
+    restoreSamplePaths (xml.get(), &missing);
     return missing;
 }
 
@@ -970,28 +955,32 @@ juce::File JQGunkAudioProcessor::getWavetablesDir()
     return d;
 }
 
-juce::String JQGunkAudioProcessor::toPresetPath (const juce::String& absPath)
+juce::String JQGunkAudioProcessor::toPresetPath (const juce::String& absPath,
+                                                 const juce::File& libraryDir)
 {
     if (absPath.isEmpty()) return {};
     juce::File f (absPath);
-    juce::String rel = f.getRelativePathFrom (getWavetablesDir());
-    return rel.startsWith ("..") ? absPath : rel;
+    if (! f.isAChildOf (libraryDir)) return absPath;
+    // Forward slashes so a preset saved on Windows resolves on Linux/macOS and vice versa.
+    return f.getRelativePathFrom (libraryDir).replaceCharacter ('\\', '/');
 }
 
-juce::String JQGunkAudioProcessor::fromPresetPath (const juce::String& savedPath)
+juce::String JQGunkAudioProcessor::fromPresetPath (const juce::String& savedPath,
+                                                   const juce::File& libraryDir)
 {
     if (savedPath.isEmpty() || juce::File::isAbsolutePath (savedPath))
         return savedPath;
-    return getWavetablesDir().getChildFile (savedPath).getFullPathName();
+    return libraryDir.getChildFile (savedPath).getFullPathName();
 }
 
 bool JQGunkAudioProcessor::saveUserPreset (const juce::String& name)
 {
+    const auto wtDir = getWavetablesDir();
     return presetManager.saveUserPreset (name,
-                                         toPresetPath (customWavetablePath),
-                                         toPresetPath (customWavetable2Path),
-                                         transientSamplePath,
-                                         irSamplePath);
+                                         toPresetPath (customWavetablePath,  wtDir),
+                                         toPresetPath (customWavetable2Path, wtDir),
+                                         toPresetPath (transientSamplePath,  getTransientSamplesDir()),
+                                         toPresetPath (irSamplePath,         getIRPresetsDir()));
 }
 
 //==============================================================================
@@ -1030,6 +1019,39 @@ void JQGunkAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
             + " | xml=" + xml->toString());
 }
 
+void JQGunkAudioProcessor::restoreSamplePaths (const juce::XmlElement* xml,
+                                                juce::StringArray* missingFiles)
+{
+    // Session state stores absolute paths and presets store library-relative ones;
+    // fromPresetPath accepts both.
+    transientSamplePath = fromPresetPath (xml->getStringAttribute ("transientSamplePath", {}),
+                                          getTransientSamplesDir());
+    if (transientSamplePath.isNotEmpty())
+    {
+        juce::File f (transientSamplePath);
+        if (f.existsAsFile())
+            transientPlayer.loadFromFile (f);
+        else
+        {
+            if (missingFiles != nullptr) missingFiles->add ("Transient sample: " + transientSamplePath);
+            transientSamplePath = {};
+        }
+    }
+
+    irSamplePath = fromPresetPath (xml->getStringAttribute ("irSamplePath", {}), getIRPresetsDir());
+    if (irSamplePath.isNotEmpty())
+    {
+        juce::File f (irSamplePath);
+        if (f.existsAsFile())
+            irConvolution.loadIR (f);
+        else
+        {
+            if (missingFiles != nullptr) missingFiles->add ("Impulse response: " + irSamplePath);
+            irSamplePath = {};
+        }
+    }
+}
+
 void JQGunkAudioProcessor::restoreOscWavetable (const juce::XmlElement* xml, int oscIdx,
                                                   juce::StringArray& missingFiles)
 {
@@ -1039,7 +1061,7 @@ void JQGunkAudioProcessor::restoreOscWavetable (const juce::XmlElement* xml, int
     const juce::String   attrName = (oscIdx == 1) ? "customWavetablePath" : "customWavetablePath2";
     const juce::String   waveId   = (oscIdx == 1) ? ParamIDs::waveform : ParamIDs::osc2Waveform;
 
-    pathRef = fromPresetPath (xml->getStringAttribute (attrName, {}));
+    pathRef = fromPresetPath (xml->getStringAttribute (attrName, {}), getWavetablesDir());
     const int waveIdx = (int) apvts.getRawParameterValue (waveId)->load();
 
     if (pathRef.isNotEmpty())
@@ -1095,25 +1117,7 @@ void JQGunkAudioProcessor::setStateInformation (const void* data, int sizeInByte
         restoreOscWavetable (xml.get(), 2, ignored);
     }
 
-    // Transient sample
-    transientSamplePath = xml->getStringAttribute ("transientSamplePath", {});
-    if (transientSamplePath.isNotEmpty())
-    {
-        juce::File f (transientSamplePath);
-        if (f.existsAsFile())
-            transientPlayer.loadFromFile (f);
-        else
-            transientSamplePath = {};
-    }
-
-    // Impulse response
-    irSamplePath = xml->getStringAttribute ("irSamplePath", {});
-    if (irSamplePath.isNotEmpty())
-    {
-        juce::File f (irSamplePath);
-        if (f.existsAsFile()) irConvolution.loadIR (f);
-        else                  irSamplePath = {};
-    }
+    restoreSamplePaths (xml.get(), nullptr);
 
     dbgLog ("setStateInformation: restored waveforms | waveIdx=" + juce::String (waveIdx)
             + " | osc=" + juce::String ((int) oscillator.getCurrentWaveform()));

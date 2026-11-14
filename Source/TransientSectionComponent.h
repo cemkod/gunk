@@ -14,7 +14,8 @@ public:
     std::function<bool(const juce::File&)> loadSampleFromFile;
     std::function<juce::String()>          getLoadedPath;
 
-    TransientSectionComponent (juce::AudioProcessorValueTreeState& avts)
+    TransientSectionComponent (juce::AudioProcessorValueTreeState& avts,
+                               const juce::File& libraryDir)
         : LabelledSectionComponent ("TRANS"),
           pitchAttach  (avts, "transientPitch",  pitchSlider),
           levelAttach  (avts, "transientLevel",  levelSlider),
@@ -22,6 +23,7 @@ public:
           attackAttach (avts, "transientAttack", attackSlider),
           holdAttach   (avts, "transientHold",   holdSlider),
           decayAttach  (avts, "transientDecay",  decaySlider),
+          sampleLibraryDir (libraryDir),
           pwrAttach    (avts, ParamIDs::transientEnabled, pwrBtn)
     {
         pwrBtn.setClickingTogglesState (true);
@@ -113,7 +115,8 @@ private:
     {
         fileChooser = std::make_unique<juce::FileChooser> (
             "Load Transient Sample",
-            juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+            sampleLibraryDir.isDirectory() ? sampleLibraryDir
+                                           : juce::File::getSpecialLocation (juce::File::userHomeDirectory),
             "*.wav;*.aif;*.aiff");
 
         fileChooser->launchAsync (
@@ -136,6 +139,7 @@ private:
     juce::TextButton loadBtn { "DROP SAMPLE" };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::File sampleLibraryDir;  // files inside it are saved preset-relative
 
     PowerToggleButton pwrBtn;
     juce::AudioProcessorValueTreeState::ButtonAttachment pwrAttach;

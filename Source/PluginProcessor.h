@@ -69,6 +69,7 @@ public:
     bool loadIRFromFile (const juce::File& file);
     juce::String getIRSamplePath() const;
     static juce::File getIRPresetsDir();
+    static juce::File getTransientSamplesDir();
 
     int getOscNumFrames()  const { return oscillator.getNumFrames(); }
     int getOsc2NumFrames() const { return osc2.getNumFrames(); }
@@ -220,9 +221,13 @@ private:
     void        updateTransientDetection (const BlockParams& p, float inputSample);
     void        restoreOscWavetable      (const juce::XmlElement* xml, int oscIdx,
                                            juce::StringArray& missingFiles);
+    void        restoreSamplePaths       (const juce::XmlElement* xml,
+                                           juce::StringArray* missingFiles);
 
-    juce::String toPresetPath   (const juce::String& absPath);
-    juce::String fromPresetPath (const juce::String& savedPath);
+    // Library-relative paths for presets: stored relative to libraryDir when the
+    // file lives inside it, absolute otherwise. fromPresetPath accepts either.
+    static juce::String toPresetPath   (const juce::String& absPath, const juce::File& libraryDir);
+    static juce::String fromPresetPath (const juce::String& savedPath, const juce::File& libraryDir);
 
     PresetManager presetManager { apvts };
 

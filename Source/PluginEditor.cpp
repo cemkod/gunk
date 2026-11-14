@@ -14,7 +14,7 @@ JQGunkAudioProcessorEditor::JQGunkAudioProcessorEditor (JQGunkAudioProcessor& p)
       combinedOscSection (p.apvts,
           OscParamIds { ParamIDs::waveform,    ParamIDs::oscLevel,  ParamIDs::unisonVoices,    ParamIDs::unisonDetune,    ParamIDs::unisonBlend,    ParamIDs::octaveShift,    ParamIDs::morph,    ParamIDs::coarseTune,   ParamIDs::fineTune    },
           OscParamIds { ParamIDs::osc2Waveform, ParamIDs::osc2Level, ParamIDs::osc2UnisonVoices, ParamIDs::osc2UnisonDetune, ParamIDs::osc2UnisonBlend, ParamIDs::osc2OctaveShift, ParamIDs::osc2Morph, ParamIDs::osc2CoarseTune, ParamIDs::osc2FineTune }),
-      transientSection (p.apvts),
+      transientSection (p.apvts, JQGunkAudioProcessor::getTransientSamplesDir()),
       irSection (p.apvts, JQGunkAudioProcessor::getIRPresetsDir()),
       outputSection (p.apvts),
       lfoSection (p.apvts),
