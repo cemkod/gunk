@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(JQGunk VERSION 0.3.0)
+project(JQGunk VERSION 0.4.0)
 
 include(FetchContent)
 FetchContent_Declare(

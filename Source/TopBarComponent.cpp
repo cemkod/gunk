@@ -112,6 +112,10 @@ void TopBarComponent::paint (juce::Graphics& g)
     if (logo != nullptr)
         logo->drawWithin (g, logoBounds.toFloat(), juce::RectanglePlacement::centred, 1.0f);
 
+    g.setColour (BassLookAndFeel::textDim);
+    g.setFont (BassLookAndFeel::uiFont (UIConst::fontCaption));
+    g.drawText ("v" JucePlugin_VersionString, versionBounds, juce::Justification::bottomLeft);
+
     // Preset box frame around < combo >
     {
         const auto b = presetBoxBounds.toFloat().reduced (0.5f);
@@ -195,6 +199,7 @@ void TopBarComponent::resized()
         constexpr int logoW = logoH * 184 / 98;          // SVG aspect
         const auto col = r.removeFromLeft (kLogoW);
         logoBounds = { col.getX() + 60 - logoW / 2, (getHeight() - logoH) * 6 / 10, logoW, logoH };
+        versionBounds = { col.getX() + 124, 0, 60, getHeight() - 12 };
     }
 
     // Right cluster, from the right edge inwards

@@ -8,8 +8,7 @@
 
 // The bar across the top of the editor:
 //   logo | < preset > save delete | note + Hz, GATE and HIT LEDs, MAIN|MOD, output meter
-class TopBarComponent : public juce::Component,
-                        public juce::TooltipClient
+class TopBarComponent : public juce::Component
 {
 public:
     explicit TopBarComponent (JQGunkAudioProcessor& p);
@@ -24,13 +23,6 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    // The version shows as the logo's tooltip
-    juce::String getTooltip() override
-    {
-        return getLocalBounds().removeFromLeft (150).contains (getMouseXYRelative()) ? juce::String ("JQ Gunk v" JucePlugin_VersionString)
-                                                          : juce::String();
-    }
-
     // Note name for a frequency, e.g. 55 Hz -> "A1"; "--" when there is no pitch.
     static juce::String noteName (float hz);
 
@@ -39,6 +31,7 @@ private:
 
     std::unique_ptr<juce::Drawable> logo;
     juce::Rectangle<int> logoBounds;
+    juce::Rectangle<int> versionBounds;    // "v0.4.0", beside the logo lettering
 
     IconButton prevBtn { IconButton::Icon::prev };
     IconButton nextBtn { IconButton::Icon::next };
