@@ -232,7 +232,15 @@ if(CMAKE_CROSSCOMPILING AND WIN32)
 
     # Paths
     set(_vst3_src "${CMAKE_BINARY_DIR}/JQGunk_artefacts/Release/VST3/JQ Gunk.vst3")
-    set(_winpthread_dll "/usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll")
+    # Distros put the DLL in different places (Arch: bin/, Debian/Ubuntu: lib/),
+    # so also ask the compiler where it finds it.
+    execute_process(
+        COMMAND ${CMAKE_C_COMPILER} -print-file-name=libwinpthread-1.dll
+        OUTPUT_VARIABLE _gcc_winpthread OUTPUT_STRIP_TRAILING_WHITESPACE)
+    get_filename_component(_gcc_winpthread_dir "${_gcc_winpthread}" DIRECTORY)
+    find_file(_winpthread_dll libwinpthread-1.dll
+        PATHS /usr/x86_64-w64-mingw32/bin /usr/x86_64-w64-mingw32/lib "${_gcc_winpthread_dir}"
+        NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH REQUIRED)
     set(_bundle_dir "${CMAKE_BINARY_DIR}/bundle-windows")
     set(_install_txt "${CMAKE_SOURCE_DIR}/packaging/windows-install.txt")
     set(_zip_out "${CMAKE_BINARY_DIR}/JQGunk-windows-vst3.zip")
