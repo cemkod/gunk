@@ -1,5 +1,5 @@
 #pragma once
-#include <aubio/aubio.h>
+#include <aubio.h>
 
 class AubioOnsetDetector
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <aubio/aubio.h>
+#include <aubio.h>
 
 //==============================================================================
 // FFT-based autocorrelation pitch detector for bass guitar (40–400 Hz).

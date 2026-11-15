@@ -12,6 +12,10 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
+    env:
+      # Also read by JUCE's nested juceaide build. Below 15 so JUCE 7's use of
+      # CGWindowListCreateImage (obsoleted in macOS 15) still compiles.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
 
     steps:
       - uses: actions/checkout@v4
